@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">Automation</string>
+    <string name="trigger_label">Spustit automatizaci</string>
+    <string name="tile_label">Automatizace</string>
+    <string name="import_label">Importovat automatizaci</string>
+</resources>

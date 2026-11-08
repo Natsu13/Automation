@@ -1,0 +1,397 @@
+package cz.natsu.automation.ui.list
+
+import android.app.Application
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.rounded.FileOpen
+import androidx.compose.material.icons.rounded.ContentPaste
+import androidx.compose.material.icons.rounded.BatteryAlert
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.HorizontalDivider
+import cz.natsu.automation.data.AutomationTransfer
+import cz.natsu.automation.data.ImportException
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.TextFields
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import cz.natsu.automation.AutomationApplication
+import cz.natsu.automation.data.AutomationEntity
+import cz.natsu.automation.trigger.TriggerActivity
+import cz.natsu.automation.ui.editor.AutomationBadge
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+class AutomationListViewModel(application: Application) : AndroidViewModel(application) {
+    private val repository = (application as AutomationApplication).repository
+
+    val automations: StateFlow<List<AutomationEntity>?> = repository.observeAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun create(onCreated: (Long) -> Unit) {
+        viewModelScope.launch { onCreated(repository.create("Nová automatizace")) }
+    }
+
+    fun createExamples(onDone: (Int) -> Unit = {}) {
+        viewModelScope.launch { onDone(Examples.create(repository)) }
+    }
+
+    fun duplicate(id: Long) {
+        viewModelScope.launch { repository.duplicate(id) }
+    }
+
+    fun delete(id: Long) {
+        viewModelScope.launch { repository.delete(id) }
+    }
+
+    /** Shares the given automations (all of them when [ids] is null) as an export file. */
+    fun share(context: android.content.Context, ids: Set<Long>? = null) {
+        viewModelScope.launch {
+            val chosen = repository.getAll().filter { ids == null || it.id in ids }
+            AutomationTransfer.share(context, chosen)
+        }
+    }
+
+    fun import(uri: android.net.Uri, onDone: (String?) -> Unit) {
+        viewModelScope.launch {
+            onDone(
+                try {
+                    val count = AutomationTransfer.import(getApplication(), repository, uri)
+                    if (count == 1) "Automatizace importována" else "Importováno automatizací: $count"
+                } catch (e: ImportException) {
+                    e.message
+                } catch (e: Exception) {
+                    "Import se nepodařil: ${e.message}"
+                }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AutomationListScreen(viewModel: AutomationListViewModel, onOpen: (Long) -> Unit, onOpenSettings: () -> Unit) {
+    val context = LocalContext.current
+    val automations by viewModel.automations.collectAsState()
+    var toDelete by remember { mutableStateOf<AutomationEntity?>(null) }
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val listState = rememberLazyListState()
+    // Newly added automations are at the top; scroll there once the list shows them.
+    var scrollToTop by remember { mutableStateOf(false) }
+    LaunchedEffect(automations?.size) {
+        if (scrollToTop && !automations.isNullOrEmpty()) {
+            scrollToTop = false
+            listState.animateScrollToItem(0)
+        }
+    }
+    // Background usage; read again whenever the list comes back on screen (sampled in MainActivity.onResume).
+    var usage by remember { mutableStateOf<cz.natsu.automation.trigger.UsageMeter.Summary?>(null) }
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+        usage = cz.natsu.automation.trigger.UsageMeter.summary(context)
+        onPauseOrDispose { }
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            scrollToTop = true
+            viewModel.import(uri) { message ->
+                message?.let { android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show() }
+            }
+        }
+    }
+
+    Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            LargeTopAppBar(
+                title = { Text("Automatizace") },
+                scrollBehavior = scrollBehavior,
+                actions = {
+                    IconButton(onClick = {
+                        viewModel.createExamples { added ->
+                            val message = if (added == 0) "Všechny ukázky už máš" else "Přidáno ukázek: $added"
+                            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }) {
+                        Icon(Icons.Rounded.AutoAwesome, "Přidat ukázkové automatizace")
+                    }
+                    var menu by remember { mutableStateOf(false) }
+                    Box {
+                        IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "Další možnosti") }
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Importovat ze souboru") },
+                                leadingIcon = { Icon(Icons.Rounded.FileOpen, null) },
+                                onClick = {
+                                    menu = false
+                                    importLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/*"))
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Exportovat vše") },
+                                leadingIcon = { Icon(Icons.Rounded.Share, null) },
+                                enabled = !automations.isNullOrEmpty(),
+                                onClick = { menu = false; viewModel.share(context) }
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("Nastavení") },
+                                leadingIcon = { Icon(Icons.Rounded.Settings, null) },
+                                onClick = { menu = false; onOpenSettings() }
+                            )
+                        }
+                    }
+                }
+            )
+        },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { viewModel.create(onOpen) },
+                icon = { Icon(Icons.Rounded.Add, null) },
+                text = { Text("Nová") }
+            )
+        }
+    ) { padding ->
+        val list = automations
+        when {
+            list == null -> Unit
+            list.isEmpty() -> EmptyList(Modifier.padding(padding), onExamples = { viewModel.createExamples() })
+            else -> LazyColumn(
+                state = listState,
+                contentPadding = PaddingValues(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = padding.calculateTopPadding(),
+                    bottom = padding.calculateBottomPadding() + 96.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                usage?.takeIf { it.high }?.let { summary ->
+                    item(key = "usage_warning") { UsageWarning(summary, onOpenSettings) }
+                }
+                items(list, key = { it.id }) { automation ->
+                    AutomationCard(
+                        automation = automation,
+                        onOpen = { onOpen(automation.id) },
+                        onRun = { context.startActivity(TriggerActivity.runIntent(context, automation.id)) },
+                        onDuplicate = { viewModel.duplicate(automation.id) },
+                        onShare = { viewModel.share(context, setOf(automation.id)) },
+                        onDelete = { toDelete = automation },
+                    )
+                }
+            }
+        }
+    }
+
+    toDelete?.let { automation ->
+        AlertDialog(
+            onDismissRequest = { toDelete = null },
+            title = { Text("Smazat „${automation.name}“?") },
+            text = { Text("Automatizace i všechny její kroky budou odstraněny.") },
+            confirmButton = {
+                TextButton(onClick = { viewModel.delete(automation.id); toDelete = null }) {
+                    Text("Smazat", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { toDelete = null }) { Text("Zrušit") } }
+        )
+    }
+}
+
+@Composable
+private fun AutomationCard(
+    automation: AutomationEntity,
+    onOpen: () -> Unit,
+    onRun: () -> Unit,
+    onDuplicate: () -> Unit,
+    onShare: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val stepCount = remember(automation.blocksJson) { automation.blocks.size }
+    Card(
+        onClick = onOpen,
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            AutomationBadge(automation.icon, size = 48.dp)
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    automation.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        stepsLabel(stepCount),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    val iconMod = Modifier.padding(start = 8.dp).size(16.dp)
+                    val tint = MaterialTheme.colorScheme.primary
+                    if (automation.triggerProcessText) Icon(Icons.Rounded.TextFields, "Výběr textu", iconMod, tint)
+                    if (automation.triggerShare) Icon(Icons.Rounded.Share, "Sdílet", iconMod, tint)
+                    if (automation.triggerTile) Icon(Icons.Rounded.Tune, "Dlaždice", iconMod, tint)
+                    if (automation.triggerClipboard) Icon(Icons.Rounded.ContentPaste, "Změna schránky", iconMod, tint)
+                    for (event in automation.events.take(4)) {
+                        Icon(
+                            cz.natsu.automation.ui.editor.eventIcon(cz.natsu.automation.data.EventType.of(event.type)),
+                            cz.natsu.automation.ui.editor.eventLabel(event), iconMod, tint
+                        )
+                    }
+                }
+            }
+            var menu by remember { mutableStateOf(false) }
+            Box {
+                IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "Možnosti") }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Duplikovat") },
+                        leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) },
+                        onClick = { menu = false; onDuplicate() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Sdílet (export)") },
+                        leadingIcon = { Icon(Icons.Rounded.Share, null) },
+                        onClick = { menu = false; onShare() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Smazat", color = MaterialTheme.colorScheme.error) },
+                        leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                        onClick = { menu = false; onDelete() }
+                    )
+                }
+            }
+            FilledTonalIconButton(onClick = onRun) { Icon(Icons.Rounded.PlayArrow, "Spustit") }
+        }
+    }
+}
+
+private fun stepsLabel(count: Int) = when (count) {
+    0 -> "Žádné kroky"
+    1 -> "1 krok"
+    in 2..4 -> "$count kroky"
+    else -> "$count kroků"
+}
+
+@Composable
+private fun EmptyList(modifier: Modifier, onExamples: () -> Unit) {
+    Column(
+        modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(Icons.Rounded.Bolt, null, Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.height(16.dp))
+        Text("Žádné automatizace", style = MaterialTheme.typography.headlineSmall)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Automatizace je řada kroků, které se spustí z aplikace, po označení textu, " +
+                    "přes Sdílet nebo dlaždicí v rychlém nastavení.",
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(24.dp))
+        FilledTonalButton(onClick = onExamples) {
+            Icon(Icons.Rounded.AutoAwesome, null, Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Vytvořit ukázkové automatizace")
+        }
+    }
+}
+
+/** Shown above the list when the app used more CPU in the background than it should. */
+@Composable
+private fun UsageWarning(summary: cz.natsu.automation.trigger.UsageMeter.Summary, onDetails: () -> Unit) {
+    val worst = maxOf(summary.today.backgroundCpuMs, summary.yesterday.backgroundCpuMs)
+    val day = if (summary.today.backgroundCpuMs >= summary.yesterday.backgroundCpuMs) "dnes" else "včera"
+    androidx.compose.material3.Surface(
+        onClick = onDetails,
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.errorContainer,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                Icons.Rounded.BatteryAlert, null,
+                tint = MaterialTheme.colorScheme.onErrorContainer
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "Vyšší spotřeba na pozadí",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+                Text(
+                    "Aplikace $day na pozadí použila ${cz.natsu.automation.trigger.UsageMeter.formatCpu(worst)} procesoru. " +
+                            "Klepni pro podrobnosti – nejvíc obvykle stojí sledování schránky.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
+        }
+    }
+}

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Automations with the share trigger are published as dynamic sharing shortcuts
+         (see ShortcutPublisher) and appear directly in the share sheet. -->
+    <share-target android:targetClass="cz.natsu.automation.trigger.TriggerActivity">
+        <data android:mimeType="text/plain" />
+        <category android:name="cz.natsu.automation.category.TEXT_SHARE_TARGET" />
+    </share-target>
+</shortcuts>
