@@ -132,8 +132,8 @@ object HttpBlocks {
             type = "pick_file",
             summary = "Vybrat {kind}",
             title = "Vybrat soubor / obrázek",
-            description = "Nechá vybrat obrázek nebo soubor. Výstup jde poslat v HTTP požadavku (pole=@výstup) " +
-                    "nebo zobrazit blokem Ukázat obrázky.",
+            description = "Nechá vybrat obrázek nebo soubor. Výstup jde upravit blokem Upravit obrázek, " +
+                    "poslat v HTTP požadavku (pole=@výstup) nebo zobrazit blokem Ukázat obrázky.",
             category = BlockCategory.Dialogs,
             icon = Icons.Rounded.AttachFile,
             params = listOf(

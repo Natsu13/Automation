@@ -171,6 +171,42 @@ class DataBlocksTest {
     }
 
     @Test
+    fun examplesBuildValidAutomations() {
+        val all = cz.natsu.automation.ui.list.Examples.all
+        assertEquals(all.size, all.map { it.name }.toSet().size)
+        for (example in all) {
+            val blocks = example.build().blocks
+            assertEquals(example.name, true, cz.natsu.automation.engine.Structure.analyze(blocks).valid)
+            assertEquals(example.name, true, example.description.isNotBlank())
+            // every block type exists and outputs refer to blocks of the same automation
+            val ids = blocks.map { it.id }.toSet()
+            for (block in blocks) {
+                assertEquals(block.type, true, Blocks.get(block.type) != null)
+                for (value in block.params.values) {
+                    if (value is ParamValue.Rich) for (segment in value.segments) {
+                        val ref = (segment as? Segment.Var)?.ref as? VarRef.BlockOutput ?: continue
+                        assertEquals("${example.name}: ${block.type}", true, ref.blockId in ids)
+                    }
+                }
+            }
+        }
+        // fresh ids every time
+        assertEquals(false, all.first().build().blocks.first().id == all.first().build().blocks.first().id)
+    }
+
+    @Test
+    fun hugeOutputIsShortenedOnlyInLog() {
+        val huge = "x".repeat(300_000)
+        val set = block("set_variable", null, "name" to richText("big"), "value" to richText(huge))
+        val text = block("text", null, "text" to rich(VarRef.Named("big")))
+        val result = run(listOf(set, text, block("return", null, "text" to rich(VarRef.BlockOutput(text.id)))))
+        assertEquals(huge, result.output)
+        val logged = result.log.first { it.blockId == text.id }.output!!
+        assertEquals(true, logged.length < 5000)
+        assertEquals(true, logged.endsWith("celkem 300000 znaků)"))
+    }
+
+    @Test
     fun breakOutsideLoopIsError() {
         val result = run(listOf(block("loop_control", null)))
         assertEquals(true, result.error?.contains("není uvnitř opakování"))

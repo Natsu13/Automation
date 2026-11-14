@@ -14,6 +14,7 @@ enum class BlockCategory(val title: String) {
     Clipboard("Schránka"),
     Share("Sdílení a web"),
     Data("API, JSON a seznamy"),
+    Images("Obrázky"),
     Dialogs("Dialogy"),
     Variables("Proměnné"),
     Control("Podmínky a řízení"),

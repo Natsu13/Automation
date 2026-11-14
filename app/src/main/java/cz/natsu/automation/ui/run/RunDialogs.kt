@@ -256,7 +256,11 @@ private fun ShowDialog(request: DialogRunUi.Request.Show) {
                     .heightIn(max = 400.dp)
                     .verticalScroll(rememberScrollState())
             ) {
-                SelectionContainer { Text(request.text.ifEmpty { "(prázdné)" }, modifier = Modifier.padding(top = 4.dp)) }
+                // Very long texts (e.g. raw API responses) would freeze the dialog; "Kopírovat" still copies all of it.
+                val shown = if (request.text.length > 20_000) {
+                    request.text.take(20_000) + "\n… (zkráceno pro zobrazení, celkem ${request.text.length} znaků – Kopírovat vezme vše)"
+                } else request.text
+                SelectionContainer { Text(shown.ifEmpty { "(prázdné)" }, modifier = Modifier.padding(top = 4.dp)) }
             }
         },
         confirmButton = { TextButton(onClick = { request.answer.complete(true) }) { Text("Pokračovat") } },

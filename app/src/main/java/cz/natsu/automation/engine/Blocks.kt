@@ -704,7 +704,7 @@ object Blocks {
             }
             BlockResult.Output(value)
         },
-    ) + MoreBlocks.all + DataBlocks.all + HttpBlocks.all + NotificationBlock.def
+    ) + MoreBlocks.all + DataBlocks.all + HttpBlocks.all + ImageBlocks.all + NotificationBlock.def
 
     private val byType = all.associateBy { it.type }
 
