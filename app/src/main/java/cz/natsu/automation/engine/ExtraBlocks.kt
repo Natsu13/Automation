@@ -111,9 +111,9 @@ object ExtraBlocks {
             type = "calculate",
             summary = "Vypočítat {expression}",
             title = "Vypočítat",
-            description = "Spočítá výraz: + − × / % ^, závorky, desetinná čárka i tečka, funkce round(x; míst), " +
-                    "floor, ceil, abs, sqrt, min, max. Čísla vložíš z proměnných.",
-            category = BlockCategory.Other,
+            description = "Starší podoba bloku Vypočítat v režimu Expert.",
+            category = BlockCategory.Numbers,
+            showInLibrary = false,
             icon = Icons.Rounded.Calculate,
             params = listOf(
                 ParamDef.Text("expression", "Výraz", placeholder = "např. round(cena * 1,21; 2)"),

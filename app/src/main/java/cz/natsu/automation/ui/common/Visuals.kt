@@ -29,6 +29,7 @@ import cz.natsu.automation.ui.theme.AccentHue
 val BlockCategory.hue: AccentHue
     get() = when (this) {
         BlockCategory.Text -> AccentHue.Blue
+        BlockCategory.Numbers -> AccentHue.Teal
         BlockCategory.Clipboard -> AccentHue.Teal
         BlockCategory.Share -> AccentHue.Teal
         BlockCategory.Data -> AccentHue.Blue

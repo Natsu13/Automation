@@ -163,6 +163,7 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
     }
 
     val listState = rememberLazyListState()
+    val reorderLocked = viewModel.running || viewModel.stepMode
     val reorderState = rememberReorderableLazyListState(listState) { from, to ->
         val fromId = from.key as? String ?: return@rememberReorderableLazyListState
         val toId = to.key as? String ?: return@rememberReorderableLazyListState
@@ -296,6 +297,8 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                             viewModel.suggestionsFor(block)
                         } else null,
                         dragHandle = Modifier.draggableHandle(
+                            // Steps keep their order while the automation runs (results stay on the right steps).
+                            enabled = !reorderLocked,
                             onDragStarted = {
                                 viewModel.startDrag(block.id)
                                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -331,8 +334,8 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                                     }
                                 }
                             },
-                            onMoveUp = { reportMove(viewModel.moveBy(block.id, -1)) },
-                            onMoveDown = { reportMove(viewModel.moveBy(block.id, 1)) },
+                            onMoveUp = if (reorderLocked) null else { { reportMove(viewModel.moveBy(block.id, -1)) } },
+                            onMoveDown = if (reorderLocked) null else { { reportMove(viewModel.moveBy(block.id, 1)) } },
                             onAddElse = if ((def.kind == BlockKind.IfStart || def.kind == BlockKind.TryStart) && !viewModel.hasElse(block)) {
                                 { viewModel.addElse(block) }
                             } else null,

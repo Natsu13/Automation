@@ -55,6 +55,8 @@ import kotlin.math.roundToInt
 
 /** Catalog of all block types. */
 object Blocks {
+    private fun isExpert(values: Map<String, ParamValue>) = (values["mode"] as? ParamValue.Choice)?.value == "expert"
+
     const val IF = "if"
     const val ELSE = "else"
     const val END_IF = "end_if"
@@ -300,13 +302,20 @@ object Blocks {
 
         BlockDef(
             type = "math",
-            summary = "Vypočítat {a} {op} {b}",
+            summary = "Vypočítat {a} {op} {b}{expression}",
             title = "Vypočítat",
-            description = "Spočítá výsledek ze dvou čísel.",
-            category = BlockCategory.Text,
+            description = "Spočítá výsledek ze dvou čísel, nebo v režimu Expert celý výraz: " +
+                    "závorky, mocniny, zaokrouhlení, min / max… (nápověda pod ?).",
+            category = BlockCategory.Numbers,
             icon = Icons.Rounded.Calculate,
             params = listOf(
-                ParamDef.Text("a", "Číslo", default = "0"),
+                ParamDef.Choice(
+                    "mode", "Zápis", listOf(
+                        ChoiceOption("simple", "Jednoduchý – dvě čísla", ""),
+                        ChoiceOption("expert", "Expert – výraz textem", ""),
+                    )
+                ).apply { hiddenInSummaryWhen = { true } },
+                ParamDef.Text("a", "Číslo", default = "0").apply { hiddenWhen = { isExpert(it) } },
                 ParamDef.Choice(
                     "op", "Operace", listOf(
                         ChoiceOption("+", "+ sečíst", "+"),
@@ -315,19 +324,27 @@ object Blocks {
                         ChoiceOption("/", "÷ dělit", "÷"),
                         ChoiceOption("%", "zbytek po dělení", "mod"),
                     )
-                ),
-                ParamDef.Text("b", "Číslo", default = "0"),
+                ).apply { hiddenWhen = { isExpert(it) } },
+                ParamDef.Text("b", "Číslo", default = "0").apply { hiddenWhen = { isExpert(it) } },
+                ParamDef.Text("expression", "Výraz", placeholder = "např. round(cena * 1,21; 2)").apply {
+                    hiddenWhen = { !isExpert(it) }
+                },
             ),
             outputName = "Výsledek",
         ) { block ->
-            val a = parseNumber(text(block, "a")) ?: throw BlockException("první hodnota není číslo")
-            val b = parseNumber(text(block, "b")) ?: throw BlockException("druhá hodnota není číslo")
-            val result = when (choice(block, "op")) {
-                "-" -> a - b
-                "*" -> a * b
-                "/" -> if (b == 0.0) throw BlockException("dělení nulou") else a / b
-                "%" -> if (b == 0.0) throw BlockException("dělení nulou") else a % b
-                else -> a + b
+            val result = if (choice(block, "mode") == "expert") {
+                // Rounding is part of the expression: round(x; places).
+                Calc.evaluate(text(block, "expression"))
+            } else {
+                val a = parseNumber(text(block, "a")) ?: throw BlockException("první hodnota není číslo")
+                val b = parseNumber(text(block, "b")) ?: throw BlockException("druhá hodnota není číslo")
+                when (choice(block, "op")) {
+                    "-" -> a - b
+                    "*" -> a * b
+                    "/" -> if (b == 0.0) throw BlockException("dělení nulou") else a / b
+                    "%" -> if (b == 0.0) throw BlockException("dělení nulou") else a % b
+                    else -> a + b
+                }
             }
             BlockResult.Output(formatNumber(result))
         },

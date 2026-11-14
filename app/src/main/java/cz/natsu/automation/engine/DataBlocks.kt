@@ -3,6 +3,7 @@ package cz.natsu.automation.engine
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.FormatListBulleted
 import androidx.compose.material.icons.rounded.DataObject
+import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.Loop
 import androidx.compose.material.icons.rounded.RepeatOne
@@ -216,6 +217,28 @@ object DataBlocks {
             BlockResult.Output(result?.toString() ?: "")
         },
 
+        BlockDef(
+            type = "type_of",
+            summary = "Zjistit typ {value}",
+            title = "Zjistit typ",
+            description = "Řekne, jestli je hodnota číslo, text, objekt, seznam, ano/ne nebo prázdná.",
+            category = BlockCategory.Data,
+            icon = Icons.Rounded.Category,
+            params = listOf(
+                ParamDef.Text("value", "Hodnota", defaultRef = VarRef.Input),
+                ParamDef.Choice(
+                    "names", "Pojmenování", listOf(
+                        ChoiceOption("cs", "Česky (číslo, text, objekt…)", ""),
+                        ChoiceOption("en", "Anglicky (number, string, object…)", ""),
+                    )
+                ).apply { hiddenInSummaryWhen = { true } },
+            ),
+            outputName = "Typ",
+        ) { block ->
+            val type = typeOf(text(block, "value"))
+            BlockResult.Output(if (choice(block, "names") == "en") type.en else type.cs)
+        },
+
         // ---------- Lists ----------
         BlockDef(
             type = "list",
@@ -301,6 +324,27 @@ object DataBlocks {
             BlockResult.Output(result)
         },
     )
+
+    enum class ValueType(val cs: String, val en: String) {
+        Empty("prázdné", "empty"),
+        Number("číslo", "number"),
+        Bool("ano/ne", "boolean"),
+        Object("objekt", "object"),
+        List("seznam", "array"),
+        Text("text", "string"),
+    }
+
+    fun typeOf(value: String): ValueType {
+        val trimmed = value.trim()
+        if (trimmed.isEmpty() || trimmed == "null") return ValueType.Empty
+        if (trimmed == "true" || trimmed == "false") return ValueType.Bool
+        if (parseNumber(trimmed) != null && Regex("[-+]?[\\d\\s]*[.,]?\\d+([eE][-+]?\\d+)?").matches(trimmed)) return ValueType.Number
+        return when (JsonTools.parseOrNull(trimmed)) {
+            is kotlinx.serialization.json.JsonObject -> ValueType.Object
+            is JsonArray -> ValueType.List
+            else -> ValueType.Text
+        }
+    }
 
     /** Numbers by value, text alphabetically (Czech). */
     private fun sortNatural(items: List<String>): List<String> {
