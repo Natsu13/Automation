@@ -59,6 +59,11 @@ class RunContext(
     val variables = mutableMapOf<String, String>()
     val outputs = mutableMapOf<String, String>()
 
+    /** Loops whose "end" just jumped back to them (next round, not a fresh start). */
+    val loopAgain = mutableSetOf<String>()
+    /** Per-loop state (list and position, round number) by block id. */
+    val loopState = mutableMapOf<String, Any>()
+
     private fun paramOf(block: Block, key: String): ParamValue? =
         block.params[key] ?: Blocks.get(block.type)?.param(key)?.defaultValue()
 
@@ -142,7 +147,7 @@ object AutomationRunner {
         var steps = 0
         while (pc < blocks.size) {
             if (++steps > MAX_STEPS) {
-                return@withContext RunResult(null, log, "Akce běžela příliš dlouho a byla zastavena.")
+                return@withContext RunResult(null, log, "Akce běžela příliš dlouho (nekonečné opakování?) a byla zastavena.")
             }
 
             val block = blocks[pc]
@@ -152,12 +157,12 @@ object AutomationRunner {
                 continue
             }
 
-            // Switched-off step: skip it (an "if" with everything up to its end).
+            // Switched-off step: skip it (an "if" / loop with everything up to its end).
             if (block.disabled && def.kind != BlockKind.Else && def.kind != BlockKind.End) {
                 val entry = LogEntry(block.id, def.title, output = "vypnuto – přeskočeno", skipped = true)
                 log += entry
                 afterStep?.invoke(entry, ctx)
-                pc = if (def.kind == BlockKind.IfStart) (structure.endOf[pc] ?: pc) + 1 else pc + 1
+                pc = if (def.kind == BlockKind.IfStart || def.kind == BlockKind.WhileStart) (structure.endOf[pc] ?: pc) + 1 else pc + 1
                 continue
             }
 
@@ -168,8 +173,15 @@ object AutomationRunner {
                 pc = (structure.endOf[pc] ?: blocks.size - 1) + 1
                 continue
             }
+            // End of a loop jumps back to its start, which decides about the next round.
             if (def.kind == BlockKind.End) {
-                pc++
+                val start = structure.startOf[pc]
+                pc = if (start != null && Blocks.get(blocks[start].type)?.kind == BlockKind.WhileStart) {
+                    ctx.loopAgain += blocks[start].id
+                    start
+                } else {
+                    pc + 1
+                }
                 continue
             }
 
@@ -192,10 +204,15 @@ object AutomationRunner {
             val entry = when (result) {
                 BlockResult.None -> LogEntry(block.id, def.title)
                 is BlockResult.Output -> LogEntry(block.id, def.title, output = result.value)
-                is BlockResult.Condition -> LogEntry(block.id, def.title, output = if (result.passed) "splněno" else "nesplněno")
+                is BlockResult.Condition -> LogEntry(
+                    block.id, def.title,
+                    output = result.output ?: if (result.passed) "splněno" else "nesplněno"
+                )
                 is BlockResult.Stop -> LogEntry(block.id, def.title, output = result.output)
+                is BlockResult.LoopJump -> LogEntry(block.id, def.title, output = if (result.exit) "konec opakování" else "další kolo")
             }
             if (result is BlockResult.Output) ctx.outputs[block.id] = result.value
+            if (result is BlockResult.Condition && result.passed && result.output != null) ctx.outputs[block.id] = result.output
             log += entry
             afterStep?.invoke(entry, ctx)
 
@@ -211,6 +228,17 @@ object AutomationRunner {
                     }
                 }
                 is BlockResult.Stop -> return@withContext RunResult(result.output, log)
+                is BlockResult.LoopJump -> {
+                    val loop = structure.loopOf[pc]
+                        ?: return@withContext RunResult(null, log, "${def.title}: krok není uvnitř opakování")
+                    val end = structure.endOf[loop] ?: (blocks.size - 1)
+                    if (result.exit) {
+                        ctx.loopState.remove(blocks[loop].id)
+                        pc = end + 1
+                    } else {
+                        pc = end
+                    }
+                }
             }
         }
 

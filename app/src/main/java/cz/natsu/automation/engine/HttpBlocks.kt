@@ -1,0 +1,365 @@
+package cz.natsu.automation.engine
+
+import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
+import android.webkit.MimeTypeMap
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AttachFile
+import androidx.compose.material.icons.rounded.Collections
+import androidx.compose.material.icons.rounded.Http
+import cz.natsu.automation.data.ParamValue
+import cz.natsu.automation.data.VarRef
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.InputStream
+import java.io.OutputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
+import java.nio.charset.Charset
+import java.util.UUID
+
+/** HTTP / API requests, files and images. */
+object HttpBlocks {
+    private const val MAX_RESPONSE = 20 * 1024 * 1024
+
+    private fun choiceIs(key: String, vararg values: String): (Map<String, ParamValue>) -> Boolean = { map ->
+        (map[key] as? ParamValue.Choice)?.value in values
+    }
+
+    private fun choiceNot(key: String, vararg values: String): (Map<String, ParamValue>) -> Boolean = { map ->
+        (map[key] as? ParamValue.Choice)?.value !in values
+    }
+
+    val all: List<BlockDef> = listOf(
+        BlockDef(
+            type = "http_request",
+            summary = "{method} {url}",
+            title = "HTTP požadavek (API)",
+            description = "Zavolá API: GET, POST, PUT, PATCH, DELETE s hlavičkami a tělem (JSON, formulář, " +
+                    "soubory / obrázky přes multipart). Vrátí odpověď, stavový kód nebo stažený soubor.",
+            category = BlockCategory.Data,
+            icon = Icons.Rounded.Http,
+            params = listOf(
+                ParamDef.Choice(
+                    "method", "Metoda", listOf(
+                        ChoiceOption("GET", "GET – načíst"),
+                        ChoiceOption("POST", "POST – odeslat", "POST"),
+                        ChoiceOption("PUT", "PUT – nahradit", "PUT"),
+                        ChoiceOption("PATCH", "PATCH – upravit", "PATCH"),
+                        ChoiceOption("DELETE", "DELETE – smazat", "DELETE"),
+                    ).map { it.copy(short = it.value) }
+                ),
+                ParamDef.Text("url", "Adresa", placeholder = "https://api.example.com/items"),
+                ParamDef.Text("headers", "Hlavičky (klíč: hodnota na řádek)", placeholder = "Authorization: Bearer …"),
+                ParamDef.Choice(
+                    "body_type", "Tělo", listOf(
+                        ChoiceOption("none", "Žádné"),
+                        ChoiceOption("json", "JSON"),
+                        ChoiceOption("form", "Formulář (klíč=hodnota)"),
+                        ChoiceOption("multipart", "Multipart – text i soubory / obrázky"),
+                        ChoiceOption("text", "Vlastní text"),
+                        ChoiceOption("file", "Celý soubor"),
+                    )
+                ).apply { hiddenWhen = choiceIs("method", "GET") },
+                ParamDef.Text("body", "Obsah těla", placeholder = "{\"title\": \"Ahoj\"}").apply {
+                    hiddenWhen = { choiceIs("method", "GET")(it) || choiceNot("body_type", "json", "text")(it) }
+                },
+                ParamDef.Text(
+                    "fields", "Pole (klíč=hodnota na řádek, soubor jako klíč=@soubor)",
+                    placeholder = "name=Jan\nphoto=@content://…"
+                ).apply {
+                    hiddenWhen = { choiceIs("method", "GET")(it) || choiceNot("body_type", "form", "multipart")(it) }
+                },
+                ParamDef.Text("file", "Soubor", placeholder = "výstup bloku Vybrat soubor").apply {
+                    hiddenWhen = { choiceIs("method", "GET")(it) || choiceNot("body_type", "file")(it) }
+                },
+                ParamDef.Text("content_type", "Content-Type", default = "text/plain; charset=utf-8", plain = true).apply {
+                    hiddenWhen = { choiceIs("method", "GET")(it) || choiceNot("body_type", "text")(it) }
+                },
+                ParamDef.Choice(
+                    "output", "Vrátit", listOf(
+                        ChoiceOption("body", "Odpověď (text / JSON)", "odpověď"),
+                        ChoiceOption("status", "Stavový kód", "kód"),
+                        ChoiceOption("headers", "Hlavičky odpovědi (JSON)", "hlavičky"),
+                        ChoiceOption("full", "Vše jako JSON (status, headers, body)", "vše"),
+                        ChoiceOption("file", "Uložit jako soubor (např. obrázek)", "soubor"),
+                    )
+                ),
+                ParamDef.Toggle("fail", "Chyba, když server vrátí 4xx / 5xx", default = true),
+            ),
+            outputName = "Odpověď API",
+        ) { block ->
+            val url = text(block, "url").trim()
+            if (url.isEmpty()) throw BlockException("adresa je prázdná")
+            val method = choice(block, "method").ifEmpty { "GET" }
+            val body: RequestBody? = if (method == "GET") null else when (choice(block, "body_type")) {
+                "json" -> {
+                    val text = text(block, "body")
+                    if (text.isNotBlank()) JsonTools.parse(text)
+                    RequestBody.Bytes(text.toByteArray(), "application/json; charset=utf-8")
+                }
+                "text" -> RequestBody.Bytes(text(block, "body").toByteArray(), text(block, "content_type"))
+                "form" -> RequestBody.Bytes(
+                    JsonTools.pairs(text(block, "fields"), charArrayOf('=', ':')).joinToString("&") { (k, v) ->
+                        URLEncoder.encode(k, "UTF-8") + "=" + URLEncoder.encode(v, "UTF-8")
+                    }.toByteArray(),
+                    "application/x-www-form-urlencoded"
+                )
+                "multipart" -> RequestBody.Multipart(JsonTools.pairs(text(block, "fields"), charArrayOf('=', ':')))
+                "file" -> RequestBody.FileBody(text(block, "file").trim().removePrefix("@"))
+                else -> null
+            }
+            val headers = JsonTools.pairs(text(block, "headers"), charArrayOf(':'))
+            val response = request(context, method, url, headers, body, saveToFile = choice(block, "output") == "file")
+            if (bool(block, "fail") && response.code >= 400) {
+                val detail = response.text.trim().take(200)
+                throw BlockException("server vrátil chybu ${response.code}" + if (detail.isNotEmpty()) ": $detail" else "")
+            }
+            val headersJson = JsonObject(response.headers.mapValues { (_, v) -> JsonPrimitive(v) })
+            val result = when (choice(block, "output")) {
+                "status" -> response.code.toString()
+                "headers" -> headersJson.toString()
+                "full" -> JsonObject(
+                    mapOf(
+                        "status" to JsonPrimitive(response.code),
+                        "headers" to headersJson,
+                        "body" to (JsonTools.parseOrNull(response.text) ?: JsonPrimitive(response.text)),
+                    )
+                ).toString()
+                "file" -> response.file ?: ""
+                else -> response.text
+            }
+            BlockResult.Output(result)
+        },
+
+        BlockDef(
+            type = "pick_file",
+            summary = "Vybrat {kind}",
+            title = "Vybrat soubor / obrázek",
+            description = "Nechá vybrat obrázek nebo soubor. Výstup jde poslat v HTTP požadavku (pole=@výstup) " +
+                    "nebo zobrazit blokem Ukázat obrázky.",
+            category = BlockCategory.Dialogs,
+            icon = Icons.Rounded.AttachFile,
+            params = listOf(
+                ParamDef.Choice(
+                    "kind", "Co vybrat", listOf(
+                        ChoiceOption("image/*", "Obrázek", "obrázek"),
+                        ChoiceOption("video/*", "Video", "video"),
+                        ChoiceOption("*/*", "Jakýkoli soubor", "soubor"),
+                    )
+                ),
+            ),
+            outputName = "Vybraný soubor",
+        ) { block ->
+            val ui = ui ?: throw BlockException("výběr souboru potřebuje okno (spusť akci ručně)")
+            val picked = ui.pickFile(choice(block, "kind").ifEmpty { "*/*" }) ?: throw RunCancelledException()
+            BlockResult.Output(picked)
+        },
+
+        BlockDef(
+            type = "show_images",
+            summary = "Ukázat obrázky {images}",
+            title = "Ukázat obrázky",
+            description = "Zobrazí obrázky z adres (JSON pole nebo jedna na řádek), vybraných nebo stažených souborů. " +
+                    "Může nechat jeden vybrat.",
+            category = BlockCategory.Dialogs,
+            icon = Icons.Rounded.Collections,
+            params = listOf(
+                ParamDef.Text("title", "Nadpis", default = "Obrázky"),
+                ParamDef.Text("images", "Obrázky", defaultRef = VarRef.Input),
+                ParamDef.Toggle("pick", "Nechat jeden vybrat", summaryWhenOn = "a vybrat"),
+            ),
+            outputName = "Vybraný obrázek",
+        ) { block ->
+            val images = JsonTools.toList(text(block, "images"))
+            if (images.isEmpty()) throw BlockException("žádné obrázky k zobrazení")
+            val ui = ui ?: throw BlockException("obrázky jde ukázat jen v okně")
+            val picked = ui.showImages(text(block, "title"), images, bool(block, "pick"))
+                ?: throw RunCancelledException()
+            BlockResult.Output(picked)
+        },
+    )
+
+    // ---------- HTTP ----------
+
+    sealed interface RequestBody {
+        class Bytes(val data: ByteArray, val contentType: String) : RequestBody
+        class Multipart(val fields: List<Pair<String, String>>) : RequestBody
+        class FileBody(val source: String) : RequestBody
+    }
+
+    class Response(val code: Int, val headers: Map<String, String>, val text: String, val file: String?)
+
+    suspend fun request(
+        context: Context,
+        method: String,
+        address: String,
+        headers: List<Pair<String, String>>,
+        body: RequestBody?,
+        saveToFile: Boolean = false,
+    ): Response = withContext(Dispatchers.IO) {
+        val url = try {
+            URL(if (address.contains("://")) address else "https://$address")
+        } catch (e: Exception) {
+            throw BlockException("neplatná adresa")
+        }
+        val conn = url.openConnection() as HttpURLConnection
+        try {
+            conn.requestMethod = method
+            conn.connectTimeout = 15_000
+            conn.readTimeout = 30_000
+            conn.instanceFollowRedirects = true
+            conn.setRequestProperty("User-Agent", "Automation (Android)")
+            conn.setRequestProperty("Accept", "application/json, */*")
+            for ((key, value) in headers) conn.setRequestProperty(key, value)
+
+            when (body) {
+                null -> Unit
+                is RequestBody.Bytes -> {
+                    if (headers.none { it.first.equals("Content-Type", true) }) conn.setRequestProperty("Content-Type", body.contentType)
+                    conn.doOutput = true
+                    conn.setFixedLengthStreamingMode(body.data.size)
+                    conn.outputStream.use { it.write(body.data) }
+                }
+                is RequestBody.FileBody -> {
+                    val file = openSource(context, body.source)
+                    if (headers.none { it.first.equals("Content-Type", true) }) conn.setRequestProperty("Content-Type", file.mime)
+                    conn.doOutput = true
+                    conn.setChunkedStreamingMode(64 * 1024)
+                    conn.outputStream.use { out -> file.open().use { it.copyTo(out) } }
+                }
+                is RequestBody.Multipart -> {
+                    val boundary = "----Automation" + UUID.randomUUID().toString().replace("-", "")
+                    conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+                    conn.doOutput = true
+                    conn.setChunkedStreamingMode(64 * 1024)
+                    conn.outputStream.use { out -> writeMultipart(context, out, boundary, body.fields) }
+                }
+            }
+
+            val code = conn.responseCode
+            val responseHeaders = conn.headerFields
+                .filterKeys { it != null }
+                .mapValues { (_, values) -> values.joinToString(", ") }
+            val stream = if (code >= 400) conn.errorStream else conn.inputStream
+            if (saveToFile && code < 400) {
+                val file = saveResponse(context, stream, conn.contentType, url)
+                return@withContext Response(code, responseHeaders, "", file)
+            }
+            val bytes = stream?.use { readLimited(it) } ?: ByteArray(0)
+            val charset = Regex("charset=([\\w-]+)", RegexOption.IGNORE_CASE)
+                .find(conn.contentType ?: "")?.groupValues?.get(1)
+                ?.let { runCatching { Charset.forName(it) }.getOrNull() } ?: Charsets.UTF_8
+            Response(code, responseHeaders, String(bytes, charset), null)
+        } catch (e: BlockException) {
+            throw e
+        } catch (e: java.net.UnknownHostException) {
+            throw BlockException("bez připojení nebo neznámý server")
+        } catch (e: java.net.SocketTimeoutException) {
+            throw BlockException("server neodpovídá")
+        } catch (e: java.net.ProtocolException) {
+            throw BlockException("požadavek nejde odeslat (${e.message})")
+        } catch (e: java.io.IOException) {
+            if (e.message?.contains("CLEARTEXT", ignoreCase = true) == true) {
+                throw BlockException("nešifrované http:// Android blokuje – použij https://")
+            }
+            throw BlockException("požadavek selhal (${e.message ?: e.javaClass.simpleName})")
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    private fun readLimited(stream: InputStream): ByteArray {
+        val out = ByteArrayOutputStream()
+        val buffer = ByteArray(64 * 1024)
+        while (true) {
+            val read = stream.read(buffer)
+            if (read < 0) break
+            out.write(buffer, 0, read)
+            if (out.size() > MAX_RESPONSE) throw BlockException("odpověď je moc velká (víc než 20 MB) – ulož ji jako soubor")
+        }
+        return out.toByteArray()
+    }
+
+    private fun writeMultipart(context: Context, out: OutputStream, boundary: String, fields: List<Pair<String, String>>) {
+        fun line(text: String = "") = out.write((text + "\r\n").toByteArray())
+        for ((key, value) in fields) {
+            line("--$boundary")
+            if (value.startsWith("@") && value.length > 1) {
+                val file = openSource(context, value.substring(1).trim())
+                line("Content-Disposition: form-data; name=\"${quote(key)}\"; filename=\"${quote(file.name)}\"")
+                line("Content-Type: ${file.mime}")
+                line()
+                file.open().use { it.copyTo(out) }
+                line()
+            } else {
+                line("Content-Disposition: form-data; name=\"${quote(key)}\"")
+                line("Content-Type: text/plain; charset=utf-8")
+                line()
+                out.write(value.toByteArray())
+                line()
+            }
+        }
+        line("--$boundary--")
+    }
+
+    private fun quote(text: String) = text.replace("\"", "%22").replace("\r", "").replace("\n", "")
+
+    class Source(val name: String, val mime: String, val open: () -> InputStream)
+
+    /** A file chosen with "Vybrat soubor" (content://), a saved download (file://) or a path. */
+    fun openSource(context: Context, source: String): Source {
+        if (source.isBlank()) throw BlockException("soubor není zadaný")
+        val uri = if (source.startsWith("/")) Uri.fromFile(File(source)) else Uri.parse(source)
+        return when (uri.scheme) {
+            "content" -> {
+                val resolver = context.contentResolver
+                val name = runCatching {
+                    resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+                        if (c.moveToFirst()) c.getString(0) else null
+                    }
+                }.getOrNull() ?: uri.lastPathSegment ?: "soubor"
+                val mime = resolver.getType(uri) ?: guessMime(name)
+                Source(name, mime) {
+                    try {
+                        resolver.openInputStream(uri) ?: throw BlockException("soubor nejde otevřít")
+                    } catch (e: SecurityException) {
+                        throw BlockException("k souboru už není přístup – vyber ho znovu ve stejném běhu akce")
+                    }
+                }
+            }
+            "file" -> {
+                val file = File(uri.path ?: "")
+                if (!file.exists()) throw BlockException("soubor ${file.name} neexistuje")
+                Source(file.name, guessMime(file.name)) { file.inputStream() }
+            }
+            else -> throw BlockException("\"${source.take(60)}\" není soubor (čekám content:// nebo file://)")
+        }
+    }
+
+    private fun guessMime(name: String): String =
+        MimeTypeMap.getSingleton().getMimeTypeFromExtension(name.substringAfterLast('.', "").lowercase())
+            ?: "application/octet-stream"
+
+    /** Saves a downloaded body into the app cache; returns its file:// address. */
+    private fun saveResponse(context: Context, stream: InputStream?, contentType: String?, url: URL): String {
+        val dir = File(context.cacheDir, "downloads").apply { mkdirs() }
+        // Keep the cache small: drop downloads older than a day.
+        dir.listFiles()?.filter { System.currentTimeMillis() - it.lastModified() > 24 * 3600_000L }?.forEach { it.delete() }
+        val mime = contentType?.substringBefore(';')?.trim()
+        val extension = mime?.let { MimeTypeMap.getSingleton().getExtensionFromMimeType(it) }
+            ?: url.path.substringAfterLast('/').substringAfterLast('.', "").takeIf { it.length in 1..5 }
+            ?: "bin"
+        val file = File(dir, "${System.currentTimeMillis()}-${UUID.randomUUID().toString().take(6)}.$extension")
+        (stream ?: throw BlockException("odpověď je prázdná")).use { input ->
+            file.outputStream().use { input.copyTo(it) }
+        }
+        return Uri.fromFile(file).toString()
+    }
+}

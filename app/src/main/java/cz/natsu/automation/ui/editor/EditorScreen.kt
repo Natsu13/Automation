@@ -112,6 +112,7 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
     fun missing(requirement: Requirement?): Requirement? = when (requirement) {
         Requirement.NotificationPolicy -> if (policyGranted) null else requirement
         Requirement.PostNotifications -> if (notificationsAllowed) null else requirement
+        Requirement.Overlay -> if (Settings.canDrawOverlays(context)) null else requirement
         null -> null
     }
     fun grant(requirement: Requirement) {
@@ -122,6 +123,9 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
             Requirement.PostNotifications -> context.startActivity(
                 Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                     .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            )
+            Requirement.Overlay -> context.startActivity(
+                Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:${context.packageName}"))
             )
         }
     }
@@ -283,7 +287,7 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                         outputStyle = if (def.outputName != null) chipStyle(VarRef.BlockOutput(block.id)) else null,
                         foldedSteps = viewModel.foldedCount(block.id),
                         runEntry = if (viewModel.stepMode) viewModel.stepResults[block.id] else null,
-                        suggestions = if (def.kind == BlockKind.IfStart && viewModel.isExpanded(block.id)) {
+                        suggestions = if ((def.kind == BlockKind.IfStart || def.kind == BlockKind.WhileStart) && viewModel.isExpanded(block.id)) {
                             viewModel.suggestionsFor(block)
                         } else null,
                         dragHandle = Modifier.draggableHandle(
@@ -302,7 +306,7 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                                 if (removal != null && def.kind != BlockKind.Normal) {
                                     scope.launch {
                                         snackbar.currentSnackbarData?.dismiss()
-                                        val what = if (def.kind == BlockKind.IfStart) "Podmínka smazána" else "Větev Jinak smazána"
+                                        val what = if (def.kind == BlockKind.IfStart || def.kind == BlockKind.WhileStart) "Podmínka smazána" else "Větev Jinak smazána"
                                         val steps = when (removal.innerSteps) {
                                             0 -> ""
                                             1 -> " i s 1 krokem"

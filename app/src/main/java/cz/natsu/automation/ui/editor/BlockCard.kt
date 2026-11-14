@@ -163,7 +163,7 @@ fun BlockCard(
                     }
                     if (disabled) {
                         Text(
-                            if (def.kind == BlockKind.IfStart) "Vypnuto – přeskočí se celá podmínka" else "Vypnuto – přeskočí se",
+                            if (def.kind == BlockKind.IfStart || def.kind == BlockKind.WhileStart) "Vypnuto – přeskočí se celá podmínka" else "Vypnuto – přeskočí se",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.error
                         )

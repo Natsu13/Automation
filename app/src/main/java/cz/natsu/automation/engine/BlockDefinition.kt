@@ -7,12 +7,13 @@ import cz.natsu.automation.data.VarRef
 import cz.natsu.automation.data.richText
 import cz.natsu.automation.data.richVar
 
-enum class BlockKind { Normal, IfStart, Else, End }
+enum class BlockKind { Normal, IfStart, Else, End, WhileStart }
 
 enum class BlockCategory(val title: String) {
     Text("Text"),
     Clipboard("Schránka"),
     Share("Sdílení a web"),
+    Data("API, JSON a seznamy"),
     Dialogs("Dialogy"),
     Variables("Proměnné"),
     Control("Podmínky a řízení"),
@@ -29,6 +30,10 @@ enum class Requirement(val title: String, val description: String) {
     PostNotifications(
         "Oznámení",
         "Aplikace musí smět zobrazovat oznámení."
+    ),
+    Overlay(
+        "Zobrazení přes jiné aplikace",
+        "Bez něj nejde z událostí na pozadí otevřít okno akce (dialogy, schránka, hlasitost na Androidu 17)."
     ),
 }
 
@@ -104,8 +109,11 @@ sealed class ParamDef(val key: String, val label: String) {
 sealed interface BlockResult {
     data object None : BlockResult
     data class Output(val value: String) : BlockResult
-    data class Condition(val passed: Boolean) : BlockResult
+    /** [output] = value of the step (e.g. the current item of a loop); shown in the log. */
+    data class Condition(val passed: Boolean, val output: String? = null) : BlockResult
     data class Stop(val output: String?) : BlockResult
+    /** Inside a loop: [exit] ends the loop, otherwise jumps to its next round. */
+    data class LoopJump(val exit: Boolean) : BlockResult
 }
 
 class BlockException(message: String, val requirement: Requirement? = null) : Exception(message)
