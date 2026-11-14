@@ -407,11 +407,12 @@ class EditorViewModel(application: Application, private val automationId: Long) 
     fun indexOf(blockId: String) = blocks.indexOfFirst { it.id == blockId }
 
     fun addBlock(def: BlockDef) {
-        val block = if (def.kind == BlockKind.IfStart) {
+        val block = if (def.kind == BlockKind.IfStart || def.kind == BlockKind.WhileStart) {
             val group = UUID.randomUUID().toString()
             def.newBlock(group).also {
                 blocks.add(it)
-                blocks.add(Blocks.get(Blocks.END_IF)!!.newBlock(group))
+                val end = if (def.kind == BlockKind.WhileStart) Blocks.END_WHILE else Blocks.END_IF
+                blocks.add(Blocks.get(end)!!.newBlock(group))
             }
         } else {
             def.newBlock().also { blocks.add(it) }
@@ -441,7 +442,8 @@ class EditorViewModel(application: Application, private val automationId: Long) 
     /** Index range of an "if" together with its otherwise / inner steps / end. */
     private fun groupRange(index: Int): IntRange {
         val block = blocks[index]
-        if (Blocks.get(block.type)?.kind != BlockKind.IfStart) return index..index
+        val kind = Blocks.get(block.type)?.kind
+        if (kind != BlockKind.IfStart && kind != BlockKind.WhileStart) return index..index
         val end = blocks.indexOfLast { it.groupId == block.groupId }
         return index..maxOf(index, end)
     }
@@ -575,6 +577,7 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         val before = snapshot()
         val range = when (Blocks.get(block.type)?.kind) {
             BlockKind.IfStart -> groupRange(index)
+            BlockKind.WhileStart -> groupRange(index)
             BlockKind.Else -> {
                 val end = blocks.indexOfFirst { it.groupId == block.groupId && it.type == Blocks.END_IF }
                 if (end > index) index until end else index..index
@@ -606,7 +609,8 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         if (index < 0) return
         val block = blocks[index]
         var lastIndex = index
-        if (Blocks.get(block.type)?.kind == BlockKind.IfStart) {
+        val kind = Blocks.get(block.type)?.kind
+        if (kind == BlockKind.IfStart || kind == BlockKind.WhileStart) {
             lastIndex = blocks.indexOfLast { it.groupId == block.groupId }.coerceAtLeast(index)
         }
 

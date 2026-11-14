@@ -163,6 +163,33 @@ object Examples {
             ) { it.copy(triggerShare = true, triggerProcessText = true) }
         }
 
+        // 6) API: download JSON, take the list of image URLs, show them and let one be picked
+        run {
+            val request = block(
+                "http_request", null,
+                "url" to richText("https://dog.ceo/api/breeds/image/random/4"),
+            )
+            val urls = block(
+                "json_get", null,
+                "source" to richVar(VarRef.BlockOutput(request.id)),
+                "path" to richText("message"),
+            )
+            val shown = block(
+                "show_images", null,
+                "title" to richText("Vyber pejska"),
+                "images" to richVar(VarRef.BlockOutput(urls.id)),
+                "pick" to ParamValue.Bool(true),
+            )
+            add(
+                "Obrázky z API", "code",
+                listOf(
+                    request, urls, shown,
+                    block("set_clipboard", null, "text" to richVar(VarRef.BlockOutput(shown.id))),
+                    block("toast", null, "text" to richText("Adresa obrázku zkopírována")),
+                )
+            ) { it }
+        }
+
         return added
     }
 }

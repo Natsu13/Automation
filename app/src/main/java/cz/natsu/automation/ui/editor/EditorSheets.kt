@@ -61,6 +61,11 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -84,6 +89,20 @@ import cz.natsu.automation.ui.common.automationHue
 import cz.natsu.automation.ui.common.automationIcon
 import cz.natsu.automation.ui.common.hue
 
+/**
+ * Keeps leftover scroll and fling of a list inside its bottom sheet.
+ *
+ * Without it the end of a fling is handed to the sheet, which starts its own
+ * settle animation. Until that finishes the list counts as still scrolling:
+ * the next drag does nothing ("frozen" list) and the first tap only stops the
+ * scroll instead of picking the item. The sheet can still be closed by
+ * dragging its handle / header, tapping outside or pressing back.
+ */
+private val KeepScrollInList = object : NestedScrollConnection {
+    override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset = available
+    override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity = available
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BlockLibrarySheet(onPick: (BlockDef) -> Unit, onDismiss: () -> Unit) {
@@ -103,7 +122,7 @@ fun BlockLibrarySheet(onPick: (BlockDef) -> Unit, onDismiss: () -> Unit) {
             )
         }
         Spacer(Modifier.height(8.dp))
-        LazyColumn(Modifier.fillMaxWidth()) {
+        LazyColumn(Modifier.fillMaxWidth().nestedScroll(KeepScrollInList)) {
             for ((category, defs) in Blocks.library) {
                 val visible = defs.filter {
                     query.isBlank() || foldText(it.title).contains(foldText(query)) ||

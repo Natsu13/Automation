@@ -35,6 +35,20 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import cz.natsu.automation.engine.RunUi
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
 import kotlinx.coroutines.CompletableDeferred
 
 /**
@@ -53,6 +67,13 @@ class DialogRunUi : RunUi {
 
         data class Show(override val title: String, val text: String,
                         val answer: CompletableDeferred<Boolean>) : Request
+
+        data class PickFile(val mime: String, val answer: CompletableDeferred<String?>) : Request {
+            override val title: String get() = "Vybrat soubor"
+        }
+
+        data class Images(override val title: String, val images: List<String>, val pick: Boolean,
+                          val answer: CompletableDeferred<String?>) : Request
     }
 
     var request by mutableStateOf<Request?>(null)
@@ -81,6 +102,16 @@ class DialogRunUi : RunUi {
         val answer = CompletableDeferred<Boolean>()
         return show(Request.Show(title, text, answer), answer)
     }
+
+    override suspend fun pickFile(mime: String): String? {
+        val answer = CompletableDeferred<String?>()
+        return show(Request.PickFile(mime, answer), answer)
+    }
+
+    override suspend fun showImages(title: String, images: List<String>, pick: Boolean): String? {
+        val answer = CompletableDeferred<String?>()
+        return show(Request.Images(title, images, pick, answer), answer)
+    }
 }
 
 /** Renders the dialog the running automation is currently waiting for. */
@@ -91,7 +122,77 @@ fun RunDialogs(ui: DialogRunUi) {
         is DialogRunUi.Request.Ask -> AskDialog(request)
         is DialogRunUi.Request.Choose -> ChooseDialog(request)
         is DialogRunUi.Request.Show -> ShowDialog(request)
+        is DialogRunUi.Request.PickFile -> PickFile(request)
+        is DialogRunUi.Request.Images -> ImagesDialog(request)
     }
+}
+
+@Composable
+private fun PickFile(request: DialogRunUi.Request.PickFile) {
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        request.answer.complete(uri?.toString())
+    }
+    LaunchedEffect(request) {
+        try {
+            launcher.launch(request.mime)
+        } catch (e: Exception) {
+            request.answer.complete(null)
+        }
+    }
+}
+
+@Composable
+private fun ImagesDialog(request: DialogRunUi.Request.Images) {
+    val context = LocalContext.current
+    AlertDialog(
+        onDismissRequest = { request.answer.complete(if (request.pick) null else "") },
+        title = { Text(request.title) },
+        text = {
+            LazyColumn(Modifier.heightIn(max = 520.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(request.images) { source ->
+                    // first = finished loading, second = the image (null when it failed)
+                    val loaded by produceState<Pair<Boolean, ImageBitmap?>>(false to null, source) {
+                        value = true to ImageLoader.load(context, source)
+                    }
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .then(if (request.pick) Modifier.clickable { request.answer.complete(source) } else Modifier)
+                    ) {
+                        val bitmap = loaded.second
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 120.dp)
+                                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            when {
+                                bitmap != null -> Image(
+                                    bitmap, contentDescription = source,
+                                    contentScale = ContentScale.FillWidth,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                loaded.first -> Text("Obrázek nejde načíst", style = MaterialTheme.typography.bodySmall)
+                                else -> CircularProgressIndicator(Modifier.size(32.dp))
+                            }
+                        }
+                        Text(
+                            source, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (!request.pick) TextButton(onClick = { request.answer.complete("") }) { Text("Pokračovat") }
+        },
+        dismissButton = { TextButton(onClick = { request.answer.complete(null) }) { Text("Zrušit") } },
+    )
 }
 
 @Composable

@@ -127,7 +127,7 @@ object MoreBlocks {
             type = "choose",
             summary = "Vybrat z {options}",
             title = "Vybrat z nabídky",
-            description = "Nabídne možnosti (každá na samostatném řádku) a vrátí tu vybranou.",
+            description = "Nabídne možnosti (každá na samostatném řádku, nebo JSON pole) a vrátí tu vybranou.",
             category = BlockCategory.Dialogs,
             icon = Icons.Rounded.Checklist,
             params = listOf(
@@ -136,7 +136,7 @@ object MoreBlocks {
             ),
             outputName = "Vybraná položka",
         ) { block ->
-            val options = text(block, "options").lines().map { it.trim() }.filter { it.isNotEmpty() }
+            val options = JsonTools.toList(text(block, "options"))
             if (options.isEmpty()) throw BlockException("nabídka je prázdná")
             val ui = ui ?: return@BlockDef BlockResult.Output(options.first())
             val picked = ui.choose(text(block, "title"), options) ?: throw RunCancelledException()

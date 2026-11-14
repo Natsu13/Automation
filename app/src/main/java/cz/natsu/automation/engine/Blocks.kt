@@ -17,6 +17,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import android.widget.Toast
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.AltRoute
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.AltRoute
 import androidx.compose.material.icons.rounded.BatteryFull
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.rounded.FormatClear
 import androidx.compose.material.icons.rounded.Numbers
 import androidx.compose.material.icons.rounded.OpenInBrowser
 import androidx.compose.material.icons.rounded.Output
+import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.TextFormat
@@ -54,6 +56,8 @@ object Blocks {
     const val IF = "if"
     const val ELSE = "else"
     const val END_IF = "end_if"
+    const val WHILE = "while"
+    const val END_WHILE = "end_while"
     const val SET_VARIABLE = "set_variable"
     const val LAUNCH_CONDITION = "launch_condition"
 
@@ -369,8 +373,19 @@ object Blocks {
             title = "Pokud",
             description = "Spustí následující kroky jen když platí podmínka. Může mít větev Jinak.",
             category = BlockCategory.Control,
-            icon = Icons.Rounded.AltRoute,
+            icon = Icons.AutoMirrored.Rounded.AltRoute,
             kind = BlockKind.IfStart,
+            params = conditionParams(),
+        ) { block -> BlockResult.Condition(Blocks.evaluateCondition(this, block)) },
+
+        BlockDef(
+            type = WHILE,
+            summary = "Opakuj dokud {left} {op} {right}",
+            title = "Opakuj dokud",
+            description = "Opakuje následující kroky, dokud platí podmínka.",
+            category = BlockCategory.Control,
+            icon = Icons.Rounded.Repeat,
+            kind = BlockKind.WhileStart,
             params = conditionParams(),
         ) { block -> BlockResult.Condition(Blocks.evaluateCondition(this, block)) },
 
@@ -408,6 +423,17 @@ object Blocks {
             description = "",
             category = BlockCategory.Control,
             icon = Icons.Rounded.DoneAll,
+            kind = BlockKind.End,
+            showInLibrary = false,
+        ),
+
+        BlockDef(
+            type = END_WHILE,
+            summary = "Konec opakování",
+            title = "Konec opakování",
+            description = "",
+            category = BlockCategory.Control,
+            icon = Icons.Rounded.Repeat,
             kind = BlockKind.End,
             showInLibrary = false,
         ),
@@ -470,7 +496,9 @@ object Blocks {
                 else -> AudioManager.STREAM_MUSIC
             }
             val max = audio.getStreamMaxVolume(stream)
-            val index = (max * number(block, "level") / 100f).roundToInt().coerceIn(0, max)
+            val min = audio.getStreamMinVolume(stream)
+            val index = (max * number(block, "level") / 100f).roundToInt().coerceIn(min, max)
+            val before = audio.getStreamVolume(stream)
             try {
                 audio.setStreamVolume(stream, index, 0)
             } catch (e: SecurityException) {
@@ -479,6 +507,10 @@ object Blocks {
                     Requirement.NotificationPolicy
                 )
             }
+            // Android 17+ ignores the change silently when we have no window.
+            if (ui == null && AudioHardening.active && !audio.isVolumeFixed &&
+                index != before && audio.getStreamVolume(stream) == before
+            ) throw AudioHardening.ignored("změnit hlasitost")
             BlockResult.None
         },
 
@@ -506,10 +538,16 @@ object Blocks {
             if (notifications?.isNotificationPolicyAccessGranted != true) {
                 throw BlockException("chybí přístup k režimu Nerušit", Requirement.NotificationPolicy)
             }
-            audio.ringerMode = when (choice(block, "mode")) {
+            val mode = when (choice(block, "mode")) {
                 "vibrate" -> AudioManager.RINGER_MODE_VIBRATE
                 "silent" -> AudioManager.RINGER_MODE_SILENT
                 else -> AudioManager.RINGER_MODE_NORMAL
+            }
+            val before = audio.ringerMode
+            audio.ringerMode = mode
+            // Android 17+ ignores the change silently when we have no window.
+            if (ui == null && AudioHardening.active && mode != before && audio.ringerMode == before) {
+                throw AudioHardening.ignored("přepnout režim zvonění")
             }
             BlockResult.None
         },
@@ -666,7 +704,7 @@ object Blocks {
             }
             BlockResult.Output(value)
         },
-    ) + MoreBlocks.all + NotificationBlock.def
+    ) + MoreBlocks.all + DataBlocks.all + HttpBlocks.all + NotificationBlock.def
 
     private val byType = all.associateBy { it.type }
 

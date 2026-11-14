@@ -13,6 +13,7 @@ import cz.natsu.automation.data.EventType
 import cz.natsu.automation.data.ParamValue
 import cz.natsu.automation.data.Segment
 import cz.natsu.automation.data.VarRef
+import cz.natsu.automation.engine.AudioHardening
 import cz.natsu.automation.engine.AutomationRunner
 import cz.natsu.automation.engine.EventInfo
 import cz.natsu.automation.engine.RunTrigger
@@ -31,7 +32,14 @@ object EventDispatcher {
     private const val TAG = "EventDispatcher"
 
     /** Blocks that need a window: dialogs, reading the clipboard, opening other apps. */
-    private val windowBlocks = setOf("ask_text", "choose", "show_text", "get_clipboard", "share", "web", "open_url")
+    private val windowBlocks = setOf("ask_text", "choose", "show_text", "get_clipboard", "share", "web", "open_url", "pick_file", "show_images")
+
+    /**
+     * Android 17+ silently ignores volume and ringer changes from an app in the
+     * background (unless it has a "while in use" foreground service, which ours
+     * started from the background does not get). With a visible window they work.
+     */
+    private val audioBlocks = setOf("volume", "ringer")
 
     /**
      * Fires [type]. [matches] can narrow which of the automation's events of this
@@ -108,7 +116,9 @@ object EventDispatcher {
     } ?: ""
 
     fun needsWindow(blocks: List<Block>): Boolean = blocks.any { block ->
-        !block.disabled && (block.type in windowBlocks || block.params.values.any { value ->
+        !block.disabled && (block.type in windowBlocks ||
+                (block.type in audioBlocks && AudioHardening.active) ||
+                block.params.values.any { value ->
             value is ParamValue.Rich && value.segments.any { (it as? Segment.Var)?.ref == VarRef.Clipboard }
         })
     }

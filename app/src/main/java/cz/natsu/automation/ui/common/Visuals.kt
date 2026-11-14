@@ -31,6 +31,7 @@ val BlockCategory.hue: AccentHue
         BlockCategory.Text -> AccentHue.Blue
         BlockCategory.Clipboard -> AccentHue.Teal
         BlockCategory.Share -> AccentHue.Teal
+        BlockCategory.Data -> AccentHue.Blue
         BlockCategory.Dialogs -> AccentHue.Purple
         BlockCategory.Variables -> AccentHue.Purple
         BlockCategory.Control -> AccentHue.Orange
