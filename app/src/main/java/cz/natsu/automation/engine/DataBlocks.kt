@@ -230,6 +230,10 @@ object DataBlocks {
                 ParamDef.Choice(
                     "op", "Operace", listOf(
                         ChoiceOption("count", "Počet položek", "počet"),
+                        ChoiceOption("sum", "Součet čísel", "součet"),
+                        ChoiceOption("avg", "Průměr čísel", "průměr"),
+                        ChoiceOption("min", "Nejmenší číslo", "minimum"),
+                        ChoiceOption("max", "Největší číslo", "maximum"),
                         ChoiceOption("item", "Položka na pozici", "položka"),
                         ChoiceOption("first", "První položka", "první"),
                         ChoiceOption("last", "Poslední položka", "poslední"),
@@ -271,8 +275,15 @@ object DataBlocks {
                 if (index !in items.indices) throw BlockException("pozice $n je mimo seznam (má ${items.size} položek)")
                 return index
             }
+            fun numbers(): List<Double> = items.map {
+                parseNumber(it) ?: throw BlockException("\"${it.take(30)}\" není číslo")
+            }.ifEmpty { throw BlockException("seznam je prázdný") }
             val result = when (choice(block, "op")) {
                 "count" -> items.size.toString()
+                "sum" -> formatNumber(numbers().sum())
+                "avg" -> formatNumber(numbers().average())
+                "min" -> formatNumber(numbers().min())
+                "max" -> formatNumber(numbers().max())
                 "item" -> items[position()]
                 "first" -> items.firstOrNull() ?: ""
                 "last" -> items.lastOrNull() ?: ""

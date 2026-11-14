@@ -2,4 +2,6 @@
 <paths>
     <!-- Export files shared from the app (AutomationTransfer.share). -->
     <cache-path name="export" path="export/" />
+    <!-- Files shared by the "Sdílet soubor" block. -->
+    <cache-path name="shared" path="shared/" />
 </paths>

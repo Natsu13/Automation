@@ -1,0 +1,136 @@
+package cz.natsu.automation
+
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.net.Uri
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import cz.natsu.automation.data.Block
+import cz.natsu.automation.data.ParamValue
+import cz.natsu.automation.data.SecretStore
+import cz.natsu.automation.data.Segment
+import cz.natsu.automation.data.ValueStore
+import cz.natsu.automation.data.VarRef
+import cz.natsu.automation.data.richText
+import cz.natsu.automation.engine.AutomationRunner
+import cz.natsu.automation.engine.Blocks
+import cz.natsu.automation.engine.JsonTools
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import java.io.File
+
+/** Blocks that need a real Android: images, stored values, secrets. */
+@RunWith(AndroidJUnit4::class)
+class DeviceBlocksTest {
+    private val context = InstrumentationRegistry.getInstrumentation().targetContext
+
+    private fun block(type: String, vararg params: Pair<String, ParamValue>): Block {
+        val def = Blocks.get(type) ?: error("unknown block $type")
+        return def.newBlock().let { it.copy(params = it.params + params) }
+    }
+
+    private fun rich(vararg parts: Any) = ParamValue.Rich(parts.map {
+        when (it) {
+            is String -> Segment.Text(it)
+            is VarRef -> Segment.Var(it)
+            else -> error("bad part")
+        }
+    })
+
+    private fun run(vararg blocks: Block) = runBlocking { AutomationRunner.run(context, blocks.toList(), "") }
+
+    /** A 400 × 200 PNG with a red left half, as a file:// address. */
+    private fun testImage(): String {
+        val bitmap = Bitmap.createBitmap(400, 200, Bitmap.Config.ARGB_8888)
+        for (x in 0 until 400) for (y in 0 until 200) bitmap.setPixel(x, y, if (x < 200) Color.RED else Color.BLUE)
+        val file = File(context.cacheDir, "test-image.png")
+        file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        return Uri.fromFile(file).toString()
+    }
+
+    /** Runs one image_edit and returns image_info of the result as JSON. */
+    private fun edit(vararg params: Pair<String, ParamValue>): Map<String, String> {
+        val edited = block("image_edit", "source" to richText(testImage()), *params)
+        val info = block("image_info", "source" to rich(VarRef.BlockOutput(edited.id)))
+        val result = run(edited, info, block("return", "text" to rich(VarRef.BlockOutput(info.id))))
+        assertNull(result.error)
+        val json = JsonTools.parse(result.output!!)
+        return listOf("width", "height", "type").associateWith {
+            JsonTools.asText(JsonTools.select(json, JsonTools.parsePath(it)))
+        }
+    }
+
+    @Test
+    fun resizeKeepsRatioAndFormat() {
+        val info = edit("op" to ParamValue.Choice("resize"), "max_size" to ParamValue.Number(100f))
+        assertEquals(mapOf("width" to "100", "height" to "50", "type" to "image/png"), info)
+    }
+
+    @Test
+    fun resizeNeverEnlarges() {
+        val info = edit("op" to ParamValue.Choice("resize"), "max_size" to ParamValue.Number(4000f))
+        assertEquals("400", info["width"])
+    }
+
+    @Test
+    fun rotateSwapsSides() {
+        val info = edit("op" to ParamValue.Choice("rotate"), "angle" to ParamValue.Choice("90"))
+        assertEquals("200", info["width"])
+        assertEquals("400", info["height"])
+    }
+
+    @Test
+    fun squareCropsToShorterSide() {
+        val info = edit("op" to ParamValue.Choice("square"))
+        assertEquals("200", info["width"])
+        assertEquals("200", info["height"])
+    }
+
+    @Test
+    fun convertChangesType() {
+        assertEquals("image/jpeg", edit("op" to ParamValue.Choice("convert"), "format" to ParamValue.Choice("jpeg"))["type"])
+        assertEquals("image/webp", edit("op" to ParamValue.Choice("convert"), "format" to ParamValue.Choice("webp"))["type"])
+    }
+
+    @Test
+    fun flipMirrorsPixels() {
+        val edited = block(
+            "image_edit", "source" to richText(testImage()),
+            "op" to ParamValue.Choice("flip"), "flip" to ParamValue.Choice("horizontal"),
+        )
+        val result = run(edited, block("return", "text" to rich(VarRef.BlockOutput(edited.id))))
+        assertNull(result.error)
+        val bitmap = android.graphics.BitmapFactory.decodeFile(Uri.parse(result.output).path)
+        assertEquals(Color.BLUE, bitmap.getPixel(10, 100))
+        assertEquals(Color.RED, bitmap.getPixel(390, 100))
+    }
+
+    @Test
+    fun storedValueSurvivesRuns() {
+        ValueStore.remove(context, "test_key")
+        run(block("store_set", "key" to richText("test_key"), "value" to richText("42")))
+        val get = block("store_get", "key" to richText("test_key"), "fallback" to richText("nic"))
+        assertEquals("42", run(get, block("return", "text" to rich(VarRef.BlockOutput(get.id)))).output)
+        run(block("store_set", "mode" to ParamValue.Choice("remove"), "key" to richText("test_key")))
+        val again = block("store_get", "key" to richText("test_key"), "fallback" to richText("nic"))
+        assertEquals("nic", run(again, block("return", "text" to rich(VarRef.BlockOutput(again.id)))).output)
+    }
+
+    @Test
+    fun secretIsUsedButMaskedInLog() {
+        SecretStore.set(context, "test_token", "tajne-heslo-123")
+        assertEquals("tajne-heslo-123", SecretStore.get(context, "test_token"))
+        val text = block("text", "text" to rich("Bearer ", VarRef.Secret("test_token")))
+        val result = run(text, block("return", "text" to rich(VarRef.BlockOutput(text.id))))
+        assertEquals("Bearer tajne-heslo-123", result.output)
+        val logged = result.log.first { it.blockId == text.id }.output!!
+        assertTrue(logged, "tajne-heslo-123" !in logged)
+        SecretStore.remove(context, "test_token")
+        val missing = run(block("text", "text" to rich(VarRef.Secret("test_token"))))
+        assertTrue(missing.error!!.contains("neexistuje"))
+    }
+}

@@ -163,7 +163,7 @@ fun BlockCard(
                     }
                     if (disabled) {
                         Text(
-                            if (def.kind == BlockKind.IfStart || def.kind == BlockKind.WhileStart) "Vypnuto – přeskočí se celá podmínka" else "Vypnuto – přeskočí se",
+                            if (def.kind.isGroupStart) "Vypnuto – přeskočí se i s kroky uvnitř" else "Vypnuto – přeskočí se",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.error
                         )
@@ -263,7 +263,7 @@ private fun BlockMenu(def: BlockDef, actions: BlockCardActions, disabled: Boolea
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             if (actions.onAddElse != null) {
                 DropdownMenuItem(
-                    text = { Text("Přidat větev Jinak") },
+                    text = { Text(if (def.kind == BlockKind.TryStart) "Přidat větev Když selže" else "Přidat větev Jinak") },
                     leadingIcon = { Icon(Icons.Rounded.AltRoute, null) },
                     onClick = { open = false; actions.onAddElse.invoke() }
                 )

@@ -7,7 +7,12 @@ import cz.natsu.automation.data.VarRef
 import cz.natsu.automation.data.richText
 import cz.natsu.automation.data.richVar
 
-enum class BlockKind { Normal, IfStart, Else, End, WhileStart }
+enum class BlockKind {
+    Normal, IfStart, Else, End, WhileStart, TryStart;
+
+    /** Starts a group that ends with an "end" block (if, loop, try). */
+    val isGroupStart: Boolean get() = this == IfStart || this == WhileStart || this == TryStart
+}
 
 enum class BlockCategory(val title: String) {
     Text("Text"),
@@ -31,6 +36,10 @@ enum class Requirement(val title: String, val description: String) {
     PostNotifications(
         "Oznámení",
         "Aplikace musí smět zobrazovat oznámení."
+    ),
+    LocalNetwork(
+        "Přístup k místní síti",
+        "Android 17 bez něj nepustí aplikaci k zařízením v domácí síti (http://192.168…)."
     ),
     Overlay(
         "Zobrazení přes jiné aplikace",

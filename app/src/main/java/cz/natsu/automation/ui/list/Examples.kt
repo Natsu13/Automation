@@ -44,6 +44,8 @@ object Examples {
         "Obrázky z API" to "API: stáhne JSON se seznamem obrázků, zobrazí je a vybraný zkopíruje.",
         "Nadpisy z API (smyčka)" to "API + smyčka: načte příspěvky jako JSON, projde je a poskládá seznam nadpisů.",
         "Odeslat data (POST JSON)" to "API: zeptá se na text, sestaví z něj JSON, pošle ho POSTem a ukáže odpověď serveru.",
+        "Hlídat novinky v API" to "Zkusit + Uložit hodnotu: zjistí nejnovější příspěvek z API a ohlásí ho, " +
+            "jen když je jiný než minule. Při chybě sítě neskončí chybou. Hodí se s událostí Čas / interval.",
         "Nahrát obrázek (multipart)" to "API: vybereš obrázek, zmenší se a pošle se i s popiskem jako formulář (multipart).",
     )
 
@@ -297,6 +299,58 @@ object Examples {
                         "title" to ParamValue.Rich(listOf(Segment.Text("Server odpověděl "), Segment.Var(VarRef.BlockOutput(status.id)))),
                         "text" to richVar(VarRef.BlockOutput(echoed.id)),
                     ),
+                )
+            )
+        },
+
+        // 10) Try + stored value: report only what is new since the last run
+        example("Hlídat novinky v API", "code") {
+            val attempt = UUID.randomUUID().toString()
+            val changed = UUID.randomUUID().toString()
+            val tryBlock = block("try", attempt, "attempts" to ParamValue.Number(2f), "delay" to ParamValue.Number(3f))
+            val request = block(
+                "http_request", null,
+                "url" to richText("https://jsonplaceholder.typicode.com/posts?_sort=id&_order=desc&_limit=1"),
+            )
+            val newest = block(
+                "json_get", null,
+                "source" to richVar(VarRef.BlockOutput(request.id)),
+                "path" to richText("body[0].id"),
+            )
+            val title = block(
+                "json_get", null,
+                "source" to richVar(VarRef.BlockOutput(request.id)),
+                "path" to richText("body[0].title"),
+            )
+            val last = block("store_get", null, "key" to richText("posledni_prispevek"))
+            Built(
+                listOf(
+                    tryBlock,
+                    request, newest, title, last,
+                    block(
+                        "if", changed,
+                        "left" to richVar(VarRef.BlockOutput(newest.id)),
+                        "op" to ParamValue.Choice("not_equals"),
+                        "right" to richVar(VarRef.BlockOutput(last.id)),
+                    ),
+                    block(
+                        "toast", null,
+                        "text" to ParamValue.Rich(listOf(Segment.Text("Nový příspěvek: "), Segment.Var(VarRef.BlockOutput(title.id)))),
+                    ),
+                    block(
+                        "store_set", null,
+                        "key" to richText("posledni_prispevek"),
+                        "value" to richVar(VarRef.BlockOutput(newest.id)),
+                    ),
+                    block("else", changed),
+                    block("toast", null, "text" to richText("Nic nového")),
+                    block("end_if", changed),
+                    block("catch", attempt),
+                    block(
+                        "toast", null,
+                        "text" to ParamValue.Rich(listOf(Segment.Text("API nedostupné: "), Segment.Var(VarRef.BlockOutput(tryBlock.id)))),
+                    ),
+                    block("end_try", attempt),
                 )
             )
         },

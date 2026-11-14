@@ -126,6 +126,8 @@ fun AppSettingsScreen(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             UsageSection(resumeCounter)
+            SecretsSection()
+            StoredValuesSection()
 
             Text(
                 "Sledování schránky",

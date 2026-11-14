@@ -133,14 +133,27 @@ object MoreBlocks {
             params = listOf(
                 ParamDef.Text("title", "Nadpis", default = "Vyber"),
                 ParamDef.Text("options", "Možnosti (jedna na řádek)", default = "Ano\nNe"),
+                ParamDef.Text(
+                    "label", "U seznamu objektů zobrazit",
+                    placeholder = "cesta, např. title nebo user.name – vrátí se celý objekt",
+                ),
             ),
             outputName = "Vybraná položka",
         ) { block ->
             val options = JsonTools.toList(text(block, "options"))
             if (options.isEmpty()) throw BlockException("nabídka je prázdná")
+            val labelPath = text(block, "label").trim()
+            // For a list of JSON objects show one value of each, but return the whole object.
+            val labels = if (labelPath.isEmpty()) options else {
+                val steps = JsonTools.parsePath(labelPath)
+                options.mapIndexed { i, option ->
+                    JsonTools.parseOrNull(option)?.let { JsonTools.select(it, steps) }?.let { JsonTools.asText(it) }
+                        ?.takeIf { it.isNotBlank() } ?: "${i + 1}. ${option.take(60)}"
+                }
+            }
             val ui = ui ?: return@BlockDef BlockResult.Output(options.first())
-            val picked = ui.choose(text(block, "title"), options) ?: throw RunCancelledException()
-            BlockResult.Output(picked)
+            val picked = ui.choose(text(block, "title"), labels) ?: throw RunCancelledException()
+            BlockResult.Output(options[labels.indexOf(picked).coerceAtLeast(0)])
         },
 
         BlockDef(

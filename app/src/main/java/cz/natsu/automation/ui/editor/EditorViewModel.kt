@@ -407,12 +407,13 @@ class EditorViewModel(application: Application, private val automationId: Long) 
     fun indexOf(blockId: String) = blocks.indexOfFirst { it.id == blockId }
 
     fun addBlock(def: BlockDef) {
-        val block = if (def.kind == BlockKind.IfStart || def.kind == BlockKind.WhileStart) {
+        val block = if (def.kind.isGroupStart) {
             val group = UUID.randomUUID().toString()
             def.newBlock(group).also {
                 blocks.add(it)
-                val end = if (def.kind == BlockKind.WhileStart) Blocks.END_WHILE else Blocks.END_IF
-                blocks.add(Blocks.get(end)!!.newBlock(group))
+                // "Zkusit" is useful with its "Když selže" branch, so it comes with it.
+                if (def.kind == BlockKind.TryStart) blocks.add(Blocks.get(Blocks.CATCH)!!.newBlock(group))
+                blocks.add(Blocks.get(Blocks.endTypeFor(def.kind))!!.newBlock(group))
             }
         } else {
             def.newBlock().also { blocks.add(it) }
@@ -443,7 +444,7 @@ class EditorViewModel(application: Application, private val automationId: Long) 
     private fun groupRange(index: Int): IntRange {
         val block = blocks[index]
         val kind = Blocks.get(block.type)?.kind
-        if (kind != BlockKind.IfStart && kind != BlockKind.WhileStart) return index..index
+        if (kind == null || !kind.isGroupStart) return index..index
         val end = blocks.indexOfLast { it.groupId == block.groupId }
         return index..maxOf(index, end)
     }
@@ -486,13 +487,15 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         foldedGroup?.takeIf { it.ifId == blockId }?.hidden?.size ?: 0
 
     fun hasElse(ifBlock: Block): Boolean =
-        blocks.any { it.groupId == ifBlock.groupId && it.type == Blocks.ELSE }
+        blocks.any { it.groupId == ifBlock.groupId && Blocks.get(it.type)?.kind == BlockKind.Else }
 
+    /** Adds "Jinak" to an "if", or "Když selže" to a "Zkusit". */
     fun addElse(ifBlock: Block) {
         if (hasElse(ifBlock)) return
-        val endIndex = blocks.indexOfFirst { it.groupId == ifBlock.groupId && it.type == Blocks.END_IF }
+        val kind = Blocks.get(ifBlock.type)?.kind ?: return
+        val endIndex = blocks.indexOfFirst { it.groupId == ifBlock.groupId && Blocks.get(it.type)?.kind == BlockKind.End }
         if (endIndex < 0) return
-        blocks.add(endIndex, Blocks.get(Blocks.ELSE)!!.newBlock(ifBlock.groupId))
+        blocks.add(endIndex, Blocks.get(Blocks.elseTypeFor(kind))!!.newBlock(ifBlock.groupId))
         changed()
     }
 
@@ -576,10 +579,9 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         val block = blocks[index]
         val before = snapshot()
         val range = when (Blocks.get(block.type)?.kind) {
-            BlockKind.IfStart -> groupRange(index)
-            BlockKind.WhileStart -> groupRange(index)
+            BlockKind.IfStart, BlockKind.WhileStart, BlockKind.TryStart -> groupRange(index)
             BlockKind.Else -> {
-                val end = blocks.indexOfFirst { it.groupId == block.groupId && it.type == Blocks.END_IF }
+                val end = blocks.indexOfFirst { it.groupId == block.groupId && Blocks.get(it.type)?.kind == BlockKind.End }
                 if (end > index) index until end else index..index
             }
             BlockKind.End -> return null
@@ -610,7 +612,7 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         val block = blocks[index]
         var lastIndex = index
         val kind = Blocks.get(block.type)?.kind
-        if (kind == BlockKind.IfStart || kind == BlockKind.WhileStart) {
+        if (kind != null && kind.isGroupStart) {
             lastIndex = blocks.indexOfLast { it.groupId == block.groupId }.coerceAtLeast(index)
         }
 
@@ -714,6 +716,9 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         for (variable in names) {
             options += VariableOption(VarRef.Named(variable), variable, "Proměnná")
         }
+        for (secret in cz.natsu.automation.data.SecretStore.names(getApplication())) {
+            options += VariableOption(VarRef.Secret(secret), "🔑 $secret", "Tajná hodnota – v exportu se neukládá")
+        }
         return options
     }
 
@@ -732,6 +737,7 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         VarRef.Trigger -> "Typ spuštění"
         is VarRef.Event -> EventValue.of(ref.key)?.label
         is VarRef.Named -> ref.name
+        is VarRef.Secret -> "🔑 ${ref.name}"
         is VarRef.BlockOutput -> blocks.firstOrNull { it.id == ref.blockId }?.let { outputLabel(it) }
     }
 
