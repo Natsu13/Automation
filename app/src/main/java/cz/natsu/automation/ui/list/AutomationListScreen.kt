@@ -38,6 +38,11 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -88,8 +93,8 @@ class AutomationListViewModel(application: Application) : AndroidViewModel(appli
         viewModelScope.launch { onCreated(repository.create("Nová automatizace")) }
     }
 
-    fun createExamples(onDone: (Int) -> Unit = {}) {
-        viewModelScope.launch { onDone(Examples.create(repository)) }
+    fun createExamples(chosen: List<Examples.Example>, onDone: (Int) -> Unit = {}) {
+        viewModelScope.launch { onDone(Examples.create(repository, chosen)) }
     }
 
     fun duplicate(id: Long) {
@@ -129,6 +134,20 @@ class AutomationListViewModel(application: Application) : AndroidViewModel(appli
 fun AutomationListScreen(viewModel: AutomationListViewModel, onOpen: (Long) -> Unit, onOpenSettings: () -> Unit) {
     val context = LocalContext.current
     val automations by viewModel.automations.collectAsState()
+    var showExamples by remember { mutableStateOf(false) }
+    if (showExamples) {
+        ExamplesDialog(
+            existing = automations.orEmpty().map { it.name }.toSet(),
+            onDismiss = { showExamples = false },
+            onCreate = { chosen ->
+                showExamples = false
+                viewModel.createExamples(chosen) { added ->
+                    val message = if (added == 1) "Ukázka přidána" else "Přidáno ukázek: $added"
+                    android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+                }
+            },
+        )
+    }
     var toDelete by remember { mutableStateOf<AutomationEntity?>(null) }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val listState = rememberLazyListState()
@@ -162,12 +181,7 @@ fun AutomationListScreen(viewModel: AutomationListViewModel, onOpen: (Long) -> U
                 title = { Text("Automatizace") },
                 scrollBehavior = scrollBehavior,
                 actions = {
-                    IconButton(onClick = {
-                        viewModel.createExamples { added ->
-                            val message = if (added == 0) "Všechny ukázky už máš" else "Přidáno ukázek: $added"
-                            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    }) {
+                    IconButton(onClick = { showExamples = true }) {
                         Icon(Icons.Rounded.AutoAwesome, "Přidat ukázkové automatizace")
                     }
                     var menu by remember { mutableStateOf(false) }
@@ -210,7 +224,7 @@ fun AutomationListScreen(viewModel: AutomationListViewModel, onOpen: (Long) -> U
         val list = automations
         when {
             list == null -> Unit
-            list.isEmpty() -> EmptyList(Modifier.padding(padding), onExamples = { viewModel.createExamples() })
+            list.isEmpty() -> EmptyList(Modifier.padding(padding), onExamples = { showExamples = true })
             else -> LazyColumn(
                 state = listState,
                 contentPadding = PaddingValues(
@@ -394,4 +408,63 @@ private fun UsageWarning(summary: cz.natsu.automation.trigger.UsageMeter.Summary
             }
         }
     }
+}
+
+/**
+ * Lets the user pick which ready-made automations to create. Ones that already
+ * exist (same name) are marked; picking them again creates a copy.
+ */
+@Composable
+private fun ExamplesDialog(
+    existing: Set<String>,
+    onDismiss: () -> Unit,
+    onCreate: (List<Examples.Example>) -> Unit,
+) {
+    var chosen by remember { mutableStateOf(emptySet<String>()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Rounded.AutoAwesome, null) },
+        title = { Text("Ukázkové automatizace") },
+        text = {
+            LazyColumn(Modifier.heightIn(max = 460.dp)) {
+                items(Examples.all, key = { it.name }) { example ->
+                    val checked = example.name in chosen
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { chosen = if (checked) chosen - example.name else chosen + example.name }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(checked = checked, onCheckedChange = null, modifier = Modifier.padding(horizontal = 8.dp))
+                        AutomationBadge(example.icon, size = 36.dp)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(example.name, style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                example.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            if (example.name in existing) {
+                                Text(
+                                    "Už ji máš – vytvoří se kopie",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onCreate(Examples.all.filter { it.name in chosen }) },
+                enabled = chosen.isNotEmpty(),
+            ) { Text(if (chosen.isEmpty()) "Vytvořit" else "Vytvořit (${chosen.size})") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Zrušit") } },
+    )
 }

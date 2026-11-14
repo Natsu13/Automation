@@ -476,7 +476,9 @@ private fun ResultCard(result: RunResult, onGrantRequirement: (Requirement) -> U
             }
             if (result.output != null) {
                 Text("Výsledek:", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
-                SelectionContainer { Text(result.output, style = MaterialTheme.typography.bodyMedium) }
+                SelectionContainer {
+                    Text(cz.natsu.automation.engine.logPreview(result.output)!!, style = MaterialTheme.typography.bodyMedium)
+                }
             }
             if (result.requirement != null) {
                 TextButton(onClick = { onGrantRequirement(result.requirement) }) {

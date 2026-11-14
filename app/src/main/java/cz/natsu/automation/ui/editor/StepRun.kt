@@ -118,7 +118,7 @@ fun StepRunBar(viewModel: EditorViewModel) {
                         when {
                             paused.error != null -> "Chyba: ${paused.error}"
                             paused.output == null -> "Provedeno – výsledek je u kroku."
-                            else -> "→ " + paused.output.ifEmpty { "(prázdné)" }.replace('\n', ' ')
+                            else -> "→ " + paused.output.ifEmpty { "(prázdné)" }.take(300).replace('\n', ' ')
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -207,7 +207,11 @@ private fun ValueRow(name: String, value: String) {
     Column {
         Text(name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         SelectionContainer {
-            Text(value.ifEmpty { "(prázdné)" }, style = MaterialTheme.typography.bodyMedium)
+            // Named variables are not shortened by the runner; huge texts would freeze the dialog.
+            Text(
+                cz.natsu.automation.engine.logPreview(value)!!.ifEmpty { "(prázdné)" },
+                style = MaterialTheme.typography.bodyMedium
+            )
         }
     }
 }

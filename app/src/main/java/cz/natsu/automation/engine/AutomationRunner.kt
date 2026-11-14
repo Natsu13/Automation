@@ -12,6 +12,17 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * Values are shown in the log in full only up to this length. API responses can be
+ * huge (e.g. an uploaded image echoed back as base64) and laying out such a text
+ * freezes the UI. The step's real output (used by other steps) is never shortened.
+ */
+private const val LOG_PREVIEW = 4000
+
+fun logPreview(value: String?): String? =
+    if (value == null || value.length <= LOG_PREVIEW) value
+    else value.take(LOG_PREVIEW) + "\n… (zkráceno, celkem ${value.length} znaků)"
+
 data class LogEntry(
     val blockId: String,
     val title: String,
@@ -203,12 +214,12 @@ object AutomationRunner {
 
             val entry = when (result) {
                 BlockResult.None -> LogEntry(block.id, def.title)
-                is BlockResult.Output -> LogEntry(block.id, def.title, output = result.value)
+                is BlockResult.Output -> LogEntry(block.id, def.title, output = logPreview(result.value))
                 is BlockResult.Condition -> LogEntry(
                     block.id, def.title,
-                    output = result.output ?: if (result.passed) "splněno" else "nesplněno"
+                    output = logPreview(result.output) ?: if (result.passed) "splněno" else "nesplněno"
                 )
-                is BlockResult.Stop -> LogEntry(block.id, def.title, output = result.output)
+                is BlockResult.Stop -> LogEntry(block.id, def.title, output = logPreview(result.output))
                 is BlockResult.LoopJump -> LogEntry(block.id, def.title, output = if (result.exit) "konec opakování" else "další kolo")
             }
             if (result is BlockResult.Output) ctx.outputs[block.id] = result.value
