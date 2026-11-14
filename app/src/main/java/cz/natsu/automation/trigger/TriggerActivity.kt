@@ -308,7 +308,9 @@ class TriggerActivity : ComponentActivity() {
             input = text
             for (automation in matching(repository.withTrigger(TriggerType.Clipboard))) {
                 state = TriggerUiState.Running(automation)
-                val result = AutomationRunner.run(this@TriggerActivity, automation.blocks, text, runUi, runTrigger)
+                val result = AutomationRunner.run(
+                    this@TriggerActivity, automation.blocks, text, runUi, runTrigger, automationId = automation.id
+                )
                 if (!report(automation, result)) break
             }
             finishCanceled()
@@ -327,7 +329,9 @@ class TriggerActivity : ComponentActivity() {
         lifecycleScope.launch {
             // Wait for window focus so blocks can read the clipboard.
             windowFocused.first { it }
-            val result = AutomationRunner.run(this@TriggerActivity, automation.blocks, input, runUi, runTrigger, event)
+            val result = AutomationRunner.run(
+                this@TriggerActivity, automation.blocks, input, runUi, runTrigger, event, automationId = automation.id
+            )
             finishWith(automation, result)
         }
     }

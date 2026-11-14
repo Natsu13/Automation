@@ -67,6 +67,8 @@ class RunContext(
     val trigger: RunTrigger = RunTrigger.Manual,
     /** The system event that started the run, if any. */
     val event: EventInfo? = null,
+    /** Automation being run (stored values belong to it); null for a run without one. */
+    val automationId: Long? = null,
 ) {
     val variables = mutableMapOf<String, String>()
     val outputs = mutableMapOf<String, String>()
@@ -172,8 +174,10 @@ object AutomationRunner {
         onStep: (blockId: String) -> Unit = {},
         /** Called after every executed step; step-by-step runs suspend here until "next". */
         afterStep: (suspend (LogEntry, RunContext) -> Unit)? = null,
+        /** The automation the blocks belong to; its stored values are separate from other automations'. */
+        automationId: Long? = null,
     ): RunResult = withContext(Dispatchers.Default) {
-        val ctx = RunContext(context.applicationContext, input, ui, trigger, event)
+        val ctx = RunContext(context.applicationContext, input, ui, trigger, event, automationId)
         val log = mutableListOf<LogEntry>()
         val structure = Structure.analyze(blocks)
         val tries = ArrayDeque<TryFrame>()

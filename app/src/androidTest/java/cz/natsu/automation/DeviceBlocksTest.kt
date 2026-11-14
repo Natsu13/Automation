@@ -41,7 +41,61 @@ class DeviceBlocksTest {
         }
     })
 
-    private fun run(vararg blocks: Block) = runBlocking { AutomationRunner.run(context, blocks.toList(), "") }
+    private fun run(vararg blocks: Block) = runAs(null, *blocks)
+
+    /** Runs [blocks] as if they belonged to automation [automationId]. */
+    private fun runAs(automationId: Long?, vararg blocks: Block) =
+        runBlocking { AutomationRunner.run(context, blocks.toList(), "", automationId = automationId) }
+
+    /** Value of "Načíst hodnotu" for [name] when run as [automationId]. */
+    private fun load(automationId: Long?, name: String, shared: Boolean = false): String? {
+        val get = block(
+            "store_get", "key" to richText(name), "fallback" to richText("nic"),
+            "scope" to ParamValue.Choice(if (shared) "shared" else "own"),
+        )
+        return runAs(automationId, get, block("return", "text" to rich(VarRef.BlockOutput(get.id)))).output
+    }
+
+    private fun save(automationId: Long?, name: String, value: String, shared: Boolean = false) {
+        runAs(
+            automationId,
+            block(
+                "store_set", "key" to richText(name), "value" to richText(value),
+                "scope" to ParamValue.Choice(if (shared) "shared" else "own"),
+            )
+        )
+    }
+
+    @Test
+    fun storedValuesBelongToTheirAutomation() {
+        ValueStore.removeAutomation(context, 901)
+        ValueStore.removeAutomation(context, 902)
+        ValueStore.remove(context, null, "last_state")
+
+        save(901, "last_state", "A")
+        save(902, "last_state", "B")
+        assertEquals("A", load(901, "last_state"))
+        assertEquals("B", load(902, "last_state"))
+        // Not visible as a shared value.
+        assertEquals("nic", load(901, "last_state", shared = true))
+
+        save(901, "last_state", "S", shared = true)
+        assertEquals("S", load(902, "last_state", shared = true))
+        assertEquals("A", load(901, "last_state"))
+
+        // Listing mixes shared and own values (the settings screens show it).
+        val listed = ValueStore.all(context).filter { it.name == "last_state" }
+        assertEquals(listOf(null, 901L, 902L), listed.map { it.automationId })
+
+        // Deleting an automation drops only its own values.
+        ValueStore.removeAutomation(context, 901)
+        assertEquals("nic", load(901, "last_state"))
+        assertEquals("B", load(902, "last_state"))
+        assertEquals("S", load(902, "last_state", shared = true))
+
+        ValueStore.removeAutomation(context, 902)
+        ValueStore.remove(context, null, "last_state")
+    }
 
     /** A 400 × 200 PNG with a red left half, as a file:// address. */
     private fun testImage(): String {
@@ -110,14 +164,12 @@ class DeviceBlocksTest {
     }
 
     @Test
-    fun storedValueSurvivesRuns() {
-        ValueStore.remove(context, "test_key")
-        run(block("store_set", "key" to richText("test_key"), "value" to richText("42")))
-        val get = block("store_get", "key" to richText("test_key"), "fallback" to richText("nic"))
-        assertEquals("42", run(get, block("return", "text" to rich(VarRef.BlockOutput(get.id)))).output)
-        run(block("store_set", "mode" to ParamValue.Choice("remove"), "key" to richText("test_key")))
-        val again = block("store_get", "key" to richText("test_key"), "fallback" to richText("nic"))
-        assertEquals("nic", run(again, block("return", "text" to rich(VarRef.BlockOutput(again.id)))).output)
+    fun storedValueSurvivesRunsAndCanBeRemoved() {
+        ValueStore.removeAutomation(context, 900)
+        save(900, "test_key", "42")
+        assertEquals("42", load(900, "test_key"))
+        runAs(900, block("store_set", "mode" to ParamValue.Choice("remove"), "key" to richText("test_key")))
+        assertEquals("nic", load(900, "test_key"))
     }
 
     @Test

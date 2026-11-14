@@ -283,6 +283,9 @@ fun AutomationSettingsSheet(
             }
 
             Spacer(Modifier.height(20.dp))
+            cz.natsu.automation.ui.settings.AutomationStoredValues(viewModel.id)
+
+            Spacer(Modifier.height(20.dp))
             Text("Export a import", style = MaterialTheme.typography.titleMedium)
             Text(
                 "Automatizaci pošleš jako soubor .json (třeba do jiného telefonu). Import ze souboru přidá novou automatizaci, tahle zůstane beze změny.",
