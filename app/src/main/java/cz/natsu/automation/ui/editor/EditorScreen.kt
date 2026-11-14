@@ -109,10 +109,14 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
     val notificationsAllowed = remember(resumeCounter) {
         androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
     }
+    val localNetworkLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { resumeCounter++ }
     fun missing(requirement: Requirement?): Requirement? = when (requirement) {
         Requirement.NotificationPolicy -> if (policyGranted) null else requirement
         Requirement.PostNotifications -> if (notificationsAllowed) null else requirement
         Requirement.Overlay -> if (Settings.canDrawOverlays(context)) null else requirement
+        Requirement.LocalNetwork -> if (cz.natsu.automation.engine.LocalNetwork.granted(context)) null else requirement
         null -> null
     }
     fun grant(requirement: Requirement) {
@@ -124,6 +128,7 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                 Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                     .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
             )
+            Requirement.LocalNetwork -> localNetworkLauncher.launch(cz.natsu.automation.engine.LocalNetwork.PERMISSION)
             Requirement.Overlay -> context.startActivity(
                 Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:${context.packageName}"))
             )
@@ -306,7 +311,12 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                                 if (removal != null && def.kind != BlockKind.Normal) {
                                     scope.launch {
                                         snackbar.currentSnackbarData?.dismiss()
-                                        val what = if (def.kind == BlockKind.IfStart || def.kind == BlockKind.WhileStart) "Podmínka smazána" else "Větev Jinak smazána"
+                                        val what = when (def.kind) {
+                                            BlockKind.TryStart -> "Zkusit smazáno"
+                                            BlockKind.WhileStart -> "Opakování smazáno"
+                                            BlockKind.IfStart -> "Podmínka smazána"
+                                            else -> "Větev smazána"
+                                        }
                                         val steps = when (removal.innerSteps) {
                                             0 -> ""
                                             1 -> " i s 1 krokem"
@@ -323,7 +333,7 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                             },
                             onMoveUp = { reportMove(viewModel.moveBy(block.id, -1)) },
                             onMoveDown = { reportMove(viewModel.moveBy(block.id, 1)) },
-                            onAddElse = if (def.kind == BlockKind.IfStart && !viewModel.hasElse(block)) {
+                            onAddElse = if ((def.kind == BlockKind.IfStart || def.kind == BlockKind.TryStart) && !viewModel.hasElse(block)) {
                                 { viewModel.addElse(block) }
                             } else null,
                             onGrantRequirement = ::grant,

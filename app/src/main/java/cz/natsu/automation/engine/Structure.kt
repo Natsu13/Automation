@@ -34,7 +34,7 @@ class Structure(
             for ((index, block) in blocks.withIndex()) {
                 stack.lastOrNull { it.isLoop }?.let { loopOf[index] = it.start }
                 when (val kind = Blocks.get(block.type)?.kind) {
-                    BlockKind.IfStart, BlockKind.WhileStart -> {
+                    BlockKind.IfStart, BlockKind.WhileStart, BlockKind.TryStart -> {
                         depth[index] = stack.size
                         stack.addLast(Open(index, block.groupId, isLoop = kind == BlockKind.WhileStart))
                     }

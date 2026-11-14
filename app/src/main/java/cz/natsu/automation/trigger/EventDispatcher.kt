@@ -32,7 +32,7 @@ object EventDispatcher {
     private const val TAG = "EventDispatcher"
 
     /** Blocks that need a window: dialogs, reading the clipboard, opening other apps. */
-    private val windowBlocks = setOf("ask_text", "choose", "show_text", "get_clipboard", "share", "web", "open_url", "pick_file", "show_images")
+    private val windowBlocks = setOf("ask_text", "choose", "show_text", "get_clipboard", "share", "web", "open_url", "pick_file", "show_images", "share_file")
 
     /**
      * Android 17+ silently ignores volume and ringer changes from an app in the

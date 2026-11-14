@@ -34,6 +34,8 @@ import androidx.compose.material.icons.rounded.Numbers
 import androidx.compose.material.icons.rounded.OpenInBrowser
 import androidx.compose.material.icons.rounded.Output
 import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.HealthAndSafety
+import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.TextFormat
@@ -58,6 +60,19 @@ object Blocks {
     const val END_IF = "end_if"
     const val WHILE = "while"
     const val END_WHILE = "end_while"
+    const val TRY = "try"
+    const val CATCH = "catch"
+    const val END_TRY = "end_try"
+
+    /** The "end" block type that closes a group started by [kind]. */
+    fun endTypeFor(kind: BlockKind): String = when (kind) {
+        BlockKind.WhileStart -> END_WHILE
+        BlockKind.TryStart -> END_TRY
+        else -> END_IF
+    }
+
+    /** The "otherwise" block type for a group started by [kind]. */
+    fun elseTypeFor(kind: BlockKind): String = if (kind == BlockKind.TryStart) CATCH else ELSE
     const val SET_VARIABLE = "set_variable"
     const val LAUNCH_CONDITION = "launch_condition"
 
@@ -428,6 +443,48 @@ object Blocks {
         ),
 
         BlockDef(
+            type = TRY,
+            summary = "Zkusit {attempts}",
+            title = "Zkusit",
+            description = "Když některý krok uvnitř selže (třeba API nebo síť), akce neskončí: zkusí to znovu, " +
+                    "nebo pokračuje větví Když selže. Výstup je text chyby (prázdný, když vše prošlo).",
+            category = BlockCategory.Control,
+            icon = Icons.Rounded.HealthAndSafety,
+            kind = BlockKind.TryStart,
+            params = listOf(
+                ParamDef.Number("attempts", "Pokusů celkem", 1f, 10f, 1f, unit = "×").apply {
+                    hiddenInSummaryWhen = { (it["attempts"] as? ParamValue.Number)?.value?.let { n -> n <= 1f } ?: true }
+                },
+                ParamDef.Number("delay", "Pauza před dalším pokusem", 0f, 60f, 2f, unit = "s").apply {
+                    hiddenWhen = { (it["attempts"] as? ParamValue.Number)?.value?.let { n -> n <= 1f } ?: true }
+                },
+            ),
+            outputName = "Chyba",
+        ) { BlockResult.None },
+
+        BlockDef(
+            type = CATCH,
+            summary = "Když selže",
+            title = "Když selže",
+            description = "Kroky, které se spustí, když něco v Zkusit selhalo. Text chyby je výstup bloku Zkusit.",
+            category = BlockCategory.Control,
+            icon = Icons.Rounded.ErrorOutline,
+            kind = BlockKind.Else,
+            showInLibrary = false,
+        ),
+
+        BlockDef(
+            type = END_TRY,
+            summary = "Konec Zkusit",
+            title = "Konec Zkusit",
+            description = "",
+            category = BlockCategory.Control,
+            icon = Icons.Rounded.HealthAndSafety,
+            kind = BlockKind.End,
+            showInLibrary = false,
+        ),
+
+        BlockDef(
             type = END_WHILE,
             summary = "Konec opakování",
             title = "Konec opakování",
@@ -704,7 +761,7 @@ object Blocks {
             }
             BlockResult.Output(value)
         },
-    ) + MoreBlocks.all + DataBlocks.all + HttpBlocks.all + ImageBlocks.all + NotificationBlock.def
+    ) + MoreBlocks.all + DataBlocks.all + HttpBlocks.all + ImageBlocks.all + ExtraBlocks.all + NotificationBlock.def
 
     private val byType = all.associateBy { it.type }
 

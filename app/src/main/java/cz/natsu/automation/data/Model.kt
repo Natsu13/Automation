@@ -45,6 +45,11 @@ sealed interface VarRef {
     @Serializable
     @SerialName("variable")
     data class Named(val name: String) : VarRef
+
+    /** Secret stored encrypted on the device (API key, token); see [SecretStore]. Never exported. */
+    @Serializable
+    @SerialName("secret")
+    data class Secret(val name: String) : VarRef
 }
 
 @Serializable

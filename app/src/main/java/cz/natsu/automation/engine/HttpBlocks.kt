@@ -213,6 +213,9 @@ object HttpBlocks {
         } catch (e: Exception) {
             throw BlockException("neplatná adresa")
         }
+        if (isLocalHost(url.host) && !LocalNetwork.granted(context)) {
+            throw BlockException("Android nepustí aplikaci do místní sítě – povol přístup k místní síti", Requirement.LocalNetwork)
+        }
         val conn = url.openConnection() as HttpURLConnection
         try {
             conn.requestMethod = method
@@ -277,6 +280,18 @@ object HttpBlocks {
         } finally {
             conn.disconnect()
         }
+    }
+
+    /** Private address ranges, *.local and *.lan – the home network. */
+    fun isLocalHost(host: String?): Boolean {
+        val h = host?.lowercase()?.trim('[', ']') ?: return false
+        if (h.endsWith(".local") || h.endsWith(".lan") || h.endsWith(".home.arpa")) return true
+        val parts = h.split('.').mapNotNull { it.toIntOrNull() }
+        if (parts.size == 4) {
+            return parts[0] == 10 || (parts[0] == 192 && parts[1] == 168) ||
+                    (parts[0] == 172 && parts[1] in 16..31) || (parts[0] == 169 && parts[1] == 254)
+        }
+        return h.startsWith("fd") || h.startsWith("fe80:")
     }
 
     private fun readLimited(stream: InputStream): ByteArray {
