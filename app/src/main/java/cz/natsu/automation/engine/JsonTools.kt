@@ -6,6 +6,8 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.doubleOrNull
 
 /**
  * Values in a run are plain text. JSON objects and arrays travel as JSON text,
@@ -14,20 +16,21 @@ import kotlinx.serialization.json.JsonPrimitive
 object JsonTools {
     private val pretty = Json { prettyPrint = true }
 
-    fun parse(text: String): JsonElement = try {
-        Json.parseToJsonElement(text.trim())
-    } catch (e: Exception) {
-        throw BlockException("text není platný JSON")
-    }
+    fun parse(text: String): JsonElement = parseOrNull(text) ?: throw BlockException("text není platný JSON")
 
     fun parseOrNull(text: String): JsonElement? {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return null
-        return try {
+        val element = try {
             Json.parseToJsonElement(trimmed)
         } catch (e: Exception) {
-            null
+            return null
         }
+        // The parser also accepts a bare word like `nope` as an unquoted literal – that is plain text, not JSON.
+        if (element is JsonPrimitive && element !is JsonNull && !element.isString &&
+            element.booleanOrNull == null && element.doubleOrNull == null
+        ) return null
+        return element
     }
 
     /** Text form of a value: strings without quotes, null as "", objects / arrays as JSON. */

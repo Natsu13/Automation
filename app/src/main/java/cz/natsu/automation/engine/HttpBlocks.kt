@@ -39,10 +39,11 @@ object HttpBlocks {
     val all: List<BlockDef> = listOf(
         BlockDef(
             type = "http_request",
-            summary = "{method} {url}",
+            summary = "{method} {url}{only_body}{save_file}",
             title = "HTTP požadavek (API)",
             description = "Zavolá API: GET, POST, PUT, PATCH, DELETE s hlavičkami a tělem (JSON, formulář, " +
-                    "soubory / obrázky přes multipart). Vrátí odpověď, stavový kód nebo stažený soubor.",
+                    "soubory / obrázky přes multipart). Vrátí objekt odpovědi {status, ok, headers, body}, " +
+                    "z něj pak vytáhneš co potřebuješ (např. body.items[*].url) blokem Získat z JSON.",
             category = BlockCategory.Data,
             icon = Icons.Rounded.Http,
             params = listOf(
@@ -82,15 +83,8 @@ object HttpBlocks {
                 ParamDef.Text("content_type", "Content-Type", default = "text/plain; charset=utf-8", plain = true).apply {
                     hiddenWhen = { choiceIs("method", "GET")(it) || choiceNot("body_type", "text")(it) }
                 },
-                ParamDef.Choice(
-                    "output", "Vrátit", listOf(
-                        ChoiceOption("body", "Odpověď (text / JSON)", "odpověď"),
-                        ChoiceOption("status", "Stavový kód", "kód"),
-                        ChoiceOption("headers", "Hlavičky odpovědi (JSON)", "hlavičky"),
-                        ChoiceOption("full", "Vše jako JSON (status, headers, body)", "vše"),
-                        ChoiceOption("file", "Uložit jako soubor (např. obrázek)", "soubor"),
-                    )
-                ),
+                ParamDef.Toggle("only_body", "Vrátit jen tělo odpovědi (místo celého objektu)", summaryWhenOn = " → jen tělo"),
+                ParamDef.Toggle("save_file", "Uložit odpověď jako soubor (např. obrázek)", summaryWhenOn = " do souboru"),
                 ParamDef.Toggle("fail", "Chyba, když server vrátí 4xx / 5xx", default = true),
             ),
             outputName = "Odpověď API",
@@ -116,23 +110,19 @@ object HttpBlocks {
                 else -> null
             }
             val headers = JsonTools.pairs(text(block, "headers"), charArrayOf(':'))
-            val response = request(context, method, url, headers, body, saveToFile = choice(block, "output") == "file")
+            // Blocks saved before the toggles existed have an "output" choice instead.
+            val legacy = (block.params["output"] as? ParamValue.Choice)?.value
+                ?.takeIf { "only_body" !in block.params && "save_file" !in block.params }
+            val saveFile = if (legacy != null) legacy == "file" else bool(block, "save_file")
+            val onlyBody = if (legacy != null) legacy == "body" || legacy == "file" else bool(block, "only_body")
+            val response = request(context, method, url, headers, body, saveToFile = saveFile)
             if (bool(block, "fail") && response.code >= 400) {
                 val detail = response.text.trim().take(200)
                 throw BlockException("server vrátil chybu ${response.code}" + if (detail.isNotEmpty()) ": $detail" else "")
             }
-            val headersJson = JsonObject(response.headers.mapValues { (_, v) -> JsonPrimitive(v) })
-            val result = when (choice(block, "output")) {
-                "status" -> response.code.toString()
-                "headers" -> headersJson.toString()
-                "full" -> JsonObject(
-                    mapOf(
-                        "status" to JsonPrimitive(response.code),
-                        "headers" to headersJson,
-                        "body" to (JsonTools.parseOrNull(response.text) ?: JsonPrimitive(response.text)),
-                    )
-                ).toString()
-                "file" -> response.file ?: ""
+            val result = when {
+                !onlyBody -> responseObject(response).toString()
+                saveFile -> response.file ?: ""
                 else -> response.text
             }
             BlockResult.Output(result)
@@ -195,6 +185,20 @@ object HttpBlocks {
     }
 
     class Response(val code: Int, val headers: Map<String, String>, val text: String, val file: String?)
+
+    /**
+     * What the block returns by default:
+     * `{"status": 200, "ok": true, "headers": {"content-type": …}, "body": …, "file": "file://…"}`.
+     * A JSON body is embedded as JSON (so `body.items[0].url` works), other bodies as text.
+     * Header names are lower case; `file` is there only when the response was saved.
+     */
+    fun responseObject(response: Response): JsonObject = JsonObject(buildMap {
+        put("status", JsonPrimitive(response.code))
+        put("ok", JsonPrimitive(response.code in 200..299))
+        put("headers", JsonObject(response.headers.entries.associate { (k, v) -> k.lowercase() to JsonPrimitive(v) }))
+        put("body", JsonTools.parseOrNull(response.text) ?: JsonPrimitive(response.text))
+        response.file?.let { put("file", JsonPrimitive(it)) }
+    })
 
     suspend fun request(
         context: Context,

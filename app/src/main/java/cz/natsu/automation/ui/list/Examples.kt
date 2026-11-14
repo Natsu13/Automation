@@ -172,7 +172,7 @@ object Examples {
             val urls = block(
                 "json_get", null,
                 "source" to richVar(VarRef.BlockOutput(request.id)),
-                "path" to richText("message"),
+                "path" to richText("body.message"),
             )
             val shown = block(
                 "show_images", null,
