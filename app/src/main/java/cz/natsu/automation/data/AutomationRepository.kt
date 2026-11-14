@@ -65,6 +65,7 @@ class AutomationRepository(
 
     suspend fun delete(id: Long) {
         dao.delete(id)
+        ValueStore.removeAutomation(context, id)
         onChanged()
     }
 

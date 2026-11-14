@@ -275,7 +275,7 @@ object MoreBlocks {
             summary = "Náhodné číslo od {min} do {max}",
             title = "Náhodné číslo",
             description = "Vrátí náhodné celé číslo v zadaném rozsahu (včetně krajů).",
-            category = BlockCategory.Other,
+            category = BlockCategory.Numbers,
             icon = Icons.Rounded.Casino,
             params = listOf(
                 ParamDef.Text("min", "Od", default = "1"),

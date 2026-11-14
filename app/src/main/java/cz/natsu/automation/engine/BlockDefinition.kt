@@ -16,6 +16,7 @@ enum class BlockKind {
 
 enum class BlockCategory(val title: String) {
     Text("Text"),
+    Numbers("Čísla"),
     Clipboard("Schránka"),
     Share("Sdílení a web"),
     Data("API, JSON a seznamy"),

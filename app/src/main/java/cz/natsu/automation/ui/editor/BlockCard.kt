@@ -57,6 +57,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cz.natsu.automation.data.Block
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import cz.natsu.automation.data.ParamValue
 import cz.natsu.automation.data.Segment
 import cz.natsu.automation.engine.BlockDef
@@ -72,8 +75,9 @@ data class BlockCardActions(
     val onRequestVariable: (RichTextFieldController) -> Unit,
     val onDuplicate: () -> Unit,
     val onRemove: () -> Unit,
-    val onMoveUp: () -> Unit,
-    val onMoveDown: () -> Unit,
+    /** Null while the steps can't be reordered (an automation is running). */
+    val onMoveUp: (() -> Unit)?,
+    val onMoveDown: (() -> Unit)?,
     val onAddElse: (() -> Unit)?,
     val onGrantRequirement: (Requirement) -> Unit,
     /** Switch the step off / on; null where it makes no sense (otherwise / end). */
@@ -187,6 +191,7 @@ fun BlockCard(
                             .padding(4.dp)
                     )
                 }
+                cz.natsu.automation.engine.BlockHelp.of(def.type)?.let { help -> HelpButton(def.title, help) }
                 if (def.kind != BlockKind.End) {
                     BlockMenu(def, actions, disabled)
                 }
@@ -268,16 +273,20 @@ private fun BlockMenu(def: BlockDef, actions: BlockCardActions, disabled: Boolea
                     onClick = { open = false; actions.onAddElse.invoke() }
                 )
             }
-            DropdownMenuItem(
-                text = { Text("Posunout nahoru") },
-                leadingIcon = { Icon(Icons.Rounded.ArrowUpward, null) },
-                onClick = { open = false; actions.onMoveUp() }
-            )
-            DropdownMenuItem(
-                text = { Text("Posunout dolů") },
-                leadingIcon = { Icon(Icons.Rounded.ArrowDownward, null) },
-                onClick = { open = false; actions.onMoveDown() }
-            )
+            actions.onMoveUp?.let { moveUp ->
+                DropdownMenuItem(
+                    text = { Text("Posunout nahoru") },
+                    leadingIcon = { Icon(Icons.Rounded.ArrowUpward, null) },
+                    onClick = { open = false; moveUp() }
+                )
+            }
+            actions.onMoveDown?.let { moveDown ->
+                DropdownMenuItem(
+                    text = { Text("Posunout dolů") },
+                    leadingIcon = { Icon(Icons.Rounded.ArrowDownward, null) },
+                    onClick = { open = false; moveDown() }
+                )
+            }
             if (def.kind != BlockKind.Else) {
                 DropdownMenuItem(
                     text = { Text("Duplikovat") },
@@ -490,5 +499,36 @@ private fun StepResultBox(entry: cz.natsu.automation.engine.LogEntry) {
                 }
             }
         }
+    }
+}
+
+/** (?) next to a block: its longer help in a dialog. */
+@Composable
+private fun HelpButton(title: String, help: String) {
+    var open by remember { mutableStateOf(false) }
+    IconButton(onClick = { open = true }) {
+        Icon(
+            Icons.AutoMirrored.Rounded.HelpOutline,
+            contentDescription = "Nápověda",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+    if (open) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { open = false },
+            title = { Text(title) },
+            text = {
+                androidx.compose.foundation.layout.Column(
+                    Modifier
+                        .heightIn(max = 480.dp)
+                        .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                ) {
+                    androidx.compose.foundation.text.selection.SelectionContainer {
+                        Text(help, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { open = false }) { Text("Rozumím") } },
+        )
     }
 }

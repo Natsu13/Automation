@@ -32,6 +32,9 @@ import java.util.UUID
 data class VariableOption(val ref: VarRef, val label: String, val description: String)
 
 class EditorViewModel(application: Application, private val automationId: Long) : AndroidViewModel(application) {
+    /** Id of the edited automation. */
+    val id: Long get() = automationId
+
     private val repository = (application as AutomationApplication).repository
     private var entity: AutomationEntity? = null
     private var saveJob: Job? = null
@@ -808,6 +811,7 @@ class EditorViewModel(application: Application, private val automationId: Long) 
                     getApplication(), blocks.toList(), input, runUi,
                     onStep = { id -> activeBlockId = id },
                     afterStep = afterStep,
+                    automationId = automationId,
                 )
             } catch (e: kotlinx.coroutines.CancellationException) {
                 lastResult = RunResult(null, stepResults.values.toList(), cancelled = true)

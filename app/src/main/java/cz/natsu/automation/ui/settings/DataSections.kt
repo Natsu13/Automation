@@ -154,6 +154,11 @@ fun StoredValuesSection() {
     val context = LocalContext.current
     var version by remember { mutableIntStateOf(0) }
     val values = remember(version) { ValueStore.all(context) }
+    // Names of the automations the values belong to.
+    val names by androidx.compose.runtime.produceState(emptyMap<Long, String>(), version) {
+        value = (context.applicationContext as cz.natsu.automation.AutomationApplication).repository
+            .getAll().associate { it.id to it.name }
+    }
 
     Text("Uložené hodnoty", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
     Card(shape = MaterialTheme.shapes.extraLarge) {
@@ -161,19 +166,32 @@ fun StoredValuesSection() {
             Text(
                 if (values.isEmpty()) "Zatím nic. Hodnoty sem ukládá blok Uložit hodnotu, aby si je automatizace " +
                         "pamatovaly i mezi spuštěními."
-                else "Co si automatizace zapamatovaly blokem Uložit hodnotu.",
+                else "Co si automatizace zapamatovaly blokem Uložit hodnotu. Každá má svoje, " +
+                        "pokud hodnota není nastavená jako sdílená.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            for ((key, value) in values) {
-                HorizontalDivider()
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(key, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        Text(value.ifEmpty { "(prázdné)" }, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    }
-                    IconButton(onClick = { ValueStore.remove(context, key); version++ }) {
-                        Icon(Icons.Rounded.Delete, "Smazat")
+            // Grouped by the automation they belong to; shared values first.
+            for ((owner, entries) in values.groupBy { it.automationId }) {
+                Text(
+                    when (owner) {
+                        null -> "Sdílené všemi automatizacemi"
+                        0L -> "Zkušební běh bez automatizace"
+                        else -> names[owner] ?: "Smazaná automatizace"
+                    },
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+                for (entry in entries) {
+                    HorizontalDivider()
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(entry.name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                            Text(entry.value.ifEmpty { "(prázdné)" }, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
+                        IconButton(onClick = { ValueStore.removeByKey(context, entry.storageKey); version++ }) {
+                            Icon(Icons.Rounded.Delete, "Smazat")
+                        }
                     }
                 }
             }
@@ -182,4 +200,106 @@ fun StoredValuesSection() {
             }
         }
     }
+}
+
+/**
+ * Stored values of one automation, for its settings sheet: see what it
+ * remembers, fix a value by hand, or delete it to start over.
+ */
+@Composable
+fun AutomationStoredValues(automationId: Long) {
+    val context = LocalContext.current
+    var version by remember { mutableIntStateOf(0) }
+    val values = remember(version) { ValueStore.all(context).filter { it.automationId == automationId } }
+    var editing by remember { mutableStateOf<ValueStore.Entry?>(null) }
+    var adding by remember { mutableStateOf(false) }
+
+    Text("Uložené hodnoty", style = MaterialTheme.typography.titleMedium)
+    Text(
+        if (values.isEmpty()) "Tahle automatizace si zatím nic nezapamatovala (blok Uložit hodnotu)."
+        else "Co si tahle automatizace pamatuje mezi spuštěními. Sdílené hodnoty najdeš v Nastavení aplikace.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+    )
+    for (entry in values) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(entry.name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Text(entry.value.ifEmpty { "(prázdné)" }, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            IconButton(onClick = { editing = entry }) { Icon(Icons.Rounded.Edit, "Upravit") }
+            IconButton(onClick = { ValueStore.removeByKey(context, entry.storageKey); version++ }) {
+                Icon(Icons.Rounded.Delete, "Smazat")
+            }
+        }
+    }
+    Row {
+        TextButton(onClick = { adding = true }) {
+            Icon(Icons.Rounded.Add, null)
+            Text("Přidat hodnotu", Modifier.padding(start = 8.dp))
+        }
+        if (values.size > 1) {
+            TextButton(onClick = { ValueStore.removeAutomation(context, automationId); version++ }) { Text("Smazat vše") }
+        }
+    }
+
+    if (adding || editing != null) {
+        ValueDialog(
+            existing = editing,
+            taken = values.map { it.name }.toSet(),
+            onDismiss = { adding = false; editing = null },
+            onSave = { name, value ->
+                ValueStore.set(context, automationId, name, value)
+                adding = false
+                editing = null
+                version++
+            },
+        )
+    }
+}
+
+@Composable
+private fun ValueDialog(
+    existing: ValueStore.Entry?,
+    taken: Set<String>,
+    onDismiss: () -> Unit,
+    onSave: (name: String, value: String) -> Unit,
+) {
+    var name by remember { mutableStateOf(existing?.name ?: "") }
+    var value by remember { mutableStateOf(existing?.value ?: "") }
+    val trimmed = name.trim()
+    val nameError = if (existing == null && trimmed in taken) "Tenhle název už existuje" else null
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (existing == null) "Nová uložená hodnota" else "Upravit \"${existing.name}\"") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (existing == null) {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Název") },
+                        placeholder = { Text("např. last_state") },
+                        singleLine = true,
+                        isError = nameError != null,
+                        supportingText = nameError?.let { { Text(it) } },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = { value = it },
+                    label = { Text("Hodnota") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = trimmed.isNotEmpty() && nameError == null, onClick = { onSave(trimmed, value) }) {
+                Text("Uložit")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Zrušit") } },
+    )
 }

@@ -96,7 +96,9 @@ object EventDispatcher {
             }
             return
         }
-        val result = AutomationRunner.run(context, blocks, input, ui = null, trigger = RunTrigger.Event, event = event)
+        val result = AutomationRunner.run(
+            context, blocks, input, ui = null, trigger = RunTrigger.Event, event = event, automationId = automation.id
+        )
         if (!result.success && !result.cancelled) {
             Handler(Looper.getMainLooper()).post {
                 Toast.makeText(context, "${automation.name}: ${result.error}", Toast.LENGTH_LONG).show()

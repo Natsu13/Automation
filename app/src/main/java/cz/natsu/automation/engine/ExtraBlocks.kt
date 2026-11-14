@@ -26,16 +26,29 @@ object ExtraBlocks {
         (map[key] as? ParamValue.Choice)?.value in values
     }
 
+    private val scopeParam
+        get() = ParamDef.Choice(
+            "scope", "Platnost", listOf(
+                ChoiceOption("own", "Jen pro tuto automatizaci", "vlastní"),
+                ChoiceOption("shared", "Sdílená se všemi automatizacemi", "sdílená"),
+            )
+        ).apply { hiddenInSummaryWhen = { (it["scope"] as? ParamValue.Choice)?.value != "shared" } }
+
+    /** Owner of a stored value: this automation, or null for a shared one. */
+    private fun RunContext.owner(block: cz.natsu.automation.data.Block): Long? =
+        if (choice(block, "scope") == "shared") null else (automationId ?: 0L)
+
     private const val FILE_HINT = "výstup bloku Vybrat soubor, Upravit obrázek, stažený soubor nebo https:// adresa"
 
     val all: List<BlockDef> = listOf(
         // ---------- Stored values ----------
         BlockDef(
             type = "store_set",
-            summary = "{mode} {key}",
+            summary = "{mode} {key} {scope}",
             title = "Uložit hodnotu",
             description = "Zapamatuje si hodnotu i po skončení akce (třeba poslední ID z API), aby ji příští " +
-                    "spuštění mohlo porovnat. Hodnoty jsou jen v telefonu, v exportu nejsou.",
+                    "spuštění mohlo porovnat. Patří jen této automatizaci, pokud ji nenastavíš jako sdílenou. " +
+                    "Hodnoty jsou jen v telefonu, v exportu nejsou.",
             category = BlockCategory.Variables,
             icon = Icons.Rounded.SaveAlt,
             params = listOf(
@@ -47,31 +60,34 @@ object ExtraBlocks {
                 ),
                 ParamDef.Text("key", "Název", placeholder = "např. posledni_id"),
                 ParamDef.Text("value", "Hodnota").apply { hiddenWhen = choiceIs("mode", "remove") },
+                scopeParam,
             ),
         ) { block ->
             val key = text(block, "key").trim()
             if (key.isEmpty()) throw BlockException("název je prázdný")
-            if (choice(block, "mode") == "remove") ValueStore.remove(context, key)
-            else ValueStore.set(context, key, text(block, "value"))
+            if (choice(block, "mode") == "remove") ValueStore.remove(context, owner(block), key)
+            else ValueStore.set(context, owner(block), key, text(block, "value"))
             BlockResult.None
         },
 
         BlockDef(
             type = "store_get",
-            summary = "Načíst {key}",
+            summary = "Načíst {key} {scope}",
             title = "Načíst hodnotu",
-            description = "Vrátí hodnotu uloženou blokem Uložit hodnotu (i z dřívějšího spuštění).",
+            description = "Vrátí hodnotu uloženou blokem Uložit hodnotu (i z dřívějšího spuštění) – " +
+                    "této automatizace, nebo sdílenou.",
             category = BlockCategory.Variables,
             icon = Icons.Rounded.Inventory2,
             params = listOf(
                 ParamDef.Text("key", "Název", placeholder = "např. posledni_id"),
                 ParamDef.Text("fallback", "Když nic uložené není", placeholder = "prázdný text"),
+                scopeParam,
             ),
             outputName = "Uložená hodnota",
         ) { block ->
             val key = text(block, "key").trim()
             if (key.isEmpty()) throw BlockException("název je prázdný")
-            BlockResult.Output(ValueStore.get(context, key) ?: text(block, "fallback"))
+            BlockResult.Output(ValueStore.get(context, owner(block), key) ?: text(block, "fallback"))
         },
 
         // ---------- Loops ----------
@@ -95,9 +111,9 @@ object ExtraBlocks {
             type = "calculate",
             summary = "Vypočítat {expression}",
             title = "Vypočítat",
-            description = "Spočítá výraz: + − × / % ^, závorky, desetinná čárka i tečka, funkce round(x; míst), " +
-                    "floor, ceil, abs, sqrt, min, max. Čísla vložíš z proměnných.",
-            category = BlockCategory.Other,
+            description = "Starší podoba bloku Vypočítat v režimu Expert.",
+            category = BlockCategory.Numbers,
+            showInLibrary = false,
             icon = Icons.Rounded.Calculate,
             params = listOf(
                 ParamDef.Text("expression", "Výraz", placeholder = "např. round(cena * 1,21; 2)"),

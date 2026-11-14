@@ -77,6 +77,45 @@ class ControlBlocksTest {
         assertEquals("3.33", run(listOf(calc, ret(VarRef.BlockOutput(calc.id)))).output)
     }
 
+    @Test
+    fun mathSimpleAndExpert() {
+        // Blocks saved before the "mode" parameter existed are simple ones.
+        val old = Blocks.get("math")!!.newBlock().let {
+            it.copy(params = it.params - "mode" + mapOf("a" to richText("7"), "op" to ParamValue.Choice("*"), "b" to richText("6")))
+        }
+        assertEquals("42", run(listOf(old, ret(VarRef.BlockOutput(old.id)))).output)
+
+        val expert = block(
+            "math", null,
+            "mode" to ParamValue.Choice("expert"),
+            "expression" to richText("round((2 + 3) ^ 2 / 3; 1)"),
+        )
+        assertEquals("8.3", run(listOf(expert, ret(VarRef.BlockOutput(expert.id)))).output)
+    }
+
+    @Test
+    fun typeOfValues() {
+        val cases = mapOf(
+            "42" to "číslo", "-1,5" to "číslo", "1 000" to "číslo",
+            "ahoj" to "text", "12 kusů" to "text",
+            """{"a":1}""" to "objekt", "[1,2]" to "seznam",
+            "true" to "ano/ne", "" to "prázdné", "  " to "prázdné", "null" to "prázdné",
+        )
+        for ((value, expected) in cases) {
+            val type = block("type_of", null, "value" to richText(value))
+            assertEquals(value, expected, run(listOf(type, ret(VarRef.BlockOutput(type.id)))).output)
+        }
+        val english = block("type_of", null, "value" to richText("[1]"), "names" to ParamValue.Choice("en"))
+        assertEquals("array", run(listOf(english, ret(VarRef.BlockOutput(english.id)))).output)
+    }
+
+    @Test
+    fun libraryHasOneCalculateBlockInNumbers() {
+        val numbers = Blocks.library[cz.natsu.automation.engine.BlockCategory.Numbers].orEmpty().map { it.title }
+        assertEquals(listOf("Vypočítat", "Náhodné číslo"), numbers)
+        assertEquals(1, Blocks.library.values.flatten().count { it.title == "Vypočítat" })
+    }
+
     // ---------- try / on error ----------
 
     @Test
