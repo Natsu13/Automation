@@ -155,6 +155,22 @@ class DataBlocksTest {
     }
 
     @Test
+    fun httpResponseObject() {
+        val ok = cz.natsu.automation.engine.HttpBlocks.responseObject(
+            cz.natsu.automation.engine.HttpBlocks.Response(
+                200, mapOf("Content-Type" to "application/json"), """{"items":[{"url":"u1"}]}""", null
+            )
+        )
+        assertEquals("""{"status":200,"ok":true,"headers":{"content-type":"application/json"},"body":{"items":[{"url":"u1"}]}}""", ok.toString())
+        assertEquals("u1", JsonTools.asText(JsonTools.select(ok, JsonTools.parsePath("body.items[0].url"))))
+
+        val saved = cz.natsu.automation.engine.HttpBlocks.responseObject(
+            cz.natsu.automation.engine.HttpBlocks.Response(404, emptyMap(), "nope", "file:///x.png")
+        )
+        assertEquals("""{"status":404,"ok":false,"headers":{},"body":"nope","file":"file:///x.png"}""", saved.toString())
+    }
+
+    @Test
     fun breakOutsideLoopIsError() {
         val result = run(listOf(block("loop_control", null)))
         assertEquals(true, result.error?.contains("není uvnitř opakování"))
