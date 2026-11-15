@@ -21,6 +21,11 @@ import java.util.UUID
 
 /** Try / on error, loop position, calculations, list statistics, choosing objects. */
 class ControlBlocksTest {
+    init {
+        // The texts checked here are the Czech originals.
+        cz.natsu.automation.i18n.I18n.force(cz.natsu.automation.i18n.Language.Czech)
+    }
+
     private class FakeContext : ContextWrapper(null) {
         override fun getApplicationContext(): Context = this
     }

@@ -1,5 +1,7 @@
 package cz.natsu.automation.ui.editor
 
+import cz.natsu.automation.i18n.tr
+
 import android.Manifest
 import android.app.TimePickerDialog
 import android.content.Intent
@@ -119,10 +121,10 @@ fun eventIcon(type: EventType?): ImageVector = when (type) {
 fun eventLabel(event: EventTrigger): String {
     val type = EventType.of(event.type) ?: return event.type
     return when (type) {
-        EventType.BatteryBelow, EventType.BatteryAbove -> "${type.title} ${event.param("percent")} %"
-        EventType.TimeDaily -> "V ${event.param("time")}" + daysLabel(event.param("days")).let { if (it.isEmpty()) "" else " ($it)" }
-        EventType.TimeInterval -> "Každých ${intervalLabel(event.param("minutes").toIntOrNull() ?: 60)}"
-        else -> type.title
+        EventType.BatteryBelow, EventType.BatteryAbove -> "${tr(type.title)} ${event.param("percent")} %"
+        EventType.TimeDaily -> tr("V %s", event.param("time")) + daysLabel(event.param("days")).let { if (it.isEmpty()) "" else " ($it)" }
+        EventType.TimeInterval -> tr("Každých %s", intervalLabel(event.param("minutes").toIntOrNull() ?: 60))
+        else -> tr(type.title)
     }
 }
 
@@ -133,8 +135,8 @@ private fun daysLabel(days: String): String {
     return when {
         set.size == 7 -> ""
         set == sortedSetOf(1, 2, 3, 4, 5) -> "Po–Pá"
-        set == sortedSetOf(6, 7) -> "víkend"
-        set.isEmpty() -> "žádný den"
+        set == sortedSetOf(6, 7) -> tr("víkend")
+        set.isEmpty() -> tr("žádný den")
         else -> set.joinToString(" ") { dayNames[it - 1] }
     }
 }
@@ -153,10 +155,10 @@ private fun intervalLabel(minutes: Int): String = when {
 fun EventsSection(viewModel: EditorViewModel) {
     var picking by remember { mutableStateOf(false) }
 
-    Text("Události", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
+    Text(tr("Události"), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
     Text(
-        "Automatizace se spustí sama, když se v telefonu něco stane. Hlavní hodnota události je ve Vstupu, " +
-                "další vrátí blok Údaje z události. V Podmínkách spuštění jsou k dispozici rovnou.",
+        tr("Automatizace se spustí sama, když se v telefonu něco stane. Hlavní hodnota události je ve Vstupu, ") +
+                tr("další vrátí blok Údaje z události. V Podmínkách spuštění jsou k dispozici rovnou."),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
@@ -169,7 +171,7 @@ fun EventsSection(viewModel: EditorViewModel) {
     TextButton(onClick = { picking = true }) {
         Icon(Icons.Rounded.Add, null, Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
-        Text("Přidat událost")
+        Text(tr("Přidat událost"))
     }
 
     if (picking) {
@@ -198,17 +200,17 @@ private fun EventCard(event: EventTrigger, viewModel: EditorViewModel) {
                 Icon(eventIcon(type), null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
-                    Text(type?.title ?: "Neznámá událost", style = MaterialTheme.typography.titleSmall)
+                    Text(tr(type?.title ?: tr("Neznámá událost")), style = MaterialTheme.typography.titleSmall)
                     if (type != null) {
                         Text(
-                            type.description,
+                            tr(type.description),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
                 IconButton(onClick = { viewModel.removeEvent(event.id) }) {
-                    Icon(Icons.Rounded.Close, "Odebrat událost")
+                    Icon(Icons.Rounded.Close, tr("Odebrat událost"))
                 }
             }
 
@@ -217,7 +219,7 @@ private fun EventCard(event: EventTrigger, viewModel: EditorViewModel) {
                     EventType.BatteryBelow, EventType.BatteryAbove -> {
                         val stored = event.param("percent").toFloatOrNull() ?: 20f
                         var value by remember(stored) { mutableFloatStateOf(stored) }
-                        Text("Hranice: ${value.toInt()} %", style = MaterialTheme.typography.labelLarge)
+                        Text(tr("Hranice: %s %%", value.toInt()), style = MaterialTheme.typography.labelLarge)
                         Slider(
                             value = value,
                             onValueChange = { value = it },
@@ -260,7 +262,7 @@ private fun EventCard(event: EventTrigger, viewModel: EditorViewModel) {
 
                     EventType.TimeInterval -> {
                         val minutes = event.param("minutes").toIntOrNull() ?: 60
-                        Text("Každých:", style = MaterialTheme.typography.labelLarge)
+                        Text(tr("Každých:"), style = MaterialTheme.typography.labelLarge)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             for (option in intervals) {
                                 FilterChip(
@@ -283,7 +285,7 @@ private fun EventCard(event: EventTrigger, viewModel: EditorViewModel) {
 @Composable
 private fun NextRun(event: EventTrigger) {
     val next = EventAlarms.nextTime(event) ?: run {
-        Text("Vyber aspoň jeden den.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        Text(tr("Vyber aspoň jeden den."), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         return
     }
     Text(
@@ -309,12 +311,12 @@ private fun PermissionHint(permission: EventPermission) {
         when (permission) {
             EventPermission.Location -> when {
                 !granted(Manifest.permission.ACCESS_FINE_LOCATION) -> Triple(
-                    true, "Bez přístupu k poloze se nezjistí název Wi-Fi (událost samotná funguje).",
+                    true, tr("Bez přístupu k poloze se nezjistí název Wi-Fi (událost samotná funguje)."),
                     "Povolit polohu" to { launcher.launch(Manifest.permission.ACCESS_FINE_LOCATION) }
                 )
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !granted(Manifest.permission.ACCESS_BACKGROUND_LOCATION) -> Triple(
-                    true, "Aby šel název Wi-Fi zjistit i na pozadí, povol polohu „Vždy“.",
-                    "Povolit vždy" to {
+                    true, tr("Aby šel název Wi-Fi zjistit i na pozadí, povol polohu „Vždy“."),
+                    tr("Povolit vždy") to {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                             context.startActivity(
                                 Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
@@ -328,13 +330,13 @@ private fun PermissionHint(permission: EventPermission) {
             }
             EventPermission.Bluetooth ->
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !granted(Manifest.permission.BLUETOOTH_CONNECT)) Triple(
-                    true, "Potřebuje oprávnění Zařízení v okolí, jinak se o připojení nedozví.",
+                    true, tr("Potřebuje oprávnění Zařízení v okolí, jinak se o připojení nedozví."),
                     "Povolit" to { launcher.launch(Manifest.permission.BLUETOOTH_CONNECT) }
                 ) else Triple(false, "", null)
             EventPermission.NotificationAccess ->
                 if (!cz.natsu.automation.trigger.NotificationEvents.hasAccess(context)) Triple(
-                    true, "Potřebuje přístup k oznámením (v nastavení systému zapni u aplikace Automation).",
-                    "Otevřít nastavení" to { context.startActivity(cz.natsu.automation.trigger.NotificationEvents.settingsIntent()) }
+                    true, tr("Potřebuje přístup k oznámením (v nastavení systému zapni u aplikace Automation)."),
+                    tr("Otevřít nastavení") to { context.startActivity(cz.natsu.automation.trigger.NotificationEvents.settingsIntent()) }
                 ) else Triple(false, "", null)
         }
     }
@@ -354,7 +356,7 @@ private fun PermissionHint(permission: EventPermission) {
 private fun EventPickerSheet(onPick: (EventType) -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Text(
-            "Přidat událost",
+            tr("Přidat událost"),
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
@@ -363,7 +365,7 @@ private fun EventPickerSheet(onPick: (EventType) -> Unit, onDismiss: () -> Unit)
                 val types = EventType.entries.filter { it.group == group }
                 item(key = group.name) {
                     Text(
-                        group.title,
+                        tr(group.title),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp)
@@ -371,8 +373,8 @@ private fun EventPickerSheet(onPick: (EventType) -> Unit, onDismiss: () -> Unit)
                 }
                 items(types, key = { it.key }) { type ->
                     ListItem(
-                        headlineContent = { Text(type.title) },
-                        supportingContent = { Text(type.description) },
+                        headlineContent = { Text(tr(type.title)) },
+                        supportingContent = { Text(tr(type.description)) },
                         leadingContent = { Icon(eventIcon(type), null, tint = MaterialTheme.colorScheme.primary) },
                         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                         modifier = Modifier.clickable { onPick(type) }

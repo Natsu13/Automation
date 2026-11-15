@@ -64,6 +64,7 @@ import cz.natsu.automation.data.ParamValue
 import cz.natsu.automation.data.Segment
 import cz.natsu.automation.engine.BlockDef
 import cz.natsu.automation.engine.BlockKind
+import cz.natsu.automation.i18n.tr
 import cz.natsu.automation.engine.ParamDef
 import cz.natsu.automation.engine.Requirement
 import cz.natsu.automation.engine.formatNumber
@@ -107,6 +108,8 @@ fun BlockCard(
     runEntry: cz.natsu.automation.engine.LogEntry? = null,
     /** Values offered under "Porovnat s" of a condition. */
     suggestions: ValueSuggestions? = null,
+    /** While a variable is being picked by tapping a step: inserts this step's output. */
+    onPickOutput: (() -> Unit)? = null,
 ) {
     val disabled = block.disabled
     val accent = def.category.hue.accent()
@@ -114,7 +117,7 @@ fun BlockCard(
         if (active) MaterialTheme.colorScheme.primary else Color.Transparent,
         label = "activeBorder"
     )
-    val compact = def.kind == BlockKind.Else || def.kind == BlockKind.End
+    val compact = def.kind == BlockKind.Else || def.kind == BlockKind.End || def.kind == BlockKind.Branch
     val expandable = def.params.isNotEmpty()
     val showFields = expandable && expanded && foldedSteps == 0
 
@@ -137,7 +140,7 @@ fun BlockCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     Icons.Rounded.DragIndicator,
-                    contentDescription = "Přesunout",
+                    contentDescription = tr("Přesunout"),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = dragHandle.size(24.dp)
                 )
@@ -153,7 +156,7 @@ fun BlockCard(
                 ) {
                     if (showFields || compact) {
                         Text(
-                            def.title,
+                            tr(def.title),
                             style = if (compact) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -169,14 +172,14 @@ fun BlockCard(
                     }
                     if (disabled) {
                         Text(
-                            if (def.kind.isGroupStart) "Vypnuto – přeskočí se i s kroky uvnitř" else "Vypnuto – přeskočí se",
+                            if (def.kind.isGroupStart) tr("Vypnuto – přeskočí se i s kroky uvnitř") else tr("Vypnuto – přeskočí se"),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.error
                         )
                     }
                     if (foldedSteps > 0) {
                         Text(
-                            "+ $foldedSteps ${if (foldedSteps in 2..4) "kroky" else if (foldedSteps == 1) "krok" else "kroků"} uvnitř",
+                            tr("+ kroků uvnitř: %s", foldedSteps),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -185,7 +188,7 @@ fun BlockCard(
                 if (expandable && foldedSteps == 0) {
                     Icon(
                         if (showFields) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                        contentDescription = if (showFields) "Sbalit" else "Rozbalit",
+                        contentDescription = if (showFields) tr("Sbalit") else tr("Rozbalit"),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
@@ -193,9 +196,18 @@ fun BlockCard(
                             .padding(4.dp)
                     )
                 }
-                cz.natsu.automation.engine.BlockHelp.of(def.type)?.let { help -> HelpButton(def.title, help) }
+                cz.natsu.automation.engine.BlockHelp.of(def.type)?.let { help -> HelpButton(tr(def.title), tr(help)) }
                 if (def.kind != BlockKind.End) {
                     BlockMenu(def, actions, disabled)
+                }
+            }
+
+            if (onPickOutput != null) {
+                Spacer(Modifier.size(8.dp))
+                FilledTonalButton(onClick = onPickOutput, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(tr("Vložit výstup") + (outputLabel?.let { ": $it" } ?: ""), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
 
@@ -224,8 +236,21 @@ fun BlockCard(
                         )
                         if (param is ParamDef.Text && param.appPicker) {
                             SuggestionsRow(
-                                ValueSuggestions(emptyList(), hint = "Nainstalované aplikace:", app = AppValue.Package)
+                                ValueSuggestions(emptyList(), hint = tr("Nainstalované aplikace:"), app = AppValue.Package)
                             ) { value -> actions.onParamChange(param.key, cz.natsu.automation.data.richText(value)) }
+                        }
+                        if (param is ParamDef.Text && param.suggestions.isNotEmpty()) {
+                            SuggestionsRow(ValueSuggestions(param.suggestions, hint = tr("Časté hodnoty:"))) { value ->
+                                actions.onParamChange(param.key, cz.natsu.automation.data.richText(value))
+                            }
+                        }
+                        if (param is ParamDef.Text && param.componentPicker) {
+                            val app = (block.params["package"] as? ParamValue.Rich)?.segments
+                                ?.filterIsInstance<cz.natsu.automation.data.Segment.Text>()?.joinToString("") { it.text }.orEmpty()
+                            ComponentPickerRow(app) { target, className ->
+                                actions.onParamChange(param.key, cz.natsu.automation.data.richText(className))
+                                actions.onParamChange("target", ParamValue.Choice(target))
+                            }
                         }
                         if (param.key == "right" && suggestions != null) {
                             SuggestionsRow(suggestions) { value ->
@@ -247,7 +272,7 @@ fun BlockCard(
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        "Výstup: ",
+                        tr("Výstup: "),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -270,47 +295,57 @@ private fun BlockMenu(def: BlockDef, actions: BlockCardActions, disabled: Boolea
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
-            Icon(Icons.Rounded.MoreVert, contentDescription = "Možnosti")
+            Icon(Icons.Rounded.MoreVert, contentDescription = tr("Možnosti"))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             if (actions.onAddElse != null) {
                 DropdownMenuItem(
-                    text = { Text(if (def.kind == BlockKind.TryStart) "Přidat větev Když selže" else "Přidat větev Jinak") },
+                    text = { Text(if (def.kind == BlockKind.TryStart) tr("Přidat větev Když selže") else tr("Přidat větev Jinak")) },
                     leadingIcon = { Icon(Icons.Rounded.AltRoute, null) },
                     onClick = { open = false; actions.onAddElse.invoke() }
                 )
             }
             if (actions.onAddElseIf != null) {
                 DropdownMenuItem(
-                    text = { Text("Přidat větev Jinak pokud") },
+                    text = {
+                        Text(
+                            when (def.type) {
+                                cz.natsu.automation.engine.ControlBlocks.SWITCH,
+                                cz.natsu.automation.engine.ControlBlocks.CASE -> tr("Přidat větev Když je")
+                                cz.natsu.automation.engine.ControlBlocks.PARALLEL,
+                                cz.natsu.automation.engine.ControlBlocks.BRANCH -> tr("Přidat souběžnou větev")
+                                else -> tr("Přidat větev Jinak pokud")
+                            }
+                        )
+                    },
                     leadingIcon = { Icon(Icons.Rounded.AltRoute, null) },
                     onClick = { open = false; actions.onAddElseIf.invoke() }
                 )
             }
             actions.onMoveUp?.let { moveUp ->
                 DropdownMenuItem(
-                    text = { Text("Posunout nahoru") },
+                    text = { Text(tr("Posunout nahoru")) },
                     leadingIcon = { Icon(Icons.Rounded.ArrowUpward, null) },
                     onClick = { open = false; moveUp() }
                 )
             }
             actions.onMoveDown?.let { moveDown ->
                 DropdownMenuItem(
-                    text = { Text("Posunout dolů") },
+                    text = { Text(tr("Posunout dolů")) },
                     leadingIcon = { Icon(Icons.Rounded.ArrowDownward, null) },
                     onClick = { open = false; moveDown() }
                 )
             }
-            if (def.kind != BlockKind.Else && def.kind != BlockKind.ElseIf) {
+            if (def.kind != BlockKind.Else && def.kind != BlockKind.ElseIf && def.kind != BlockKind.Branch) {
                 DropdownMenuItem(
-                    text = { Text("Duplikovat") },
+                    text = { Text(tr("Duplikovat")) },
                     leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) },
                     onClick = { open = false; actions.onDuplicate() }
                 )
             }
             if (actions.onToggleDisabled != null) {
                 DropdownMenuItem(
-                    text = { Text(if (disabled) "Zapnout krok" else "Vypnout krok") },
+                    text = { Text(if (disabled) tr("Zapnout krok") else tr("Vypnout krok")) },
                     leadingIcon = {
                         Icon(if (disabled) Icons.Rounded.PlayCircleOutline else Icons.Rounded.Block, null)
                     },
@@ -319,7 +354,7 @@ private fun BlockMenu(def: BlockDef, actions: BlockCardActions, disabled: Boolea
             }
             HorizontalDivider()
             DropdownMenuItem(
-                text = { Text("Odstranit", color = MaterialTheme.colorScheme.error) },
+                text = { Text(tr("Odstranit"), color = MaterialTheme.colorScheme.error) },
                 leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error) },
                 onClick = { open = false; actions.onRemove() }
             )
@@ -339,18 +374,18 @@ private fun RequirementBanner(requirement: Requirement, onGrant: () -> Unit) {
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    requirement.title,
+                    tr(requirement.title),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onErrorContainer
                 )
                 Text(
-                    requirement.description,
+                    tr(requirement.description),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onErrorContainer
                 )
             }
             Spacer(Modifier.width(8.dp))
-            FilledTonalButton(onClick = onGrant) { Text("Povolit") }
+            FilledTonalButton(onClick = onGrant) { Text(tr("Povolit")) }
         }
     }
 }
@@ -375,12 +410,12 @@ private fun ParamEditor(
 ) {
     when (param) {
         is ParamDef.Text -> Column {
-            ParamLabel(param.label)
+            ParamLabel(tr(param.label))
             RichTextField(
                 segments = (value as? ParamValue.Rich)?.segments ?: emptyList(),
                 onChange = { onChange(ParamValue.Rich(it)) },
                 styleOf = chipStyle,
-                placeholder = param.placeholder,
+                placeholder = tr(param.placeholder),
                 allowVariables = !param.plain,
                 onRequestVariable = onRequestVariable,
                 code = param.code,
@@ -388,19 +423,19 @@ private fun ParamEditor(
         }
 
         is ParamDef.Choice -> Column {
-            ParamLabel(param.label)
+            ParamLabel(tr(param.label))
             val current = (value as? ParamValue.Choice)?.value ?: param.default
             var open by remember { mutableStateOf(false) }
             Box {
                 OutlinedButton(onClick = { open = true }, shape = RoundedCornerShape(12.dp)) {
-                    Text(param.labelOf(current))
+                    Text(tr(param.labelOf(current)))
                     Spacer(Modifier.width(4.dp))
                     Icon(Icons.Rounded.ArrowDropDown, null)
                 }
                 DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
                     for (option in param.options) {
                         DropdownMenuItem(
-                            text = { Text(option.label) },
+                            text = { Text(tr(option.label)) },
                             onClick = {
                                 open = false
                                 onChange(ParamValue.Choice(option.value))
@@ -412,7 +447,7 @@ private fun ParamEditor(
         }
 
         is ParamDef.Automation -> Column {
-            ParamLabel(param.label)
+            ParamLabel(tr(param.label))
             val automations = LocalAutomations.current
             val current = (value as? ParamValue.Choice)?.value.orEmpty()
             val selected = automations.firstOrNull { it.id.toString() == current }
@@ -421,9 +456,9 @@ private fun ParamEditor(
                 OutlinedButton(onClick = { open = true }, shape = RoundedCornerShape(12.dp)) {
                     Text(
                         when {
-                            selected != null -> selected.name + if (selected.isCurrent) " (tato)" else ""
-                            current.isNotEmpty() -> "Smazaná automatizace"
-                            else -> "Vybrat automatizaci"
+                            selected != null -> selected.name + if (selected.isCurrent) tr(" (tato)") else ""
+                            current.isNotEmpty() -> tr("Smazaná automatizace")
+                            else -> tr("Vybrat automatizaci")
                         },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -434,7 +469,7 @@ private fun ParamEditor(
                 DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
                     for (automation in automations) {
                         DropdownMenuItem(
-                            text = { Text(automation.name + if (automation.isCurrent) " (tato)" else "") },
+                            text = { Text(automation.name + if (automation.isCurrent) tr(" (tato)") else "") },
                             onClick = {
                                 open = false
                                 onChange(ParamValue.Choice(automation.id.toString()))
@@ -449,7 +484,7 @@ private fun ParamEditor(
             val stored = (value as? ParamValue.Number)?.value ?: param.default
             var current by remember(stored) { mutableFloatStateOf(stored) }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                ParamLabel(param.label)
+                ParamLabel(tr(param.label))
                 Spacer(Modifier.weight(1f))
                 Text(
                     formatNumber(current.toDouble()) + if (param.unit.isNotEmpty()) " ${param.unit}" else "",
@@ -468,7 +503,7 @@ private fun ParamEditor(
         }
 
         is ParamDef.Toggle -> Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(param.label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            Text(tr(param.label), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
             Switch(
                 checked = (value as? ParamValue.Bool)?.value ?: param.default,
                 onCheckedChange = { onChange(ParamValue.Bool(it)) }
@@ -493,10 +528,10 @@ private fun StepResultBox(entry: cz.natsu.automation.engine.LogEntry) {
         Column(Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
             Text(
                 when {
-                    error -> "Chyba"
-                    entry.skipped -> "Přeskočeno"
-                    entry.output == null -> "Provedeno"
-                    else -> "Výsledek"
+                    error -> tr("Chyba")
+                    entry.skipped -> tr("Přeskočeno")
+                    entry.output == null -> tr("Provedeno")
+                    else -> tr("Výsledek")
                 },
                 style = MaterialTheme.typography.labelMedium,
                 color = if (error) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onTertiaryContainer
@@ -505,7 +540,7 @@ private fun StepResultBox(entry: cz.natsu.automation.engine.LogEntry) {
             if (detail != null) {
                 androidx.compose.foundation.text.selection.SelectionContainer {
                     Text(
-                        detail.ifEmpty { "(prázdné)" }.take(2000),
+                        detail.ifEmpty { tr("(prázdné)") }.take(2000),
                         style = MaterialTheme.typography.bodyMedium,
                         maxLines = 12,
                         overflow = TextOverflow.Ellipsis,
@@ -524,7 +559,7 @@ private fun HelpButton(title: String, help: String) {
     IconButton(onClick = { open = true }) {
         Icon(
             Icons.AutoMirrored.Rounded.HelpOutline,
-            contentDescription = "Nápověda",
+            contentDescription = tr("Nápověda"),
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
@@ -543,7 +578,7 @@ private fun HelpButton(title: String, help: String) {
                     }
                 }
             },
-            confirmButton = { androidx.compose.material3.TextButton(onClick = { open = false }) { Text("Rozumím") } },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { open = false }) { Text(tr("Rozumím")) } },
         )
     }
 }

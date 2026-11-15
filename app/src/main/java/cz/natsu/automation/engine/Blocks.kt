@@ -1,5 +1,7 @@
 package cz.natsu.automation.engine
 
+import cz.natsu.automation.i18n.tr
+
 import android.app.NotificationManager
 import android.content.ActivityNotFoundException
 import android.content.ClipData
@@ -69,6 +71,7 @@ object Blocks {
 
     /** The "end" block type that closes a group started by [kind]. */
     fun endTypeFor(kind: BlockKind): String = when (kind) {
+        BlockKind.ParallelStart -> ControlBlocks.END_PARALLEL
         BlockKind.WhileStart -> END_WHILE
         BlockKind.TryStart -> END_TRY
         else -> END_IF
@@ -151,7 +154,8 @@ object Blocks {
             else -> ctx.resolve(VarRef.Event(source))
         }
         val right = ctx.text(block, "right")
-        return when (ctx.choice(block, "op")) {
+        val op = ctx.choice(block, "op")
+        fun check(left: String): Boolean = when (op) {
             "equals" -> left.equals(right, ignoreCase = true)
             "not_equals" -> !left.equals(right, ignoreCase = true)
             "contains" -> left.contains(right, ignoreCase = true)
@@ -161,13 +165,13 @@ object Blocks {
             "matches" -> try {
                 Regex(right).containsMatchIn(left)
             } catch (e: Exception) {
-                throw BlockException("neplatný regulární výraz")
+                throw BlockException(tr("neplatný regulární výraz"))
             }
             "empty" -> left.isBlank()
             "not_empty" -> left.isNotBlank()
             "greater", "less", "greater_eq", "less_eq" -> {
-                val a = parseNumber(left) ?: throw BlockException("\"$left\" není číslo")
-                val b = parseNumber(right) ?: throw BlockException("\"$right\" není číslo")
+                val a = parseNumber(left) ?: throw BlockException(tr("\"%s\" není číslo", left))
+                val b = parseNumber(right) ?: throw BlockException(tr("\"%s\" není číslo", right))
                 when (ctx.choice(block, "op")) {
                     "greater" -> a > b
                     "less" -> a < b
@@ -177,6 +181,9 @@ object Blocks {
             }
             else -> false
         }
+        // "Sdílení" and "Sharing" are the same value (see Equivalents), whichever the app shows now.
+        val results = Equivalents.variants(left).map { check(it) }
+        return if (op == "not_equals" || op == "not_contains") results.all { it } else results.any { it }
     }
 
     private val yesNo = { value: Boolean -> if (value) "true" else "false" }
@@ -221,7 +228,7 @@ object Blocks {
                 val regex = try {
                     Regex(find, options)
                 } catch (e: Exception) {
-                    throw BlockException("neplatný regulární výraz (${e.message})")
+                    throw BlockException(tr("neplatný regulární výraz (%s)", e.message))
                 }
                 source.replace(regex, replacement)
             } else {
@@ -355,13 +362,13 @@ object Blocks {
                 // Rounding is part of the expression: round(x; places).
                 Calc.evaluate(text(block, "expression"))
             } else {
-                val a = parseNumber(text(block, "a")) ?: throw BlockException("první hodnota není číslo")
-                val b = parseNumber(text(block, "b")) ?: throw BlockException("druhá hodnota není číslo")
+                val a = parseNumber(text(block, "a")) ?: throw BlockException(tr("první hodnota není číslo"))
+                val b = parseNumber(text(block, "b")) ?: throw BlockException(tr("druhá hodnota není číslo"))
                 when (choice(block, "op")) {
                     "-" -> a - b
                     "*" -> a * b
-                    "/" -> if (b == 0.0) throw BlockException("dělení nulou") else a / b
-                    "%" -> if (b == 0.0) throw BlockException("dělení nulou") else a % b
+                    "/" -> if (b == 0.0) throw BlockException(tr("dělení nulou")) else a / b
+                    "%" -> if (b == 0.0) throw BlockException(tr("dělení nulou")) else a % b
                     else -> a + b
                 }
             }
@@ -392,7 +399,7 @@ object Blocks {
             val value = text(block, "text")
             withContext(Dispatchers.Main) {
                 val clipboard = context.getSystemService(ClipboardManager::class.java)
-                    ?: throw BlockException("schránka není dostupná")
+                    ?: throw BlockException(tr("schránka není dostupná"))
                 cz.natsu.automation.trigger.ClipboardMonitor.markOwnWrite(value)
                 clipboard.setPrimaryClip(ClipData.newPlainText("Automation", value))
             }
@@ -413,7 +420,7 @@ object Blocks {
             ),
         ) { block ->
             val name = text(block, "name").trim()
-            if (name.isEmpty()) throw BlockException("proměnná nemá název")
+            if (name.isEmpty()) throw BlockException(tr("proměnná nemá název"))
             variables[name] = text(block, "value")
             BlockResult.None
         },
@@ -610,7 +617,7 @@ object Blocks {
             requirement = null,
         ) { block ->
             val audio = context.getSystemService(AudioManager::class.java)
-                ?: throw BlockException("zvuk není dostupný")
+                ?: throw BlockException(tr("zvuk není dostupný"))
             val stream = when (choice(block, "stream")) {
                 "ring" -> AudioManager.STREAM_RING
                 "notification" -> AudioManager.STREAM_NOTIFICATION
@@ -657,10 +664,10 @@ object Blocks {
             requirement = Requirement.NotificationPolicy,
         ) { block ->
             val audio = context.getSystemService(AudioManager::class.java)
-                ?: throw BlockException("zvuk není dostupný")
+                ?: throw BlockException(tr("zvuk není dostupný"))
             val notifications = context.getSystemService(NotificationManager::class.java)
             if (notifications?.isNotificationPolicyAccessGranted != true) {
-                throw BlockException("chybí přístup k režimu Nerušit", Requirement.NotificationPolicy)
+                throw BlockException(tr("chybí přístup k režimu Nerušit"), Requirement.NotificationPolicy)
             }
             val mode = when (choice(block, "mode")) {
                 "vibrate" -> AudioManager.RINGER_MODE_VIBRATE
@@ -690,7 +697,7 @@ object Blocks {
             } else {
                 @Suppress("DEPRECATION")
                 context.getSystemService(Vibrator::class.java)
-            } ?: throw BlockException("vibrace nejsou dostupné")
+            } ?: throw BlockException(tr("vibrace nejsou dostupné"))
             vibrator.vibrate(
                 VibrationEffect.createOneShot(number(block, "duration").toLong(), VibrationEffect.DEFAULT_AMPLITUDE)
             )
@@ -764,7 +771,7 @@ object Blocks {
             outputName = "Baterie",
         ) { block ->
             val battery = context.getSystemService(BatteryManager::class.java)
-                ?: throw BlockException("baterie není dostupná")
+                ?: throw BlockException(tr("baterie není dostupná"))
             val value = when (choice(block, "info")) {
                 "charging" -> yesNo(battery.isCharging)
                 else -> battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY).toString()
@@ -800,13 +807,13 @@ object Blocks {
             params = listOf(ParamDef.Text("url", "Adresa", placeholder = "https://…")),
         ) { block ->
             var url = text(block, "url").trim()
-            if (url.isEmpty()) throw BlockException("adresa je prázdná")
+            if (url.isEmpty()) throw BlockException(tr("adresa je prázdná"))
             if (!url.contains(":")) url = "https://$url"
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             try {
                 withContext(Dispatchers.Main) { context.startActivity(intent) }
             } catch (e: ActivityNotFoundException) {
-                throw BlockException("žádná aplikace neumí otevřít \"$url\"")
+                throw BlockException(tr("žádná aplikace neumí otevřít \"%s\"", url))
             }
             BlockResult.None
         },
@@ -825,7 +832,7 @@ object Blocks {
             val value = try {
                 SimpleDateFormat(format, Locale.getDefault()).format(Date())
             } catch (e: IllegalArgumentException) {
-                throw BlockException("neplatný formát data")
+                throw BlockException(tr("neplatný formát data"))
             }
             BlockResult.Output(value)
         },

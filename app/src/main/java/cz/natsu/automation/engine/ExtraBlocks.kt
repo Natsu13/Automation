@@ -1,5 +1,7 @@
 package cz.natsu.automation.engine
 
+import cz.natsu.automation.i18n.tr
+
 import android.content.ContentValues
 import android.content.Intent
 import android.os.Build
@@ -64,7 +66,7 @@ object ExtraBlocks {
             ),
         ) { block ->
             val key = text(block, "key").trim()
-            if (key.isEmpty()) throw BlockException("název je prázdný")
+            if (key.isEmpty()) throw BlockException(tr("název je prázdný"))
             if (choice(block, "mode") == "remove") ValueStore.remove(context, owner(block), key)
             else ValueStore.set(context, owner(block), key, text(block, "value"))
             BlockResult.None
@@ -86,7 +88,7 @@ object ExtraBlocks {
             outputName = "Uložená hodnota",
         ) { block ->
             val key = text(block, "key").trim()
-            if (key.isEmpty()) throw BlockException("název je prázdný")
+            if (key.isEmpty()) throw BlockException(tr("název je prázdný"))
             BlockResult.Output(ValueStore.get(context, owner(block), key) ?: text(block, "fallback"))
         },
 
@@ -101,7 +103,7 @@ object ExtraBlocks {
             params = listOf(ParamDef.Toggle("zero", "Počítat od 0", summaryWhenOn = " (od 0)")),
             outputName = "Pořadí",
         ) { block ->
-            val loop = currentLoop ?: throw BlockException("krok není uvnitř opakování")
+            val loop = loopOf[block.id] ?: throw BlockException(tr("krok není uvnitř opakování"))
             val round = loopRound[loop] ?: 1
             BlockResult.Output((if (bool(block, "zero")) round - 1 else round).toString())
         },
@@ -123,7 +125,7 @@ object ExtraBlocks {
         ) { block ->
             var value = Calc.evaluate(text(block, "expression"))
             text(block, "places").trim().takeIf { it.isNotEmpty() }?.let {
-                val places = parseNumber(it)?.toInt() ?: throw BlockException("\"Zaokrouhlit na míst\" není číslo")
+                val places = parseNumber(it)?.toInt() ?: throw BlockException(tr("\"Zaokrouhlit na míst\" není číslo"))
                 value = Calc.evaluate("round($value; $places)")
             }
             BlockResult.Output(formatNumber(value))
@@ -177,7 +179,7 @@ object ExtraBlocks {
             outputName = "Uložený soubor",
         ) { block ->
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                throw BlockException("ukládání do Galerie / Stažených potřebuje Android 10 nebo novější")
+                throw BlockException(tr("ukládání do Galerie / Stažených potřebuje Android 10 nebo novější"))
             }
             val source = HttpBlocks.openSource(context, FileTools.local(context, text(block, "file")))
             val name = text(block, "name").trim().ifEmpty { source.name }
@@ -199,13 +201,13 @@ object ExtraBlocks {
                 val collection = if (toGallery) MediaStore.Images.Media.EXTERNAL_CONTENT_URI
                 else MediaStore.Downloads.EXTERNAL_CONTENT_URI
                 val resolver = context.contentResolver
-                val uri = resolver.insert(collection, values) ?: throw BlockException("soubor nejde uložit")
+                val uri = resolver.insert(collection, values) ?: throw BlockException(tr("soubor nejde uložit"))
                 try {
                     resolver.openOutputStream(uri)?.use { out -> source.open().use { it.copyTo(out) } }
-                        ?: throw BlockException("soubor nejde uložit")
+                        ?: throw BlockException(tr("soubor nejde uložit"))
                 } catch (e: Exception) {
                     resolver.delete(uri, null, null)
-                    throw if (e is BlockException) e else BlockException("soubor nejde uložit (${e.message})")
+                    throw if (e is BlockException) e else BlockException(tr("soubor nejde uložit (%s)", e.message))
                 }
                 uri.toString()
             }
@@ -221,11 +223,11 @@ object FileTools {
     /** A local address for [source]; an https:// address is downloaded into the cache first. */
     suspend fun local(context: android.content.Context, source: String): String {
         val trimmed = source.trim().removePrefix("@")
-        if (trimmed.isEmpty()) throw BlockException("soubor není zadaný")
+        if (trimmed.isEmpty()) throw BlockException(tr("soubor není zadaný"))
         if (trimmed.startsWith("http://", true) || trimmed.startsWith("https://", true)) {
             val response = HttpBlocks.request(context, "GET", trimmed, emptyList(), null, saveToFile = true)
-            if (response.code >= 400) throw BlockException("soubor nejde stáhnout (chyba ${response.code})")
-            return response.file ?: throw BlockException("soubor nejde stáhnout")
+            if (response.code >= 400) throw BlockException(tr("soubor nejde stáhnout (chyba %s)", response.code))
+            return response.file ?: throw BlockException(tr("soubor nejde stáhnout"))
         }
         return trimmed
     }

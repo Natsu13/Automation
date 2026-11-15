@@ -1,6 +1,11 @@
 <resources>
     <string name="app_name">Automation</string>
-    <string name="trigger_label">Spustit automatizaci</string>
-    <string name="tile_label">Automatizace</string>
-    <string name="import_label">Importovat automatizaci</string>
+    <string name="trigger_label">Run automation</string>
+    <string name="tile_label">Automation</string>
+    <string name="tile_slot_1">Automation 1</string>
+    <string name="tile_slot_2">Automation 2</string>
+    <string name="tile_slot_3">Automation 3</string>
+    <string name="tile_slot_4">Automation 4</string>
+    <string name="tile_slot_5">Automation 5</string>
+    <string name="import_label">Import automation</string>
 </resources>

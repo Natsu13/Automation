@@ -1,5 +1,7 @@
 package cz.natsu.automation.trigger
 
+import cz.natsu.automation.i18n.tr
+
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -136,7 +138,7 @@ object UsageMeter {
     fun formatCpu(ms: Long): String {
         val seconds = ms / 1000
         return when {
-            seconds < 1 -> "méně než 1 s"
+            seconds < 1 -> tr("méně než 1 s")
             seconds < 60 -> "$seconds s"
             seconds % 60 == 0L -> "${seconds / 60} min"
             else -> "${seconds / 60} min ${seconds % 60} s"
@@ -188,7 +190,7 @@ object UsageMeter {
 
     /** Runs `dumpsys batterystats` for this app. Takes a moment; call off the main thread. */
     suspend fun readPrecise(context: Context): PreciseResult = withContext(Dispatchers.IO) {
-        if (!hasPreciseAccess(context)) return@withContext PreciseResult.Failed("Chybí oprávnění z ADB.")
+        if (!hasPreciseAccess(context)) return@withContext PreciseResult.Failed(tr("Chybí oprávnění z ADB."))
         try {
             val process = Runtime.getRuntime().exec(
                 arrayOf("dumpsys", "batterystats", "--charged", context.packageName)
@@ -199,7 +201,7 @@ object UsageMeter {
                 ?.let { PreciseResult.Ok(it) }
                 ?: PreciseResult.Failed(
                     output.lineSequence().firstOrNull { it.contains("Permission Denial") }
-                        ?: "Android statistiku nevrátil."
+                        ?: tr("Android statistiku nevrátil.")
                 )
         } catch (e: Exception) {
             PreciseResult.Failed(e.message ?: e.javaClass.simpleName)

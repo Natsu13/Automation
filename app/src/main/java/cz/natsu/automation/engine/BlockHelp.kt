@@ -5,7 +5,8 @@ package cz.natsu.automation.engine
  * with examples. Only blocks that need more than their one-line description.
  */
 object BlockHelp {
-    fun of(type: String): String? = texts[type]
+    fun of(type: String): String? =
+        (if (cz.natsu.automation.i18n.I18n.english) BlockHelpEn.texts[type] else null) ?: texts[type]
 
     private val texts = mapOf(
         "math" to """
@@ -238,6 +239,8 @@ object BlockHelp {
         Funkce – text
         • len(x), upper(x), lower(x), trim(x)
         • replace(text, co, cim), contains(text, co)
+        • ==, contains, starts a ends nerozlišují velká a malá písmena
+          (stejně jako blok Pokud); přesné porovnání je exact(a, b)
         • starts(text, zacatek), ends(text, konec)
         • split(text, oddelovac), join(seznam, oddelovac)
         • substr(text, od, delka), find(text, co)
@@ -255,6 +258,22 @@ object BlockHelp {
         • json(text), tojson(hodnota), type(x)
         • kdyz(podminka, a, b), date("d. M. yyyy"), now()
         • var("název s mezerou") – proměnná, která nejde napsat jménem
+
+        Bloky jako funkce
+        Každý blok jde zavolat svým typem. Parametry napíšeš jménem v { },
+        nebo jeden po druhém v pořadí, v jakém jsou v bloku.
+        • odp = http_request({url: "https://api.example.com/items"})
+        • toast("Hotovo: " & len(odp.body.items))
+        • set_clipboard(vysledek), vibrate(300)
+        • ask_text({title: "Jméno?"}), open_app("Spotify")
+        • blok("replace", {source: t, find: "a", replacement: "b"}) – pro
+          bloky, které se jmenují stejně jako funkce (replace, text, random)
+        Nastavení automatizace → Zobrazit jako skript zapíše tvoje kroky
+        takhle, takže uvidíš typ a parametry každého bloku.
+
+        Vestavěné proměnné
+        • vstup (input), schranka (clipboard), spusteni (trigger)
+        • event("wifi_name"), secret("název")
 
         Příklad
         soucet = 0

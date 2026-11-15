@@ -1,5 +1,7 @@
 package cz.natsu.automation.ui.editor
 
+import cz.natsu.automation.i18n.tr
+
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -281,7 +283,7 @@ fun RichTextField(
                     IconButton(onClick = { onRequestVariable(controller) }) {
                         Icon(
                             Icons.Rounded.DataObject,
-                            contentDescription = "Vložit proměnnou",
+                            contentDescription = tr("Vložit proměnnou"),
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )

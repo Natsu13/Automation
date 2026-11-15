@@ -11,10 +11,16 @@ enum class BlockKind {
     Normal, IfStart, Else, End, WhileStart, TryStart,
 
     /** "Jinak pokud": another condition of an "if", tried when the ones before it failed. */
-    ElseIf;
+    ElseIf,
 
-    /** Starts a group that ends with an "end" block (if, loop, try). */
-    val isGroupStart: Boolean get() = this == IfStart || this == WhileStart || this == TryStart
+    /** "Souběžně": its branches run at the same time and the run goes on when all are done. */
+    ParallelStart,
+
+    /** Separator between two branches of "Souběžně". */
+    Branch;
+
+    /** Starts a group that ends with an "end" block (if, loop, try, parallel). */
+    val isGroupStart: Boolean get() = this == IfStart || this == WhileStart || this == TryStart || this == ParallelStart
 }
 
 enum class BlockCategory(val title: String) {
@@ -81,6 +87,10 @@ sealed class ParamDef(val key: String, val label: String) {
         val code: Boolean = false,
         /** Offers a picker of installed apps that fills in the app's package name. */
         val appPicker: Boolean = false,
+        /** Offers the screens, services and receivers of the app chosen in the block's "package" field. */
+        val componentPicker: Boolean = false,
+        /** Values offered as chips under the field. */
+        val suggestions: List<String> = emptyList(),
     ) : ParamDef(key, label) {
         override fun defaultValue(): ParamValue =
             if (defaultRef != null) richVar(defaultRef) else richText(default)

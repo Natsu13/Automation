@@ -1,0 +1,10 @@
+<resources>
+    <string name="trigger_label">Spustit automatizaci</string>
+    <string name="tile_label">Automatizace</string>
+    <string name="tile_slot_1">Automatizace 1</string>
+    <string name="tile_slot_2">Automatizace 2</string>
+    <string name="tile_slot_3">Automatizace 3</string>
+    <string name="tile_slot_4">Automatizace 4</string>
+    <string name="tile_slot_5">Automatizace 5</string>
+    <string name="import_label">Importovat automatizaci</string>
+</resources>

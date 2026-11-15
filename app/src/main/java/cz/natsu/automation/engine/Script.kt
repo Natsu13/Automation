@@ -1,5 +1,7 @@
 package cz.natsu.automation.engine
 
+import cz.natsu.automation.i18n.tr
+
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -63,6 +65,12 @@ object Script {
 
         /** false = the run was stopped. */
         fun active(): Boolean = true
+
+        /**
+         * A function the language itself does not have – a block of the app called by
+         * its type, e.g. `http_request({url: "…"})`. Returns [MISSING] when there is none.
+         */
+        fun call(name: String, args: List<Any?>): Any? = MISSING
     }
 
     class Program internal constructor(internal val body: List<Stmt>)
@@ -101,6 +109,9 @@ object Script {
         is Map<*, *> -> value.isNotEmpty()
         else -> true
     }
+
+    /** The value as a number, or null when it is not one. */
+    fun numberOf(value: Any?): Double? = number(value)
 
     // ---------- values ----------
 
@@ -147,7 +158,9 @@ object Script {
         if (left is List<*> || left is Map<*, *> || right is List<*> || right is Map<*, *>) {
             return toJson(structured(left)) == toJson(structured(right))
         }
-        return text(left) == text(right)
+        // Like the "If" block: upper / lower case does not matter. exact(a, b) is there for when it does.
+        val rights = Equivalents.variants(text(right))
+        return Equivalents.variants(text(left)).any { l -> rights.any { r -> l.equals(r, ignoreCase = true) } }
     }
 
     private fun compare(left: Any?, right: Any?): Int {
@@ -177,13 +190,13 @@ object Script {
         private var depth = 0
         private val out = mutableListOf<Token>()
 
-        private fun error(message: String): Nothing = fail("řádek $line: $message")
+        private fun error(message: String): Nothing = fail(tr("řádek %s: %s", line, message))
 
         private fun chipIndex(): Int {
             // pos is at CHIP_START
             val end = code.indexOf(CHIP_END, pos)
-            if (end < 0) error("poškozená proměnná")
-            val index = code.substring(pos + 1, end).toIntOrNull() ?: error("poškozená proměnná")
+            if (end < 0) error(tr("poškozená proměnná"))
+            val index = code.substring(pos + 1, end).toIntOrNull() ?: error(tr("poškozená proměnná"))
             pos = end + 1
             return index
         }
@@ -239,7 +252,7 @@ object Script {
                 }
             }
             val text = code.substring(start, pos)
-            out += Token(T.Num, text, line, number = text.toDoubleOrNull() ?: error("\"$text\" není číslo"))
+            out += Token(T.Num, text, line, number = text.toDoubleOrNull() ?: error(tr("\"%s\" není číslo", text)))
         }
 
         private fun string(quote: Char) {
@@ -248,7 +261,7 @@ object Script {
             val parts = mutableListOf<Any>()
             val current = StringBuilder()
             while (true) {
-                if (pos >= code.length) fail("řádek $startLine: text není ukončený uvozovkou $quote")
+                if (pos >= code.length) fail(tr("řádek %s: text není ukončený uvozovkou %s", startLine, quote))
                 val c = code[pos]
                 when {
                     c == quote -> {
@@ -286,7 +299,7 @@ object Script {
             val op = when {
                 two in TWO_CHAR -> two
                 code[pos] in ONE_CHAR -> code[pos].toString()
-                else -> error("nečekaný znak \"${code[pos]}\"")
+                else -> error(tr("nečekaný znak \"%s\"", code[pos]))
             }
             when (op) {
                 "(", "[", "{" -> depth++
@@ -348,7 +361,7 @@ object Script {
 
         private fun peek() = tokens[pos]
         private fun next() = tokens[pos++]
-        private fun error(token: Token, message: String): Nothing = fail("řádek ${token.line}: $message")
+        private fun error(token: Token, message: String): Nothing = fail(tr("řádek %s: %s", token.line, message))
 
         private fun isWord(words: Set<String>, token: Token = peek()) =
             token.type == T.Ident && token.text.lowercase() in words
@@ -362,7 +375,7 @@ object Script {
         }
 
         private fun expectOp(op: String) {
-            if (!takeOp(op)) error(peek(), "čekal jsem \"$op\", ale je tu \"${peek().text}\"")
+            if (!takeOp(op)) error(peek(), tr("čekal jsem \"%s\", ale je tu \"%s\"", op, peek().text))
         }
 
         private fun skipNewLines() {
@@ -373,14 +386,14 @@ object Script {
             val token = peek()
             // "pokud x vrat 1 konec" on one line is fine too.
             if (token.type != T.NewLine && token.type != T.End && !isWord(END) && !isWord(ELSE)) {
-                error(token, "nečekané \"${token.text}\" (chybí operátor nebo nový řádek?)")
+                error(token, tr("nečekané \"%s\" (chybí operátor nebo nový řádek?)", token.text))
             }
         }
 
         fun program(): Program {
             val body = block()
             val token = peek()
-            if (token.type != T.End) error(token, "\"${token.text}\" tu nemá co uzavírat")
+            if (token.type != T.End) error(token, tr("\"%s\" tu nemá co uzavírat", token.text))
             return Program(body)
         }
 
@@ -396,7 +409,7 @@ object Script {
         }
 
         private fun expectEnd(opened: Token) {
-            if (!isWord(END)) error(peek(), "chybí \"konec\" k \"${opened.text}\" z řádku ${opened.line}")
+            if (!isWord(END)) error(peek(), tr("chybí \"konec\" k \"%s\" z řádku %s", opened.text, opened.line))
             pos++
         }
 
@@ -415,8 +428,8 @@ object Script {
                 isWord(FOR) -> {
                     next()
                     val name = next().takeIf { it.type == T.Ident }
-                        ?: error(token, "za \"${token.text}\" má být název proměnné")
-                    if (!isWord(IN)) error(peek(), "čekal jsem \"v\" (pro položka v seznam)")
+                        ?: error(token, tr("za \"%s\" má být název proměnné", token.text))
+                    if (!isWord(IN)) error(peek(), tr("čekal jsem \"v\" (pro položka v seznam)"))
                     next()
                     val list = expression()
                     takeOp(":")
@@ -442,7 +455,7 @@ object Script {
                     val op = peek()
                     if (op.type == T.Op && op.text in ASSIGN_OPS) {
                         if (expr !is Variable && expr !is Index && expr !is Member) {
-                            error(op, "do tohohle nejde přiřadit (vlevo od = má být proměnná)")
+                            error(op, tr("do tohohle nejde přiřadit (vlevo od = má být proměnná)"))
                         }
                         next()
                         Assign(token.line, expr, op.text, expression())
@@ -571,7 +584,7 @@ object Script {
                     }
                     takeOp(".") -> {
                         val name = next()
-                        if (name.type != T.Ident && name.type != T.Num) error(name, "za tečkou má být název")
+                        if (name.type != T.Ident && name.type != T.Num) error(name, tr("za tečkou má být název"))
                         Member(token.line, expr, name.text)
                     }
                     else -> return expr
@@ -585,7 +598,7 @@ object Script {
             while (true) {
                 items += expression()
                 if (takeOp(close)) return items
-                if (!takeOp(",")) error(peek(), "čekal jsem \",\" nebo \"$close\", ale je tu \"${peek().text}\"")
+                if (!takeOp(",")) error(peek(), tr("čekal jsem \",\" nebo \"%s\", ale je tu \"%s\"", close, peek().text))
             }
         }
 
@@ -616,18 +629,18 @@ object Script {
                                 T.Ident, T.Num -> Lit(key.line, key.text)
                                 T.Str -> if (key.parts.all { it is String }) Lit(key.line, key.parts.joinToString(""))
                                 else Interpolated(key.line, key.parts)
-                                else -> error(key, "klíč objektu má být text nebo název")
+                                else -> error(key, tr("klíč objektu má být text nebo název"))
                             }
                             expectOp(":")
                             entries += keyExpr to expression()
                             if (takeOp("}")) break
-                            if (!takeOp(",")) error(peek(), "čekal jsem \",\" nebo \"}\"")
+                            if (!takeOp(",")) error(peek(), tr("čekal jsem \",\" nebo \"}\""))
                         }
                         MapLit(token.line, entries)
                     }
-                    else -> error(token, "nečekané \"${token.text}\"")
+                    else -> error(token, tr("nečekané \"%s\"", token.text))
                 }
-                T.NewLine, T.End -> error(token, "výraz je neúplný")
+                T.NewLine, T.End -> error(token, tr("výraz je neúplný"))
             }
         }
 
@@ -656,7 +669,7 @@ object Script {
         }
 
         private fun tick() {
-            if (++steps > MAX_STEPS) fail("skript udělal přes 5 milionů kroků (nekonečné opakování?)")
+            if (++steps > MAX_STEPS) fail(tr("skript udělal přes 5 milionů kroků (nekonečné opakování?)"))
             if (steps % 1000 == 0 && !host.active()) throw CancellationException("Zastaveno")
         }
 
@@ -672,12 +685,13 @@ object Script {
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: BlockException) {
-                    if (e.message?.startsWith("řádek ") == true) throw e
-                    throw BlockException("řádek ${statement.line}: ${e.message}", e.requirement)
+                    // Already says which line (an error from a nested statement).
+                    if (e.message?.startsWith(tr("řádek %s: %s").substringBefore("%")) == true) throw e
+                    throw BlockException(tr("řádek %s: %s", statement.line, e.message), e.requirement)
                 } catch (e: StackOverflowError) {
-                    throw BlockException("řádek ${statement.line}: výraz je příliš složitý")
+                    throw BlockException(tr("řádek %s: výraz je příliš složitý", statement.line))
                 } catch (e: RuntimeException) {
-                    throw BlockException("řádek ${statement.line}: ${e.message ?: e.javaClass.simpleName}")
+                    throw BlockException(tr("řádek %s: %s", statement.line, e.message ?: e.javaClass.simpleName))
                 }
             }
         }
@@ -737,7 +751,7 @@ object Script {
         private fun getVariable(name: String): Any? {
             if (locals.containsKey(name)) return locals[name]
             val value = host.get(name)
-            if (value === MISSING) fail("proměnná \"$name\" neexistuje")
+            if (value === MISSING) fail(tr("proměnná \"%s\" neexistuje", name))
             return value
         }
 
@@ -754,19 +768,19 @@ object Script {
                     val updated: Any = when (val container = structured(eval(target.base))) {
                         null -> if (number(index) != null) mutableListOf(value) else linkedMapOf(text(index) to value)
                         is List<*> -> container.toMutableList().also { list ->
-                            var n = number(index)?.toInt() ?: fail("pozice v seznamu má být číslo")
+                            var n = number(index)?.toInt() ?: fail(tr("pozice v seznamu má být číslo"))
                             if (n < 0) n += list.size
                             when (n) {
                                 list.size -> list.add(value)
                                 in list.indices -> list[n] = value
-                                else -> fail("pozice $n je mimo seznam (má ${list.size} položek)")
+                                else -> fail(tr("pozice %s je mimo seznam (má %s položek)", n, list.size))
                             }
                         }
                         is Map<*, *> -> LinkedHashMap<String, Any?>().also { map ->
                             container.forEach { (k, v) -> map[text(k)] = v }
                             map[text(index)] = value
                         }
-                        else -> fail("do téhle hodnoty nejde zapisovat přes [ ]")
+                        else -> fail(tr("do téhle hodnoty nejde zapisovat přes [ ]"))
                     }
                     assign(target.base, updated)
                 }
@@ -777,11 +791,11 @@ object Script {
                             container.forEach { (k, v) -> map[text(k)] = v }
                             map[target.name] = value
                         }
-                        else -> fail("\"${target.name}\": hodnota není objekt")
+                        else -> fail(tr("\"%s\": hodnota není objekt", target.name))
                     }
                     assign(target.base, updated)
                 }
-                else -> fail("sem nejde přiřadit")
+                else -> fail(tr("sem nejde přiřadit"))
             }
         }
 
@@ -793,7 +807,7 @@ object Script {
             is Unary -> {
                 val value = eval(expr.operand)
                 if (expr.op == "!") !truthy(value)
-                else -(number(value) ?: fail("\"${text(value).take(30)}\" není číslo"))
+                else -(number(value) ?: fail(tr("\"%s\" není číslo", text(value).take(30))))
             }
             is Logic -> {
                 val left = truthy(eval(expr.left))
@@ -805,17 +819,17 @@ object Script {
                 when (val base = structured(eval(expr.base))) {
                     null -> null
                     is List<*> -> {
-                        var n = number(index)?.toInt() ?: fail("pozice v seznamu má být číslo")
+                        var n = number(index)?.toInt() ?: fail(tr("pozice v seznamu má být číslo"))
                         if (n < 0) n += base.size
                         base.getOrNull(n)
                     }
                     is Map<*, *> -> base[text(index)]
                     is String -> {
-                        var n = number(index)?.toInt() ?: fail("pozice v textu má být číslo")
+                        var n = number(index)?.toInt() ?: fail(tr("pozice v textu má být číslo"))
                         if (n < 0) n += base.length
                         base.getOrNull(n)?.toString()
                     }
-                    else -> fail("z téhle hodnoty nejde číst přes [ ]")
+                    else -> fail(tr("z téhle hodnoty nejde číst přes [ ]"))
                 }
             }
             is Member -> when (val base = structured(eval(expr.base))) {
@@ -824,9 +838,9 @@ object Script {
                 is List<*> -> when (expr.name) {
                     "length", "delka", "délka" -> base.size.toDouble()
                     else -> expr.name.toIntOrNull()?.let { base.getOrNull(it) }
-                        ?: fail("seznam nemá \"${expr.name}\" (položky se čtou přes [0])")
+                        ?: fail(tr("seznam nemá \"%s\" (položky se čtou přes [0])", expr.name))
                 }
-                else -> fail("\"${expr.name}\": hodnota není objekt")
+                else -> fail(tr("\"%s\": hodnota není objekt", expr.name))
             }
             is ListLit -> expr.items.mapTo(mutableListOf()) { eval(it) }
             is MapLit -> expr.entries.associateTo(LinkedHashMap()) { (key, value) -> text(eval(key)) to eval(value) }
@@ -834,7 +848,7 @@ object Script {
                 tick()
                 when (expr.name) {
                     "var", "promenna", "proměnná" -> {
-                        if (expr.args.size != 1) fail("${expr.name} potřebuje název proměnné")
+                        if (expr.args.size != 1) fail(tr("%s potřebuje název proměnné", expr.name))
                         getVariable(text(eval(expr.args[0])))
                     }
                     else -> call(expr.name, expr.args.map { eval(it) })
@@ -843,7 +857,7 @@ object Script {
         }
 
         private fun binary(op: String, left: Any?, right: Any?): Any? {
-            fun num(value: Any?) = number(value) ?: fail("\"${text(value).take(30)}\" není číslo (operace $op)")
+            fun num(value: Any?) = number(value) ?: fail(tr("\"%s\" není číslo (operace %s)", text(value).take(30), op))
             return when (op) {
                 "+" -> {
                     val a = number(left)
@@ -857,8 +871,8 @@ object Script {
                 "&" -> text(left) + text(right)
                 "-" -> num(left) - num(right)
                 "*" -> num(left) * num(right)
-                "/" -> num(right).let { if (it == 0.0) fail("dělení nulou") else num(left) / it }
-                "%" -> num(right).let { if (it == 0.0) fail("dělení nulou") else num(left) % it }
+                "/" -> num(right).let { if (it == 0.0) fail(tr("dělení nulou")) else num(left) / it }
+                "%" -> num(right).let { if (it == 0.0) fail(tr("dělení nulou")) else num(left) % it }
                 "^" -> num(left).pow(num(right))
                 "==" -> same(left, right)
                 "!=" -> !same(left, right)
@@ -866,14 +880,14 @@ object Script {
                 "<=" -> compare(left, right) <= 0
                 ">" -> compare(left, right) > 0
                 ">=" -> compare(left, right) >= 0
-                else -> fail("neznámá operace $op")
+                else -> fail(tr("neznámá operace %s", op))
             }
         }
 
         private fun range(from: Double, to: Double): List<Any?> {
             val first = from.toLong()
             val last = to.toLong()
-            if (last - first >= MAX_RANGE) fail("rozsah je moc velký (nejvýš $MAX_RANGE)")
+            if (last - first >= MAX_RANGE) fail(tr("rozsah je moc velký (nejvýš %s)", MAX_RANGE))
             return (first..last).map { it.toDouble() }
         }
 
@@ -885,7 +899,7 @@ object Script {
                 }
             }
             fun str(i: Int) = text(args.getOrNull(i))
-            fun num(i: Int) = number(args[i]) ?: fail("$name: \"${str(i).take(30)}\" není číslo")
+            fun num(i: Int) = number(args[i]) ?: fail(tr("%s: \"%s\" není číslo", name, str(i).take(30)))
             fun list(i: Int): List<Any?> = when (val value = structured(args[i])) {
                 is List<*> -> value
                 is Map<*, *> -> value.values.toList()
@@ -894,8 +908,8 @@ object Script {
             /** Numbers given one by one or as a single list. */
             fun numbers(): List<Double> {
                 val values = if (args.size == 1 && structured(args[0]) is List<*>) list(0) else args
-                if (values.isEmpty()) fail("$name: chybí čísla")
-                return values.map { number(it) ?: fail("$name: \"${text(it).take(30)}\" není číslo") }
+                if (values.isEmpty()) fail(tr("%s: chybí čísla", name))
+                return values.map { number(it) ?: fail(tr("%s: \"%s\" není číslo", name, text(it).take(30))) }
             }
             fun regex(pattern: String) = try {
                 Regex(pattern)
@@ -922,11 +936,12 @@ object Script {
                     when (val value = structured(args[0])) {
                         is List<*> -> value.any { same(it, args[1]) }
                         is Map<*, *> -> value.containsKey(str(1))
-                        else -> text(value).contains(str(1))
+                        else -> Equivalents.variants(text(value)).any { it.contains(str(1), ignoreCase = true) }
                     }
                 }
-                "starts", "zacina", "začíná" -> need(2..2).let { str(0).startsWith(str(1)) }
-                "ends", "konci", "končí" -> need(2..2).let { str(0).endsWith(str(1)) }
+                "starts", "zacina", "začíná" -> need(2..2).let { Equivalents.variants(str(0)).any { it.startsWith(str(1), ignoreCase = true) } }
+                "ends", "konci", "končí" -> need(2..2).let { Equivalents.variants(str(0)).any { it.endsWith(str(1), ignoreCase = true) } }
+                "exact", "presne", "přesně" -> need(2..2).let { str(0) == str(1) }
                 "split", "rozdel", "rozděl" -> {
                     need(1..2)
                     val separator = if (args.size > 1) str(1) else "\n"
@@ -971,7 +986,7 @@ object Script {
                     need(2..2)
                     val from = num(0).toLong()
                     val to = num(1).toLong()
-                    if (to < from) fail("$name: druhé číslo je menší než první")
+                    if (to < from) fail(tr("%s: druhé číslo je menší než první", name))
                     Random.nextLong(from, to + 1).toDouble()
                 }
                 "calc", "vypocet", "výpočet" -> need(1..1).let { Calc.evaluate(str(0)) }
@@ -983,14 +998,14 @@ object Script {
                 }
                 "keys", "klice", "klíče" -> {
                     need(1..1)
-                    (structured(args[0]) as? Map<*, *>)?.keys?.toMutableList<Any?>() ?: fail("$name: hodnota není objekt")
+                    (structured(args[0]) as? Map<*, *>)?.keys?.toMutableList<Any?>() ?: fail(tr("%s: hodnota není objekt", name))
                 }
                 "values", "hodnoty" -> {
                     need(1..1)
-                    (structured(args[0]) as? Map<*, *>)?.values?.toMutableList() ?: fail("$name: hodnota není objekt")
+                    (structured(args[0]) as? Map<*, *>)?.values?.toMutableList() ?: fail(tr("%s: hodnota není objekt", name))
                 }
                 "push", "pridej", "přidej" -> {
-                    if (args.isEmpty()) fail("$name: chybí seznam")
+                    if (args.isEmpty()) fail(tr("%s: chybí seznam", name))
                     (list(0) + args.drop(1)).toMutableList()
                 }
                 "json" -> need(1..1).let { fromJson(JsonTools.parse(str(0))) }
@@ -1018,7 +1033,7 @@ object Script {
                         fail("$name: neplatný formát data")
                     }
                 }
-                else -> fail("neznámá funkce $name")
+                else -> host.call(name, args).let { if (it === MISSING) fail(tr("neznámá funkce %s", name)) else it }
             }
         }
     }

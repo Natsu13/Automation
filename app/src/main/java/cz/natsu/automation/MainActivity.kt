@@ -1,5 +1,7 @@
 package cz.natsu.automation
 
+import cz.natsu.automation.i18n.tr
+
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
@@ -130,7 +132,7 @@ class MainActivity : ComponentActivity() {
             } catch (e: ImportException) {
                 e.message
             } catch (e: Exception) {
-                "Import se nepodařil: ${e.message}"
+                tr("Import se nepodařil: %s", e.message)
             }
             Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
         }

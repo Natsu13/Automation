@@ -1,5 +1,7 @@
 package cz.natsu.automation.trigger
 
+import cz.natsu.automation.i18n.tr
+
 import android.content.Context
 import android.util.Log
 import androidx.core.content.pm.ShortcutInfoCompat
@@ -28,8 +30,8 @@ object ShortcutPublisher {
                 .take(max)
                 .mapIndexed { rank, automation ->
                     ShortcutInfoCompat.Builder(context, PREFIX + automation.id)
-                        .setShortLabel(automation.name.take(25).ifBlank { "Automatizace" })
-                        .setLongLabel(automation.name.ifBlank { "Automatizace" })
+                        .setShortLabel(automation.name.take(25).ifBlank { tr("Automatizace") })
+                        .setLongLabel(automation.name.ifBlank { tr("Automatizace") })
                         .setIcon(IconCompat.createWithResource(context, R.drawable.ic_shortcut))
                         .setIntent(TriggerActivity.runIntent(context, automation.id))
                         .setCategories(setOf(SHARE_CATEGORY))

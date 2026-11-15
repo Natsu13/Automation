@@ -1,5 +1,6 @@
 package cz.natsu.automation.ui.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,9 +33,36 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cz.natsu.automation.data.RunHistory
+import cz.natsu.automation.i18n.tr
 import cz.natsu.automation.data.RunRecord
 import cz.natsu.automation.data.SecretStore
 import cz.natsu.automation.data.ValueStore
+
+/** Czech / English / by the phone. The change shows at once, without a restart. */
+@Composable
+fun LanguageSection() {
+    val context = LocalContext.current
+    Text("Language / Jazyk", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+    Card(shape = MaterialTheme.shapes.extraLarge) {
+        Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+            for (language in cz.natsu.automation.i18n.Language.entries) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { cz.natsu.automation.i18n.I18n.set(context, language) }
+                        .padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.RadioButton(
+                        selected = cz.natsu.automation.i18n.I18n.language == language,
+                        onClick = { cz.natsu.automation.i18n.I18n.set(context, language) },
+                    )
+                    Text(language.title)
+                }
+            }
+        }
+    }
+}
 
 /** The last runs started by triggers and events, with the error of the failed ones. */
 @Composable
@@ -43,49 +71,80 @@ fun RunHistorySection(resumeCounter: Int) {
     var version by remember { mutableIntStateOf(0) }
     val records = remember(version, resumeCounter) { RunHistory.all(context) }
     var showAll by remember { mutableStateOf(false) }
-    val timeFormat = remember { java.text.SimpleDateFormat("d. M. H:mm:ss", java.util.Locale.getDefault()) }
 
-    Text("Historie běhů", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+    Text(tr("Historie běhů"), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
     Card(shape = MaterialTheme.shapes.extraLarge) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (records.isEmpty()) {
                 Text(
-                    "Zatím nic. Objeví se tu spuštění událostí, dlaždicí, sdílením nebo ze schránky – " +
-                            "i ta na pozadí, u kterých by ses o chybě jinak nedozvěděl.",
+                    tr("Zatím nic. Objeví se tu spuštění událostí, dlaždicí, sdílením nebo ze schránky – ") +
+                            tr("i ta na pozadí, u kterých by ses o chybě jinak nedozvěděl."),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            for (record in if (showAll) records else records.take(8)) {
-                val failed = record.outcome == RunRecord.ERROR
-                Column {
-                    Text(
-                        record.name + when (record.outcome) {
-                            RunRecord.ERROR -> " – chyba"
-                            RunRecord.CANCELLED -> " – zrušeno"
-                            else -> ""
-                        },
-                        color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        "${timeFormat.format(java.util.Date(record.time))} · ${record.trigger} · " +
-                                "${record.steps} kroků · ${formatDuration(record.durationMs)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    record.error?.let {
-                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                    }
-                }
-            }
+            for (record in if (showAll) records else records.take(8)) RunRecordRow(record, record.name)
             if (records.isNotEmpty()) Row {
                 if (records.size > 8) TextButton(onClick = { showAll = !showAll }) {
-                    Text(if (showAll) "Zobrazit méně" else "Zobrazit vše (${records.size})")
+                    Text(if (showAll) tr("Zobrazit méně") else tr("Zobrazit vše (%s)", records.size))
                 }
-                TextButton(onClick = { RunHistory.clear(context); version++ }) { Text("Vymazat") }
+                TextButton(onClick = { RunHistory.clear(context); version++ }) { Text(tr("Vymazat")) }
             }
+        }
+    }
+}
+
+/** One run: [title] with the outcome, when and how it started, and the error of a failed one. */
+@Composable
+private fun RunRecordRow(record: RunRecord, title: String) {
+    val timeFormat = remember { java.text.SimpleDateFormat("d. M. H:mm:ss", java.util.Locale.getDefault()) }
+    val failed = record.outcome == RunRecord.ERROR
+    Column {
+        Text(
+            title + when (record.outcome) {
+                RunRecord.ERROR -> " – " + tr("chyba")
+                RunRecord.CANCELLED -> " – " + tr("zrušeno")
+                else -> ""
+            },
+            color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            "${timeFormat.format(java.util.Date(record.time))} · ${tr(record.trigger)} · " +
+                    "${tr("kroků")}: ${record.steps} · ${formatDuration(record.durationMs)}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        record.error?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        }
+    }
+}
+
+/** The last runs of one automation, for its settings. */
+@Composable
+fun AutomationRunHistory(automationId: Long) {
+    val context = LocalContext.current
+    val records = remember { RunHistory.all(context).filter { it.automationId == automationId } }
+    var showAll by remember { mutableStateOf(false) }
+    Text(tr("Historie běhů"), style = MaterialTheme.typography.titleMedium)
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (records.isEmpty()) {
+            Text(
+                tr("Zatím žádné spuštění mimo editor (událostí, dlaždicí, sdílením, zástupcem…)."),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        for (record in if (showAll) records else records.take(5)) {
+            RunRecordRow(record, when (record.outcome) {
+                RunRecord.OK -> tr("Proběhlo")
+                else -> tr("Spuštění")
+            })
+        }
+        if (records.size > 5) TextButton(onClick = { showAll = !showAll }) {
+            Text(if (showAll) tr("Zobrazit méně") else tr("Zobrazit vše") + " (${records.size})")
         }
     }
 }
@@ -102,12 +161,12 @@ fun SecretsSection() {
     var editing by remember { mutableStateOf<String?>(null) }   // "" = new
     var deleting by remember { mutableStateOf<String?>(null) }
 
-    Text("Tajné hodnoty", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+    Text(tr("Tajné hodnoty"), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
     Card(shape = MaterialTheme.shapes.extraLarge) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                "API klíče, tokeny a hesla. Jsou zašifrované klíčem v Android Keystore, do kroků se vkládají " +
-                        "jako proměnná 🔑 a do exportu automatizace se nikdy nedostanou. V záznamu běhu jsou skryté.",
+                tr("API klíče, tokeny a hesla. Jsou zašifrované klíčem v Android Keystore, do kroků se vkládají ") +
+                        tr("jako proměnná 🔑 a do exportu automatizace se nikdy nedostanou. V záznamu běhu jsou skryté."),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -115,13 +174,13 @@ fun SecretsSection() {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.Key, null, tint = MaterialTheme.colorScheme.primary)
                     Text(name, Modifier.weight(1f).padding(start = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    IconButton(onClick = { editing = name }) { Icon(Icons.Rounded.Edit, "Změnit") }
-                    IconButton(onClick = { deleting = name }) { Icon(Icons.Rounded.Delete, "Smazat") }
+                    IconButton(onClick = { editing = name }) { Icon(Icons.Rounded.Edit, tr("Změnit")) }
+                    IconButton(onClick = { deleting = name }) { Icon(Icons.Rounded.Delete, tr("Smazat")) }
                 }
             }
             TextButton(onClick = { editing = "" }) {
                 Icon(Icons.Rounded.Add, null)
-                Text("Přidat tajnou hodnotu", Modifier.padding(start = 8.dp))
+                Text(tr("Přidat tajnou hodnotu"), Modifier.padding(start = 8.dp))
             }
         }
     }
@@ -142,16 +201,16 @@ fun SecretsSection() {
     deleting?.let { name ->
         AlertDialog(
             onDismissRequest = { deleting = null },
-            title = { Text("Smazat \"$name\"?") },
-            text = { Text("Automatizace, které ji používají, skončí chybou, dokud ji znovu nepřidáš.") },
+            title = { Text(tr("Smazat \"%s\"?", name)) },
+            text = { Text(tr("Automatizace, které ji používají, skončí chybou, dokud ji znovu nepřidáš.")) },
             confirmButton = {
                 TextButton(onClick = {
                     SecretStore.remove(context, name)
                     deleting = null
                     version++
-                }) { Text("Smazat") }
+                }) { Text(tr("Smazat")) }
             },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Zrušit") } },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text(tr("Zrušit")) } },
         )
     }
 }
@@ -169,19 +228,19 @@ private fun SecretDialog(
     val trimmed = name.trim()
     val nameError = when {
         trimmed.isEmpty() -> null
-        trimmed != existingName && trimmed in taken -> "Tenhle název už existuje"
+        trimmed != existingName && trimmed in taken -> tr("Tenhle název už existuje")
         else -> null
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (existingName == null) "Nová tajná hodnota" else "Změnit tajnou hodnotu") },
+        title = { Text(if (existingName == null) tr("Nová tajná hodnota") else tr("Změnit tajnou hodnotu")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Název") },
-                    placeholder = { Text("např. github_token") },
+                    label = { Text(tr("Název")) },
+                    placeholder = { Text(tr("např. github_token")) },
                     singleLine = true,
                     isError = nameError != null,
                     supportingText = nameError?.let { { Text(it) } },
@@ -190,7 +249,7 @@ private fun SecretDialog(
                 OutlinedTextField(
                     value = value,
                     onValueChange = { value = it },
-                    label = { Text(if (existingName == null) "Hodnota" else "Nová hodnota") },
+                    label = { Text(if (existingName == null) tr("Hodnota") else tr("Nová hodnota")) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth()
@@ -201,9 +260,9 @@ private fun SecretDialog(
             TextButton(
                 enabled = trimmed.isNotEmpty() && nameError == null && value.isNotEmpty(),
                 onClick = { onSave(trimmed, value) }
-            ) { Text("Uložit") }
+            ) { Text(tr("Uložit")) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Zrušit") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Zrušit")) } },
     )
 }
 
@@ -219,14 +278,14 @@ fun StoredValuesSection() {
             .getAll().associate { it.id to it.name }
     }
 
-    Text("Uložené hodnoty", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+    Text(tr("Uložené hodnoty"), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
     Card(shape = MaterialTheme.shapes.extraLarge) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                if (values.isEmpty()) "Zatím nic. Hodnoty sem ukládá blok Uložit hodnotu, aby si je automatizace " +
-                        "pamatovaly i mezi spuštěními."
-                else "Co si automatizace zapamatovaly blokem Uložit hodnotu. Každá má svoje, " +
-                        "pokud hodnota není nastavená jako sdílená.",
+                if (values.isEmpty()) tr("Zatím nic. Hodnoty sem ukládá blok Uložit hodnotu, aby si je automatizace ") +
+                        tr("pamatovaly i mezi spuštěními.")
+                else tr("Co si automatizace zapamatovaly blokem Uložit hodnotu. Každá má svoje, ") +
+                        tr("pokud hodnota není nastavená jako sdílená."),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -234,9 +293,9 @@ fun StoredValuesSection() {
             for ((owner, entries) in values.groupBy { it.automationId }) {
                 Text(
                     when (owner) {
-                        null -> "Sdílené všemi automatizacemi"
-                        0L -> "Zkušební běh bez automatizace"
-                        else -> names[owner] ?: "Smazaná automatizace"
+                        null -> tr("Sdílené všemi automatizacemi")
+                        0L -> tr("Zkušební běh bez automatizace")
+                        else -> names[owner] ?: tr("Smazaná automatizace")
                     },
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.padding(top = 8.dp)
@@ -246,16 +305,16 @@ fun StoredValuesSection() {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(entry.name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                            Text(entry.value.ifEmpty { "(prázdné)" }, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text(entry.value.ifEmpty { tr("(prázdné)") }, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
                         IconButton(onClick = { ValueStore.removeByKey(context, entry.storageKey); version++ }) {
-                            Icon(Icons.Rounded.Delete, "Smazat")
+                            Icon(Icons.Rounded.Delete, tr("Smazat"))
                         }
                     }
                 }
             }
             if (values.size > 1) {
-                TextButton(onClick = { ValueStore.clear(context); version++ }) { Text("Smazat vše") }
+                TextButton(onClick = { ValueStore.clear(context); version++ }) { Text(tr("Smazat vše")) }
             }
         }
     }
@@ -273,10 +332,10 @@ fun AutomationStoredValues(automationId: Long) {
     var editing by remember { mutableStateOf<ValueStore.Entry?>(null) }
     var adding by remember { mutableStateOf(false) }
 
-    Text("Uložené hodnoty", style = MaterialTheme.typography.titleMedium)
+    Text(tr("Uložené hodnoty"), style = MaterialTheme.typography.titleMedium)
     Text(
-        if (values.isEmpty()) "Tahle automatizace si zatím nic nezapamatovala (blok Uložit hodnotu)."
-        else "Co si tahle automatizace pamatuje mezi spuštěními. Sdílené hodnoty najdeš v Nastavení aplikace.",
+        if (values.isEmpty()) tr("Tahle automatizace si zatím nic nezapamatovala (blok Uložit hodnotu).")
+        else tr("Co si tahle automatizace pamatuje mezi spuštěními. Sdílené hodnoty najdeš v Nastavení aplikace."),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
@@ -285,21 +344,21 @@ fun AutomationStoredValues(automationId: Long) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(entry.name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                Text(entry.value.ifEmpty { "(prázdné)" }, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(entry.value.ifEmpty { tr("(prázdné)") }, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
-            IconButton(onClick = { editing = entry }) { Icon(Icons.Rounded.Edit, "Upravit") }
+            IconButton(onClick = { editing = entry }) { Icon(Icons.Rounded.Edit, tr("Upravit")) }
             IconButton(onClick = { ValueStore.removeByKey(context, entry.storageKey); version++ }) {
-                Icon(Icons.Rounded.Delete, "Smazat")
+                Icon(Icons.Rounded.Delete, tr("Smazat"))
             }
         }
     }
     Row {
         TextButton(onClick = { adding = true }) {
             Icon(Icons.Rounded.Add, null)
-            Text("Přidat hodnotu", Modifier.padding(start = 8.dp))
+            Text(tr("Přidat hodnotu"), Modifier.padding(start = 8.dp))
         }
         if (values.size > 1) {
-            TextButton(onClick = { ValueStore.removeAutomation(context, automationId); version++ }) { Text("Smazat vše") }
+            TextButton(onClick = { ValueStore.removeAutomation(context, automationId); version++ }) { Text(tr("Smazat vše")) }
         }
     }
 
@@ -328,18 +387,18 @@ private fun ValueDialog(
     var name by remember { mutableStateOf(existing?.name ?: "") }
     var value by remember { mutableStateOf(existing?.value ?: "") }
     val trimmed = name.trim()
-    val nameError = if (existing == null && trimmed in taken) "Tenhle název už existuje" else null
+    val nameError = if (existing == null && trimmed in taken) tr("Tenhle název už existuje") else null
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (existing == null) "Nová uložená hodnota" else "Upravit \"${existing.name}\"") },
+        title = { Text(if (existing == null) tr("Nová uložená hodnota") else tr("Upravit \"%s\"", existing.name)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (existing == null) {
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
-                        label = { Text("Název") },
-                        placeholder = { Text("např. last_state") },
+                        label = { Text(tr("Název")) },
+                        placeholder = { Text(tr("např. last_state")) },
                         singleLine = true,
                         isError = nameError != null,
                         supportingText = nameError?.let { { Text(it) } },
@@ -349,16 +408,16 @@ private fun ValueDialog(
                 OutlinedTextField(
                     value = value,
                     onValueChange = { value = it },
-                    label = { Text("Hodnota") },
+                    label = { Text(tr("Hodnota")) },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
             TextButton(enabled = trimmed.isNotEmpty() && nameError == null, onClick = { onSave(trimmed, value) }) {
-                Text("Uložit")
+                Text(tr("Uložit"))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Zrušit") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Zrušit")) } },
     )
 }

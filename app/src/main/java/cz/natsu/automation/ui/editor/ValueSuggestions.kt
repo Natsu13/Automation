@@ -40,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import cz.natsu.automation.i18n.tr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -63,7 +64,7 @@ fun SuggestionsRow(suggestions: ValueSuggestions, onPick: (String) -> Unit) {
     var pickingApp by remember { mutableStateOf(false) }
     Column {
         Text(
-            suggestions.hint ?: "Možné hodnoty:",
+            tr(suggestions.hint ?: tr("Možné hodnoty:")),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -74,7 +75,7 @@ fun SuggestionsRow(suggestions: ValueSuggestions, onPick: (String) -> Unit) {
             if (suggestions.app != null) {
                 AssistChip(
                     onClick = { pickingApp = true },
-                    label = { Text("Vybrat aplikaci…") },
+                    label = { Text(tr("Vybrat aplikaci…")) },
                     leadingIcon = { Icon(Icons.Rounded.Apps, null, Modifier.size(18.dp)) },
                 )
             }
@@ -92,6 +93,125 @@ fun SuggestionsRow(suggestions: ValueSuggestions, onPick: (String) -> Unit) {
 }
 
 private data class AppEntry(val label: String, val packageName: String)
+
+/** A screen, service or receiver of an app that other apps may start. [target] is the block's "target" value. */
+private data class ComponentEntry(val target: String, val className: String, val label: String)
+
+/** Button under the "class" field of the intent block: pick one of the chosen app's components. */
+@Composable
+fun ComponentPickerRow(app: String, onPick: (target: String, className: String) -> Unit) {
+    var picking by remember { mutableStateOf(false) }
+    Column {
+        AssistChip(
+            onClick = { picking = true },
+            enabled = app.isNotBlank(),
+            label = { Text(tr(if (app.isBlank()) tr("Nejdřív vyber aplikaci") else tr("Vybrat obrazovku / službu aplikace…"))) },
+            leadingIcon = { Icon(Icons.Rounded.Apps, null, Modifier.size(18.dp)) },
+        )
+    }
+    if (picking) {
+        ComponentPickerSheet(
+            app = app,
+            onPick = { target, className ->
+                picking = false
+                onPick(target, className)
+            },
+            onDismiss = { picking = false },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ComponentPickerSheet(app: String, onPick: (String, String) -> Unit, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    var components by remember { mutableStateOf<List<ComponentEntry>?>(null) }
+    var packageName by remember { mutableStateOf(app.trim()) }
+    var query by remember { mutableStateOf("") }
+    LaunchedEffect(app) {
+        components = withContext(Dispatchers.IO) {
+            val pm = context.packageManager
+            val name = cz.natsu.automation.engine.AppBlocks.findPackage(context, app) ?: app.trim()
+            packageName = name
+            try {
+                val info = pm.getPackageInfo(
+                    name,
+                    PackageManager.GET_ACTIVITIES or PackageManager.GET_SERVICES or PackageManager.GET_RECEIVERS
+                )
+                buildList {
+                    info.activities?.filter { it.exported }?.forEach {
+                        add(ComponentEntry("activity", it.name, it.loadLabel(pm).toString()))
+                    }
+                    info.services?.filter { it.exported }?.forEach {
+                        add(ComponentEntry("service", it.name, it.loadLabel(pm).toString()))
+                    }
+                    info.receivers?.filter { it.exported }?.forEach {
+                        add(ComponentEntry("broadcast", it.name, it.loadLabel(pm).toString()))
+                    }
+                }
+            } catch (e: Exception) {
+                emptyList()
+            }
+        }
+    }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Text(
+            tr("Co aplikace dovoluje spustit"),
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        Text(
+            tr("Obrazovky, služby a přijímače, které jsou přístupné zvenku. Jaké parametry (extras) čekají, " +
+                    tr("Android neprozradí – ty najdeš jen v dokumentaci aplikace.")),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            placeholder = { Text(tr("Hledat")) },
+            leadingIcon = { Icon(Icons.Rounded.Search, null) },
+            singleLine = true,
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        val list = components
+        if (list == null) {
+            CircularProgressIndicator(Modifier.padding(24.dp))
+        } else if (list.isEmpty()) {
+            Text(
+                tr("Aplikace nic zvenku nedovoluje, nebo není nainstalovaná."),
+                modifier = Modifier.padding(16.dp).navigationBarsPadding()
+            )
+        } else {
+            val shown = list.filter { query.isBlank() || it.className.contains(query, true) || it.label.contains(query, true) }
+            LazyColumn {
+                for ((target, title) in listOf("activity" to tr("Obrazovky"), "service" to tr("Služby"), "broadcast" to tr("Přijímače zpráv"))) {
+                    val group = shown.filter { it.target == target }
+                    if (group.isEmpty()) continue
+                    item(key = "header_$target") {
+                        Text(
+                            tr(title),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(start = 20.dp, top = 12.dp, bottom = 4.dp)
+                        )
+                    }
+                    items(group, key = { it.target + it.className }) { component ->
+                        ListItem(
+                            headlineContent = { Text(component.className.removePrefix(packageName)) },
+                            supportingContent = { Text(component.label) },
+                            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                            modifier = Modifier.clickable { onPick(component.target, component.className) }
+                        )
+                    }
+                }
+                item { Spacer(Modifier.navigationBarsPadding().height(16.dp)) }
+            }
+        }
+    }
+}
 
 /** Installed apps with a launcher icon, searchable by name or package. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -113,14 +233,14 @@ private fun AppPickerSheet(onPick: (label: String, packageName: String) -> Unit,
     }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Text(
-            "Vybrat aplikaci",
+            tr("Vybrat aplikaci"),
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
-            placeholder = { Text("Hledat") },
+            placeholder = { Text(tr("Hledat")) },
             leadingIcon = { Icon(Icons.Rounded.Search, null) },
             singleLine = true,
             shape = RoundedCornerShape(16.dp),

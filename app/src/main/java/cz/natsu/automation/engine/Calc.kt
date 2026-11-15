@@ -1,5 +1,7 @@
 package cz.natsu.automation.engine
 
+import cz.natsu.automation.i18n.tr
+
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -17,8 +19,8 @@ object Calc {
         val parser = Parser(normalize(expression))
         val value = parser.expression()
         parser.skipSpaces()
-        if (!parser.atEnd()) throw BlockException("nečekaný znak \"${parser.rest().take(10)}\" ve výrazu")
-        if (value.isNaN() || value.isInfinite()) throw BlockException("výsledek není číslo (dělení nulou?)")
+        if (!parser.atEnd()) throw BlockException(tr("nečekaný znak \"%s\" ve výrazu", parser.rest().take(10)))
+        if (value.isNaN() || value.isInfinite()) throw BlockException(tr("výsledek není číslo (dělení nulou?)"))
         return value
     }
 
@@ -84,17 +86,17 @@ object Calc {
             skipSpaces()
             if (take('(')) {
                 val value = expression()
-                if (!take(')')) throw BlockException("ve výrazu chybí )")
+                if (!take(')')) throw BlockException(tr("ve výrazu chybí )"))
                 return value
             }
             val start = pos
             if (pos < text.length && text[pos].isLetter()) {
                 while (pos < text.length && text[pos].isLetter()) pos++
                 val name = text.substring(start, pos).lowercase()
-                if (!take('(')) throw BlockException("za $name chybí (")
+                if (!take('(')) throw BlockException(tr("za %s chybí (", name))
                 val args = mutableListOf(expression())
                 while (take(',') || take(';')) args += expression()
-                if (!take(')')) throw BlockException("ve výrazu chybí )")
+                if (!take(')')) throw BlockException(tr("ve výrazu chybí )"))
                 return function(name, args)
             }
             while (pos < text.length && (text[pos].isDigit() || text[pos] == '.')) pos++
@@ -105,12 +107,12 @@ object Calc {
             }
             val number = text.substring(start, pos)
             return number.toDoubleOrNull()
-                ?: throw BlockException(if (atEnd()) "výraz je neúplný" else "\"${rest().take(10)}\" není číslo")
+                ?: throw BlockException(if (atEnd()) tr("výraz je neúplný") else tr("\"%s\" není číslo", rest().take(10)))
         }
 
         private fun function(name: String, args: List<Double>): Double {
             fun one(): Double {
-                if (args.size != 1) throw BlockException("$name potřebuje jedno číslo")
+                if (args.size != 1) throw BlockException(tr("%s potřebuje jedno číslo", name))
                 return args[0]
             }
             return when (name) {
@@ -125,7 +127,7 @@ object Calc {
                 "sqrt" -> sqrt(one())
                 "min" -> args.min()
                 "max" -> args.max()
-                else -> throw BlockException("neznámá funkce $name")
+                else -> throw BlockException(tr("neznámá funkce %s", name))
             }
         }
     }

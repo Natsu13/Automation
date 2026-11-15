@@ -18,6 +18,7 @@ class AutomationApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        cz.natsu.automation.i18n.I18n.load(this)
 
         DynamicColors.applyToActivitiesIfAvailable(this)
     }

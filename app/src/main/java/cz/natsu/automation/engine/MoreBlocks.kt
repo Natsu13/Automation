@@ -1,5 +1,7 @@
 package cz.natsu.automation.engine
 
+import cz.natsu.automation.i18n.tr
+
 import android.content.ComponentName
 import android.content.Intent
 import android.hardware.camera2.CameraCharacteristics
@@ -61,7 +63,7 @@ object MoreBlocks {
             ),
         ) { block ->
             val text = text(block, "text")
-            if (text.isEmpty()) throw BlockException("není co sdílet – text je prázdný")
+            if (text.isEmpty()) throw BlockException(tr("není co sdílet – text je prázdný"))
             val send = Intent(Intent.ACTION_SEND)
                 .setType("text/plain")
                 .putExtra(Intent.EXTRA_TEXT, text)
@@ -98,7 +100,7 @@ object MoreBlocks {
             outputName = "Web",
         ) { block ->
             var url = text(block, "url").trim()
-            if (url.isEmpty()) throw BlockException("adresa je prázdná")
+            if (url.isEmpty()) throw BlockException(tr("adresa je prázdná"))
             if (!url.contains("://")) url = "https://$url"
             BlockResult.Output(fetch(url, choice(block, "what")))
         },
@@ -145,7 +147,7 @@ object MoreBlocks {
             outputName = "Vybraná položka",
         ) { block ->
             val options = JsonTools.toList(text(block, "options"))
-            if (options.isEmpty()) throw BlockException("nabídka je prázdná")
+            if (options.isEmpty()) throw BlockException(tr("nabídka je prázdná"))
             val labelPath = text(block, "label").trim()
             // For a list of JSON objects show one value of each, but return the whole object.
             val labels = if (labelPath.isEmpty()) options else {
@@ -223,7 +225,7 @@ object MoreBlocks {
                 "regex" -> try {
                     Regex(text(block, "pattern"))
                 } catch (e: Exception) {
-                    throw BlockException("neplatný regulární výraz")
+                    throw BlockException(tr("neplatný regulární výraz"))
                 }
                 else -> urlRegex
             }
@@ -270,7 +272,7 @@ object MoreBlocks {
                     else -> Normalizer.normalize(source, Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
                 }
             } catch (e: IllegalArgumentException) {
-                throw BlockException("text nejde převést (${e.message})")
+                throw BlockException(tr("text nejde převést (%s)", e.message))
             }
             BlockResult.Output(result)
         },
@@ -288,9 +290,9 @@ object MoreBlocks {
             ),
             outputName = "Náhodné číslo",
         ) { block ->
-            val min = parseNumber(text(block, "min"))?.toLong() ?: throw BlockException("\"Od\" není číslo")
-            val max = parseNumber(text(block, "max"))?.toLong() ?: throw BlockException("\"Do\" není číslo")
-            if (max < min) throw BlockException("\"Do\" je menší než \"Od\"")
+            val min = parseNumber(text(block, "min"))?.toLong() ?: throw BlockException(tr("\"Od\" není číslo"))
+            val max = parseNumber(text(block, "max"))?.toLong() ?: throw BlockException(tr("\"Do\" není číslo"))
+            if (max < min) throw BlockException(tr("\"Do\" je menší než \"Od\""))
             BlockResult.Output(Random.nextLong(min, max + 1).toString())
         },
 
@@ -338,14 +340,14 @@ object MoreBlocks {
             ),
         ) { block ->
             val camera = context.getSystemService(CameraManager::class.java)
-                ?: throw BlockException("fotoaparát není dostupný")
+                ?: throw BlockException(tr("fotoaparát není dostupný"))
             val id = camera.cameraIdList.firstOrNull {
                 camera.getCameraCharacteristics(it).get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
-            } ?: throw BlockException("zařízení nemá svítilnu")
+            } ?: throw BlockException(tr("zařízení nemá svítilnu"))
             try {
                 camera.setTorchMode(id, choice(block, "mode") == "on")
             } catch (e: Exception) {
-                throw BlockException("svítilnu nejde ovládat (${e.message})")
+                throw BlockException(tr("svítilnu nejde ovládat (%s)", e.message))
             }
             BlockResult.None
         },
@@ -360,7 +362,7 @@ object MoreBlocks {
         var url = try {
             secure(URL(startUrl))
         } catch (e: Exception) {
-            throw BlockException("neplatná adresa")
+            throw BlockException(tr("neplatná adresa"))
         }
         try {
             var connection: HttpURLConnection? = null
@@ -379,12 +381,12 @@ object MoreBlocks {
                 }
                 if (code >= 400) {
                     conn.disconnect()
-                    throw BlockException("server vrátil chybu $code")
+                    throw BlockException(tr("server vrátil chybu %s", code))
                 }
                 connection = conn
                 break
             }
-            val conn = connection ?: throw BlockException("příliš mnoho přesměrování")
+            val conn = connection ?: throw BlockException(tr("příliš mnoho přesměrování"))
             if (what == "final_url") {
                 conn.disconnect()
                 return@withContext url.toString()
@@ -422,11 +424,11 @@ object MoreBlocks {
         } catch (e: BlockException) {
             throw e
         } catch (e: java.net.UnknownHostException) {
-            throw BlockException("bez připojení nebo neznámý server")
+            throw BlockException(tr("bez připojení nebo neznámý server"))
         } catch (e: java.net.SocketTimeoutException) {
-            throw BlockException("server neodpovídá")
+            throw BlockException(tr("server neodpovídá"))
         } catch (e: Exception) {
-            throw BlockException("načtení selhalo (${e.message ?: e.javaClass.simpleName})")
+            throw BlockException(tr("načtení selhalo (%s)", e.message ?: e.javaClass.simpleName))
         }
     }
 }

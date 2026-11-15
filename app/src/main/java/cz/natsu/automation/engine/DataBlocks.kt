@@ -1,5 +1,7 @@
 package cz.natsu.automation.engine
 
+import cz.natsu.automation.i18n.tr
+
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.FormatListBulleted
 import androidx.compose.material.icons.rounded.DataObject
@@ -69,7 +71,7 @@ object DataBlocks {
         ) { block ->
             val round = if (loopAgain.remove(block.id)) (loopState[block.id] as? Int ?: 0) + 1 else 1
             val count = parseNumber(text(block, "count"))?.toInt()
-                ?: throw BlockException("\"Kolikrát\" není číslo")
+                ?: throw BlockException(tr("\"Kolikrát\" není číslo"))
             if (round <= count) {
                 loopState[block.id] = round
                 BlockResult.Condition(true, round.toString())
@@ -134,7 +136,7 @@ object DataBlocks {
                     else -> 1
                 }.toString()
                 "keys" -> JsonTools.fromList((found as? JsonObject)?.keys?.toList()
-                    ?: throw BlockException("na cestě není objekt"))
+                    ?: throw BlockException(tr("na cestě není objekt")))
                 "pretty" -> found?.let { JsonTools.pretty(it) } ?: text(block, "fallback")
                 else -> if (found == null) text(block, "fallback") else JsonTools.asText(found)
             }
@@ -208,7 +210,7 @@ object DataBlocks {
                 "remove" -> if (steps.isEmpty()) null else JsonTools.set(root, steps, null)
                 "append" -> {
                     val target = JsonTools.select(root, steps)
-                    if (target != null && target !is JsonArray) throw BlockException("na cestě není pole")
+                    if (target != null && target !is JsonArray) throw BlockException(tr("na cestě není pole"))
                     val list = (target as? JsonArray).orEmpty() + value
                     JsonTools.set(root, steps, JsonArray(list))
                 }
@@ -293,14 +295,14 @@ object DataBlocks {
             val items = JsonTools.toList(source)
             val indexText = text(block, "index")
             fun position(): Int {
-                val n = parseNumber(indexText)?.toInt() ?: throw BlockException("pozice není číslo")
+                val n = parseNumber(indexText)?.toInt() ?: throw BlockException(tr("pozice není číslo"))
                 val index = if (n < 0) items.size + n else n - 1
-                if (index !in items.indices) throw BlockException("pozice $n je mimo seznam (má ${items.size} položek)")
+                if (index !in items.indices) throw BlockException(tr("pozice %s je mimo seznam (má %s položek)", n, items.size))
                 return index
             }
             fun numbers(): List<Double> = items.map {
-                parseNumber(it) ?: throw BlockException("\"${it.take(30)}\" není číslo")
-            }.ifEmpty { throw BlockException("seznam je prázdný") }
+                parseNumber(it) ?: throw BlockException(tr("\"%s\" není číslo", it.take(30)))
+            }.ifEmpty { throw BlockException(tr("seznam je prázdný")) }
             val result = when (choice(block, "op")) {
                 "count" -> items.size.toString()
                 "sum" -> formatNumber(numbers().sum())

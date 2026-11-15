@@ -42,18 +42,7 @@ val BlockCategory.hue: AccentHue
         BlockCategory.Other -> AccentHue.Pink
     }
 
-fun automationIcon(key: String): ImageVector = when (key) {
-    "paste" -> Icons.Rounded.ContentPaste
-    "text" -> Icons.Rounded.TextFields
-    "translate" -> Icons.Rounded.Translate
-    "link" -> Icons.Rounded.Link
-    "volume" -> Icons.AutoMirrored.Rounded.VolumeUp
-    "phone" -> Icons.Rounded.Smartphone
-    "star" -> Icons.Rounded.Star
-    "code" -> Icons.Rounded.Code
-    "magic" -> Icons.Rounded.AutoFixHigh
-    else -> Icons.Rounded.Bolt
-}
+fun automationIcon(key: String): ImageVector = IconCatalog.icon(key)
 
 fun automationHue(key: String): AccentHue = when (key) {
     "paste" -> AccentHue.Teal
@@ -65,7 +54,9 @@ fun automationHue(key: String): AccentHue = when (key) {
     "star" -> AccentHue.Orange
     "code" -> AccentHue.Purple
     "magic" -> AccentHue.Pink
-    else -> AccentHue.Orange
+    "bolt" -> AccentHue.Orange
+    // The other icons get a colour of their own that stays the same.
+    else -> AccentHue.entries.let { hues -> hues[(key.hashCode() and 0x7fffffff) % hues.size] }
 }
 
 @Composable

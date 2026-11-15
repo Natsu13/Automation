@@ -1,5 +1,7 @@
 package cz.natsu.automation.trigger
 
+import cz.natsu.automation.i18n.tr
+
 import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
@@ -437,8 +439,8 @@ class BackgroundService : Service() {
     private fun notification(): Notification {
         val manager = getSystemService(NotificationManager::class.java)
         manager?.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "Běh na pozadí", NotificationManager.IMPORTANCE_MIN).apply {
-                description = "Trvalé oznámení, dokud aplikace hlídá schránku nebo události."
+            NotificationChannel(CHANNEL_ID, tr("Běh na pozadí"),NotificationManager.IMPORTANCE_MIN).apply {
+                description = tr("Trvalé oznámení, dokud aplikace hlídá schránku nebo události.")
                 setShowBadge(false)
             }
         )
@@ -451,19 +453,19 @@ class BackgroundService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         val parts = buildList {
-            if (clipboardOn) add("schránku")
+            if (clipboardOn) add(tr("schránku"))
             if (events.isNotEmpty()) add(
                 when (events.size) {
-                    1 -> "1 událost"
-                    in 2..4 -> "${events.size} události"
-                    else -> "${events.size} událostí"
+                    1 -> tr("1 událost")
+                    in 2..4 -> tr("%s události", events.size)
+                    else -> tr("%s událostí", events.size)
                 }
             )
         }
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_tile)
-            .setContentTitle(if (parts.isEmpty()) "Automatizace běží na pozadí" else "Hlídám ${parts.joinToString(" a ")}")
-            .setContentText("Klepnutím otevřeš nastavení a spotřebu.")
+            .setContentTitle(if (parts.isEmpty()) tr("Automatizace běží na pozadí") else tr("Hlídám: %s", parts.joinToString(", ")))
+            .setContentText(tr("Klepnutím otevřeš nastavení a spotřebu."))
             .setContentIntent(open)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_MIN)

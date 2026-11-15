@@ -19,6 +19,11 @@ import java.util.UUID
 
 /** The Skript language, conditions written as an expression, "Jinak pokud" and the new control blocks. */
 class ScriptTest {
+    init {
+        // The texts checked here are the Czech originals.
+        cz.natsu.automation.i18n.I18n.force(cz.natsu.automation.i18n.Language.Czech)
+    }
+
     private class Vars(val values: MutableMap<String, Any?> = mutableMapOf(), val chips: List<String> = emptyList()) : Script.Host {
         override fun get(name: String): Any? = if (name in values) values[name] else Script.MISSING
         override fun set(name: String, value: Any?) {
@@ -266,6 +271,190 @@ class ScriptTest {
         )
         assertTrue(run(blocks).output!!.contains("moje chyba"))
         assertEquals("Zastavit s chybou: x", run(listOf(block("fail", null, "message" to richText("x")))).error)
+    }
+
+    private fun choose(value: String): String? {
+        val g = UUID.randomUUID().toString()
+        return run(
+            listOf(
+                block("switch", g, "value" to richText(value)),
+                block("case", g, "value" to richText("a")),
+                ret("A"),
+                block("case", g, "value" to richText("b\nc\n10")),
+                ret("BC"),
+                block("else", g),
+                ret("jiné"),
+                block("end_switch", g),
+            )
+        ).output
+    }
+
+    @Test
+    fun switchPicksTheMatchingBranch() {
+        assertEquals("A", choose("A"))
+        assertEquals("BC", choose("c"))
+        assertEquals("BC", choose("10,0"))
+        assertEquals("jiné", choose("x"))
+    }
+
+    @Test
+    fun parallelBranchesAllRun() {
+        val g = UUID.randomUUID().toString()
+        val wait = block("wait", null, "seconds" to ParamValue.Number(0.5f))
+        val blocks = listOf(
+            block("parallel", g),
+            wait,
+            set("a", "1"),
+            block("parallel_branch", g),
+            set("b", "2"),
+            block("parallel_branch", g),
+            set("c", "3"),
+            block("end_parallel", g),
+            ret(VarRef.Named("a"), VarRef.Named("b"), VarRef.Named("c")),
+        )
+        val started = System.currentTimeMillis()
+        assertEquals("123", run(blocks).output)
+        // The branches ran at the same time: the whole thing takes about as long as the slowest one.
+        assertTrue(System.currentTimeMillis() - started < 3000)
+    }
+
+    @Test
+    fun parallelErrorAndReturn() {
+        val g = UUID.randomUUID().toString()
+        val t = UUID.randomUUID().toString()
+        val attempt = block("try", t)
+        val failing = listOf(
+            attempt,
+            block("parallel", g),
+            set("a", "1"),
+            block("parallel_branch", g),
+            block("fail", null, "message" to richText("větev spadla")),
+            block("end_parallel", g),
+            ret("nemá nastat"),
+            block("catch", t),
+            ret(VarRef.BlockOutput(attempt.id)),
+            block("end_try", t),
+        )
+        assertTrue(run(failing).output!!.contains("větev spadla"))
+
+        val returning = listOf(
+            block("parallel", g),
+            ret("z větve"),
+            block("parallel_branch", g),
+            set("a", "1"),
+            block("end_parallel", g),
+            ret("za blokem"),
+        )
+        assertEquals("z větve", run(returning).output)
+    }
+
+    @Test
+    fun scriptCallsBlocks() {
+        val code = """
+            velke = change_case("ahoj", "upper")
+            slova = count({source: "a b c", what: "words"})
+            nahrazeno = blok("replace", {source: "a-b", find: "-", replacement: "+"})
+            vrat velke & " " & slova & " " & nahrazeno
+        """.trimIndent()
+        assertEquals("AHOJ 3 a+b", run(listOf(block("script", null, "code" to richText(code)), ret("x"))).let {
+            // The script's value is the block's output; read it from the log of the first step.
+            it.log.first().output
+        })
+        val bad = run(listOf(block("script", null, "code" to richText("count({nic: 1})"))))
+        assertTrue(bad.error ?: "", bad.error!!.contains("neznámý parametr"))
+        val control = run(listOf(block("script", null, "code" to richText("blok(\"if\")"))))
+        assertTrue(control.error ?: "", control.error!!.contains("volat nejde"))
+    }
+
+    @Test
+    fun automationWrittenAsScriptRunsTheSame() {
+        val g = UUID.randomUUID().toString()
+        val calc = block("math", null, "mode" to ParamValue.Choice("expert"), "expression" to rich(VarRef.Named("i"), "+1"))
+        val blocks = listOf(
+            set("i", "0"),
+            calc,
+            block("if", g, "left" to rich(VarRef.BlockOutput(calc.id)), "op" to ParamValue.Choice("greater_eq"), "right" to richText("1")),
+            ret("velké ", VarRef.BlockOutput(calc.id)),
+            block("else", g),
+            ret("malé"),
+            block("end_if", g),
+        )
+        val script = cz.natsu.automation.ui.editor.ScriptWriter(blocks).write()
+        assertEquals(
+            """
+            i = 0
+            result = calc(i & "+1")
+            if result >= 1
+                return "velké " & result
+            else
+                return "malé"
+            end
+            """.trimIndent(), script
+        )
+        // An "if" with an empty branch is turned round, and a block shows what it is set to.
+        val found = block("extract")
+        val empty = listOf(
+            found,
+            block("if", g, "left" to rich(VarRef.BlockOutput(found.id)), "op" to ParamValue.Choice("empty")),
+            block("else", g),
+            ret(VarRef.BlockOutput(found.id)),
+            block("end_if", g),
+        )
+        assertEquals(
+            """
+            found = extract({source: input, what: "url", which: "first"})
+            if found != ""
+                return found
+            end
+            """.trimIndent(), cz.natsu.automation.ui.editor.ScriptWriter(empty).write()
+        )
+        assertEquals("true", eval("\"Sdílení\" == \"sdílení\" zaroven contains(\"Sdílení\", \"SDÍL\") zaroven not exact(\"A\", \"a\")"))
+        // The written script gives the same result as the steps.
+        val asScript = block("script", null, "code" to richText(script))
+        assertEquals(run(blocks).output, run(listOf(asScript, ret(VarRef.BlockOutput(asScript.id)))).output)
+    }
+
+    @Test
+    fun examplesAreValidAndTheScriptOneRuns() {
+        for (example in cz.natsu.automation.ui.list.Examples.all) {
+            val built = example.build().blocks
+            assertTrue(example.name, cz.natsu.automation.engine.Structure.analyze(built).valid)
+            // Every example can also be written as a script without failing.
+            cz.natsu.automation.ui.editor.ScriptWriter(built).write()
+        }
+        val cart = cz.natsu.automation.ui.list.Examples.all.first { it.name == "Skript: součet košíku" }.build().blocks
+        // Without the dialog at the end: 42 + 89.9 + 219 = 350.9, over 300 so 10 % off.
+        val result = run(cart.dropLast(1))
+        assertEquals("Položek: 3, celkem 315.81", result.log.last().output)
+    }
+
+    @Test
+    fun triggerTypeComparesInBothLanguages() {
+        fun started(op: String, word: String): String? {
+            val g = UUID.randomUUID().toString()
+            return run(
+                listOf(
+                    block("if", g, "left" to rich(VarRef.Trigger), "op" to ParamValue.Choice(op), "right" to richText(word)),
+                    ret("ano"),
+                    block("end_if", g),
+                    ret(VarRef.Trigger),
+                )
+            ).output
+        }
+        try {
+            for (language in listOf(cz.natsu.automation.i18n.Language.Czech, cz.natsu.automation.i18n.Language.English)) {
+                cz.natsu.automation.i18n.I18n.force(language)
+                // A test run is started by hand: "Ručně" / "Manual".
+                assertEquals("ano", started("equals", "ručně"))
+                assertEquals("ano", started("equals", "Manual"))
+                assertEquals("ano", started("contains", "ruč"))
+                assertEquals("ano", started("not_equals", "Sdílení"))
+                assertEquals("true", eval("\"Sdílení\" == \"sharing\" zaroven contains(\"Sharing\", \"sdíl\")"))
+            }
+            assertEquals("Manual", started("equals", "Sharing"))
+        } finally {
+            cz.natsu.automation.i18n.I18n.force(cz.natsu.automation.i18n.Language.Czech)
+        }
     }
 
     @Test

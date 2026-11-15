@@ -1,7 +1,10 @@
 package cz.natsu.automation.engine
 
+import cz.natsu.automation.i18n.tr
+
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Notes
+import androidx.compose.material.icons.rounded.CallSplit
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.PlayCircle
@@ -15,6 +18,35 @@ import kotlinx.coroutines.delay
 object ControlBlocks {
     const val SCRIPT = "script"
     const val RUN_AUTOMATION = "run_automation"
+    const val SWITCH = "switch"
+    const val CASE = "case"
+    const val END_SWITCH = "end_switch"
+    const val PARALLEL = "parallel"
+    const val BRANCH = "parallel_branch"
+    const val END_PARALLEL = "end_parallel"
+
+    /** The "end" block type that closes the group started by [def]. */
+    fun endTypeFor(def: BlockDef): String = when (def.type) {
+        SWITCH -> END_SWITCH
+        else -> Blocks.endTypeFor(def.kind)
+    }
+
+    /** The block type of another branch in the group started by a block of [startType]; null = no branches. */
+    fun branchTypeFor(startType: String): String? = when (startType) {
+        Blocks.IF -> Blocks.ELSE_IF
+        SWITCH -> CASE
+        PARALLEL -> BRANCH
+        else -> null
+    }
+
+    /** Whether [value] is one of the lines of [options]; numbers are compared as numbers. */
+    private fun matchesAny(value: String, options: String): Boolean {
+        val wanted = Equivalents.variants(value.trim())
+        val number = parseNumber(value.trim())
+        return options.lines().map { it.trim() }.filter { it.isNotEmpty() }.any { option ->
+            wanted.any { option.equals(it, ignoreCase = true) } || (number != null && parseNumber(option) == number)
+        }
+    }
 
     /** How deep "Spustit automatizaci" may nest (an automation calling itself would never end). */
     private const val MAX_DEPTH = 8
@@ -65,15 +97,15 @@ object ControlBlocks {
             ),
             outputName = "Výsledek automatizace",
         ) { block ->
-            val id = choice(block, "automation").toLongOrNull() ?: throw BlockException("není vybraná automatizace")
+            val id = choice(block, "automation").toLongOrNull() ?: throw BlockException(tr("není vybraná automatizace"))
             val repository = (context.applicationContext as? AutomationApplication)?.repository
-                ?: throw BlockException("automatizace nejsou dostupné")
-            val target = repository.get(id) ?: throw BlockException("automatizace už neexistuje")
+                ?: throw BlockException(tr("automatizace nejsou dostupné"))
+            val target = repository.get(id) ?: throw BlockException(tr("automatizace už neexistuje"))
             if (target.needsReview) {
-                throw BlockException("\"${target.name}\" je importovaná a čeká na kontrolu – otevři ji a povol")
+                throw BlockException(tr("\"%s\" je importovaná a čeká na kontrolu – otevři ji a povol", target.name))
             }
             if (depth >= MAX_DEPTH) {
-                throw BlockException("automatizace se volají moc hluboko (spouští \"${target.name}\" sama sebe?)")
+                throw BlockException(tr("automatizace se volají moc hluboko (spouští \"%s\" sama sebe?)", target.name))
             }
             val result = AutomationRunner.run(
                 context, target.blocks, text(block, "input"), ui, trigger, event,
@@ -115,9 +147,87 @@ object ControlBlocks {
                 if (left <= 0) break
                 delay(minOf(interval, left))
             }
-            if (bool(block, "fail")) throw BlockException("podmínka se do ${formatNumber(number(block, "timeout").toDouble())} s nesplnila")
+            if (bool(block, "fail")) throw BlockException(tr("podmínka se do %s s nesplnila", formatNumber(number(block, "timeout").toDouble())))
             BlockResult.Output("false")
         },
+
+        // ---------- choose by value ----------
+        BlockDef(
+            type = SWITCH,
+            summary = "Vyber podle {value}",
+            title = "Vyber podle",
+            description = "Podle hodnoty spustí jednu z větví Když je. Přehlednější než řada Pokud / Jinak pokud, " +
+                    "když porovnáváš pořád tu samou hodnotu. Další větve přidáš v nabídce ⋮.",
+            category = BlockCategory.Control,
+            icon = Icons.Rounded.CallSplit,
+            kind = BlockKind.IfStart,
+            params = listOf(ParamDef.Text("value", "Hodnota", defaultRef = VarRef.Input)),
+        ) { block ->
+            val value = text(block, "value")
+            switchValues[block.groupId ?: block.id] = value
+            // Never "passes": the run goes to the first "Když je" branch.
+            BlockResult.Condition(false, value)
+        },
+
+        BlockDef(
+            type = CASE,
+            summary = "Když je {value}",
+            title = "Když je",
+            description = "Větev bloku Vyber podle: spustí se, když se hodnota rovná některému z řádků.",
+            category = BlockCategory.Control,
+            icon = Icons.Rounded.CallSplit,
+            kind = BlockKind.ElseIf,
+            params = listOf(ParamDef.Text("value", "Hodnota (víc možností = každá na řádek)", placeholder = "hodnota")),
+            showInLibrary = false,
+        ) { block ->
+            val value = switchValues[block.groupId ?: ""] ?: throw BlockException(tr("větev není uvnitř bloku Vyber podle"))
+            BlockResult.Condition(matchesAny(value, text(block, "value")))
+        },
+
+        BlockDef(
+            type = END_SWITCH,
+            summary = "Konec výběru",
+            title = "Konec výběru",
+            description = "",
+            category = BlockCategory.Control,
+            icon = Icons.Rounded.CallSplit,
+            kind = BlockKind.End,
+            showInLibrary = false,
+        ),
+
+        // ---------- parallel ----------
+        BlockDef(
+            type = PARALLEL,
+            summary = "Souběžně",
+            title = "Souběžně",
+            description = "Větve uvnitř běží najednou a pokračuje se, až doběhnou všechny – třeba dvě API volání " +
+                    "místo čekání na jedno po druhém. Chyba v některé větvi je chyba celého bloku.",
+            category = BlockCategory.Control,
+            icon = Icons.Rounded.CallSplit,
+            kind = BlockKind.ParallelStart,
+        ),
+
+        BlockDef(
+            type = BRANCH,
+            summary = "Zároveň",
+            title = "Zároveň",
+            description = "Začátek další větve bloku Souběžně.",
+            category = BlockCategory.Control,
+            icon = Icons.Rounded.CallSplit,
+            kind = BlockKind.Branch,
+            showInLibrary = false,
+        ),
+
+        BlockDef(
+            type = END_PARALLEL,
+            summary = "Konec souběžných větví",
+            title = "Konec souběžných větví",
+            description = "",
+            category = BlockCategory.Control,
+            icon = Icons.Rounded.CallSplit,
+            kind = BlockKind.End,
+            showInLibrary = false,
+        ),
 
         BlockDef(
             type = "fail",

@@ -1,5 +1,7 @@
 package cz.natsu.automation.ui.editor
 
+import cz.natsu.automation.i18n.tr
+
 import android.app.StatusBarManager
 import android.content.ComponentName
 import android.graphics.drawable.Icon
@@ -41,6 +43,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.TextFields
+import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -109,13 +112,13 @@ fun BlockLibrarySheet(onPick: (BlockDef) -> Unit, onDismiss: () -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.padding(horizontal = 16.dp)) {
-            Text("Přidat akci", style = MaterialTheme.typography.titleLarge)
+            Text(tr("Přidat akci"), style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
                 leadingIcon = { Icon(Icons.Rounded.Search, null) },
-                placeholder = { Text("Hledat akci") },
+                placeholder = { Text(tr("Hledat akci")) },
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -125,13 +128,13 @@ fun BlockLibrarySheet(onPick: (BlockDef) -> Unit, onDismiss: () -> Unit) {
         LazyColumn(Modifier.fillMaxWidth().nestedScroll(KeepScrollInList)) {
             for ((category, defs) in Blocks.library) {
                 val visible = defs.filter {
-                    query.isBlank() || foldText(it.title).contains(foldText(query)) ||
-                            foldText(it.description).contains(foldText(query))
+                    query.isBlank() || foldText(tr(it.title)).contains(foldText(query)) ||
+                            foldText(tr(it.description)).contains(foldText(query))
                 }
                 if (visible.isEmpty()) continue
                 item(key = "header_${category.name}") {
                     Text(
-                        category.title,
+                        tr(category.title),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 4.dp)
@@ -139,8 +142,8 @@ fun BlockLibrarySheet(onPick: (BlockDef) -> Unit, onDismiss: () -> Unit) {
                 }
                 items(visible, key = { it.type }) { def ->
                     ListItem(
-                        headlineContent = { Text(def.title) },
-                        supportingContent = { Text(def.description, maxLines = 2) },
+                        headlineContent = { Text(tr(def.title)) },
+                        supportingContent = { Text(tr(def.description), maxLines = 2) },
                         leadingContent = { IconBadge(def.icon, def.category.hue.accent()) },
                         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                         modifier = Modifier.clickable { onPick(def) }
@@ -159,19 +162,31 @@ fun VariablePickerSheet(
     chipStyle: (cz.natsu.automation.data.VarRef) -> ChipStyle,
     onPick: (VariableOption) -> Unit,
     onDismiss: () -> Unit,
+    /** Closes the sheet and lets the user tap the step whose output is wanted; null = no step has an output. */
+    onPickFromSteps: (() -> Unit)? = null,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Text(
-            "Vložit proměnnou",
+            tr("Vložit proměnnou"),
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(horizontal = 16.dp)
         )
         Text(
-            "Hodnota se doplní až při spuštění akce.",
+            tr("Hodnota se doplní až při spuštění akce."),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         )
+        if (onPickFromSteps != null) {
+            FilledTonalButton(
+                onClick = onPickFromSteps,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+            ) {
+                Icon(Icons.Rounded.TouchApp, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(tr("Vybrat klepnutím na krok"))
+            }
+        }
         LazyColumn {
             items(options) { option ->
                 val style = chipStyle(option.ref)
@@ -211,84 +226,111 @@ fun AutomationSettingsSheet(
                 .navigationBarsPadding()
                 .padding(bottom = 16.dp)
         ) {
-            Text("Spouštění", style = MaterialTheme.typography.titleLarge)
+            Text(tr("Spouštění"), style = MaterialTheme.typography.titleLarge)
             Text(
-                "Kde všude se má automatizace nabízet. Text, se kterým se spustí, najdeš v proměnné Vstup.",
+                tr("Kde všude se má automatizace nabízet. Text, se kterým se spustí, najdeš v proměnné Vstup."),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
             )
             TriggerRow(
                 icon = Icons.Rounded.TextFields,
-                title = "Při výběru textu",
-                description = "V menu po označení textu (vedle Kopírovat). Výsledek akce nahradí označený text.",
+                title = tr("Při výběru textu"),
+                description = tr("V menu po označení textu (vedle Kopírovat). Výsledek akce nahradí označený text."),
                 checked = viewModel.triggerProcessText,
                 onChecked = { viewModel.setTriggers(processText = it) }
             )
             TriggerRow(
                 icon = Icons.Rounded.Share,
-                title = "Sdílet",
-                description = "V nabídce Sdílet jako vlastní cíl. Sdílený text je Vstup.",
+                title = tr("Sdílet"),
+                description = tr("V nabídce Sdílet jako vlastní cíl. Sdílený text je Vstup."),
                 checked = viewModel.triggerShare,
                 onChecked = { viewModel.setTriggers(share = it) }
             )
             TriggerRow(
                 icon = Icons.Rounded.Tune,
-                title = "Dlaždice v rychlém nastavení",
-                description = "Klepnutím na dlaždici se akce spustí – může číst i měnit schránku.",
+                title = tr("Dlaždice v rychlém nastavení"),
+                description = tr("Klepnutím na dlaždici se akce spustí – může číst i měnit schránku."),
                 checked = viewModel.triggerTile,
                 onChecked = { viewModel.setTriggers(tile = it) }
             )
+            if (viewModel.triggerTile) {
+                Text(
+                    tr("Společná dlaždice nabídne všechny automatizace, které ji používají. Vlastní dlaždice 1–5 spustí rovnou tuhle."),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 52.dp)
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(start = 52.dp)
+                ) {
+                    for (slot in 0..cz.natsu.automation.trigger.TileSlots.count) {
+                        androidx.compose.material3.FilterChip(
+                            selected = viewModel.tileSlot == slot,
+                            onClick = { viewModel.changeTileSlot(slot) },
+                            label = { Text(if (slot == 0) tr("Společná") else slot.toString()) },
+                        )
+                    }
+                }
+            }
             TriggerRow(
                 icon = Icons.Rounded.ContentPaste,
-                title = "Při změně schránky",
-                description = "Spustí se hned po zkopírování textu v jakékoli aplikaci. Zkopírovaný text je Vstup.",
+                title = tr("Při změně schránky"),
+                description = tr("Spustí se hned po zkopírování textu v jakékoli aplikaci. Zkopírovaný text je Vstup."),
                 checked = viewModel.triggerClipboard,
                 onChecked = { viewModel.setTriggers(clipboard = it) }
             )
             if (viewModel.triggerClipboard && !ClipboardMonitor.isEnabled(context)) {
                 Text(
-                    "Sledování schránky je vypnuté. Zapneš ho v seznamu automatizací → ⋮ → Nastavení (potřebuje jednorázově ADB).",
+                    tr("Sledování schránky je vypnuté. Zapneš ho v seznamu automatizací → ⋮ → Nastavení (potřebuje jednorázově ADB)."),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(start = 52.dp, bottom = 4.dp)
                 )
             }
+
             if (viewModel.triggerTile && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 FilledTonalButton(
-                    onClick = { requestAddTile(context) },
+                    onClick = {
+                        // Saved first, so the numbered tile is switched on before Android is asked to add it.
+                        viewModel.saveNow()
+                        requestAddTile(context, viewModel.tileSlot, viewModel.name)
+                    },
                     modifier = Modifier.padding(start = 52.dp, top = 4.dp)
                 ) {
                     Icon(Icons.Rounded.AddToHomeScreen, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Přidat dlaždici")
+                    Text(tr("Přidat dlaždici"))
                 }
             }
 
             EventsSection(viewModel)
 
             Spacer(Modifier.height(20.dp))
-            Text("Ikona", style = MaterialTheme.typography.titleMedium)
+            Text(tr("Ikona"), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (key in AutomationIcons.ALL) {
-                    FilledIconToggleButton(
-                        checked = viewModel.icon == key,
-                        onCheckedChange = { viewModel.changeIcon(key) },
-                        shape = CircleShape,
-                    ) {
-                        Icon(automationIcon(key), contentDescription = key)
-                    }
-                }
-            }
+            cz.natsu.automation.ui.common.IconPicker(selected = viewModel.icon, onPick = { viewModel.changeIcon(it) })
 
             Spacer(Modifier.height(20.dp))
             cz.natsu.automation.ui.settings.AutomationStoredValues(viewModel.id)
 
             Spacer(Modifier.height(20.dp))
-            Text("Export a import", style = MaterialTheme.typography.titleMedium)
+            cz.natsu.automation.ui.settings.AutomationRunHistory(viewModel.id)
+
+            Spacer(Modifier.height(20.dp))
+            var showText by remember { mutableStateOf(false) }
+            OutlinedButton(onClick = { showText = true }) {
+                Icon(Icons.Rounded.TextFields, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(tr("Zobrazit jako skript"))
+            }
+            if (showText) AutomationTextDialog(viewModel) { showText = false }
+
+            Spacer(Modifier.height(20.dp))
+            Text(tr("Export a import"), style = MaterialTheme.typography.titleMedium)
             Text(
-                "Automatizaci pošleš jako soubor .json (třeba do jiného telefonu). Import ze souboru přidá novou automatizaci, tahle zůstane beze změny.",
+                tr("Automatizaci pošleš jako soubor .json (třeba do jiného telefonu). Import ze souboru přidá novou automatizaci, tahle zůstane beze změny."),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
@@ -308,30 +350,39 @@ fun AutomationSettingsSheet(
                 }) {
                     Icon(Icons.Rounded.Share, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Sdílet")
+                    Text(tr("Sdílet"))
                 }
                 FilledTonalButton(onClick = { importLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/*")) }) {
                     Icon(Icons.Rounded.FileOpen, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Importovat")
+                    Text(tr("Importovat"))
                 }
             }
         }
     }
 }
 
-private fun requestAddTile(context: android.content.Context) {
+private fun requestAddTile(context: android.content.Context, slot: Int, name: String) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
     val manager = context.getSystemService(StatusBarManager::class.java) ?: return
+    if (slot > 0) {
+        // The slot may have been switched on a moment ago; make sure before asking.
+        context.packageManager.setComponentEnabledSetting(
+            cz.natsu.automation.trigger.TileSlots.component(context, slot),
+            android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+            android.content.pm.PackageManager.DONT_KILL_APP,
+        )
+    }
     manager.requestAddTileService(
-        ComponentName(context, AutomationTileService::class.java),
-        "Automatizace",
+        if (slot > 0) cz.natsu.automation.trigger.TileSlots.component(context, slot)
+        else ComponentName(context, AutomationTileService::class.java),
+        if (slot > 0) name else tr("Automatizace"),
         Icon.createWithResource(context, R.drawable.ic_tile),
         context.mainExecutor
     ) { result ->
         val message = when (result) {
-            StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED -> "Dlaždice přidána"
-            StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED -> "Dlaždice už v rychlém nastavení je"
+            StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED -> tr("Dlaždice přidána")
+            StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED -> tr("Dlaždice už v rychlém nastavení je")
             else -> null
         }
         message?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
@@ -383,13 +434,13 @@ fun RunSheet(
                 .navigationBarsPadding()
                 .padding(bottom = 16.dp)
         ) {
-            Text("Vyzkoušet", style = MaterialTheme.typography.titleLarge)
+            Text(tr("Vyzkoušet"), style = MaterialTheme.typography.titleLarge)
             if (needsInput) {
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
                     value = input,
                     onValueChange = { input = it },
-                    label = { Text("Vstup (např. označený text)") },
+                    label = { Text(tr("Vstup (např. označený text)")) },
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,
@@ -403,7 +454,7 @@ fun RunSheet(
             ) {
                 Icon(Icons.Rounded.PlayArrow, null)
                 Spacer(Modifier.width(8.dp))
-                Text(if (viewModel.running) "Běží…" else "Spustit")
+                Text(if (viewModel.running) tr("Běží…") else tr("Spustit"))
             }
             OutlinedButton(
                 onClick = { onStepByStep(input) },
@@ -412,7 +463,7 @@ fun RunSheet(
             ) {
                 Icon(Icons.Rounded.SkipNext, null)
                 Spacer(Modifier.width(8.dp))
-                Text("Krokovat – po každém kroku zastavit")
+                Text(tr("Krokovat – po každém kroku zastavit"))
             }
             if (viewModel.running) {
                 LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp))
@@ -423,7 +474,7 @@ fun RunSheet(
                 ResultCard(result, onGrantRequirement)
                 if (result.log.isNotEmpty()) {
                     Spacer(Modifier.height(12.dp))
-                    Text("Průběh", style = MaterialTheme.typography.titleSmall)
+                    Text(tr("Průběh"), style = MaterialTheme.typography.titleSmall)
                     Spacer(Modifier.height(4.dp))
                     for ((index, entry) in result.log.withIndex()) {
                         Row(Modifier.padding(vertical = 3.dp)) {
@@ -434,7 +485,7 @@ fun RunSheet(
                                 modifier = Modifier.width(28.dp)
                             )
                             Column {
-                                Text(entry.title, style = MaterialTheme.typography.bodyMedium)
+                                Text(tr(entry.title), style = MaterialTheme.typography.bodyMedium)
                                 val detail = entry.error ?: entry.output
                                 if (detail != null) {
                                     Text(
@@ -467,9 +518,9 @@ private fun ResultCard(result: RunResult, onGrantRequirement: (Requirement) -> U
                 Spacer(Modifier.width(8.dp))
                 Text(
                     when {
-                        result.cancelled -> "Zrušeno"
-                        ok -> "Hotovo"
-                        else -> "Chyba"
+                        result.cancelled -> tr("Zrušeno")
+                        ok -> tr("Hotovo")
+                        else -> tr("Chyba")
                     },
                     style = MaterialTheme.typography.titleSmall
                 )
@@ -478,7 +529,7 @@ private fun ResultCard(result: RunResult, onGrantRequirement: (Requirement) -> U
                 Text(result.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp))
             }
             if (result.output != null) {
-                Text("Výsledek:", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
+                Text(tr("Výsledek:"), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
                 SelectionContainer {
                     Text(cz.natsu.automation.engine.logPreview(result.output)!!, style = MaterialTheme.typography.bodyMedium)
                 }
@@ -497,14 +548,14 @@ fun RenameDialog(current: String, onConfirm: (String) -> Unit, onDismiss: () -> 
     var text by rememberSaveable { mutableStateOf(current) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Název automatizace") },
+        title = { Text(tr("Název automatizace")) },
         text = {
             OutlinedTextField(value = text, onValueChange = { text = it }, singleLine = true)
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(text.trim()) }, enabled = text.isNotBlank()) { Text("Uložit") }
+            TextButton(onClick = { onConfirm(text.trim()) }, enabled = text.isNotBlank()) { Text(tr("Uložit")) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Zrušit") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Zrušit")) } }
     )
 }
 
