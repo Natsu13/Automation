@@ -31,8 +31,67 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import cz.natsu.automation.data.RunHistory
+import cz.natsu.automation.data.RunRecord
 import cz.natsu.automation.data.SecretStore
 import cz.natsu.automation.data.ValueStore
+
+/** The last runs started by triggers and events, with the error of the failed ones. */
+@Composable
+fun RunHistorySection(resumeCounter: Int) {
+    val context = LocalContext.current
+    var version by remember { mutableIntStateOf(0) }
+    val records = remember(version, resumeCounter) { RunHistory.all(context) }
+    var showAll by remember { mutableStateOf(false) }
+    val timeFormat = remember { java.text.SimpleDateFormat("d. M. H:mm:ss", java.util.Locale.getDefault()) }
+
+    Text("Historie běhů", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+    Card(shape = MaterialTheme.shapes.extraLarge) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (records.isEmpty()) {
+                Text(
+                    "Zatím nic. Objeví se tu spuštění událostí, dlaždicí, sdílením nebo ze schránky – " +
+                            "i ta na pozadí, u kterých by ses o chybě jinak nedozvěděl.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            for (record in if (showAll) records else records.take(8)) {
+                val failed = record.outcome == RunRecord.ERROR
+                Column {
+                    Text(
+                        record.name + when (record.outcome) {
+                            RunRecord.ERROR -> " – chyba"
+                            RunRecord.CANCELLED -> " – zrušeno"
+                            else -> ""
+                        },
+                        color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        "${timeFormat.format(java.util.Date(record.time))} · ${record.trigger} · " +
+                                "${record.steps} kroků · ${formatDuration(record.durationMs)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    record.error?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+            if (records.isNotEmpty()) Row {
+                if (records.size > 8) TextButton(onClick = { showAll = !showAll }) {
+                    Text(if (showAll) "Zobrazit méně" else "Zobrazit vše (${records.size})")
+                }
+                TextButton(onClick = { RunHistory.clear(context); version++ }) { Text("Vymazat") }
+            }
+        }
+    }
+}
+
+private fun formatDuration(ms: Long): String =
+    if (ms < 1000) "$ms ms" else String.format(java.util.Locale.getDefault(), "%.1f s", ms / 1000.0)
 
 /** API keys and tokens, stored encrypted; automations insert them by name. */
 @Composable

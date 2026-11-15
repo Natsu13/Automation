@@ -118,7 +118,7 @@ class AutomationListViewModel(application: Application) : AndroidViewModel(appli
             onDone(
                 try {
                     val count = AutomationTransfer.import(getApplication(), repository, uri)
-                    if (count == 1) "Automatizace importována" else "Importováno automatizací: $count"
+                    AutomationTransfer.importedMessage(count)
                 } catch (e: ImportException) {
                     e.message
                 } catch (e: Exception) {
@@ -297,9 +297,10 @@ private fun AutomationCard(
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        stepsLabel(stepCount),
+                        if (automation.needsReview) "čeká na kontrolu" else stepsLabel(stepCount),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (automation.needsReview) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     val iconMod = Modifier.padding(start = 8.dp).size(16.dp)
                     val tint = MaterialTheme.colorScheme.primary

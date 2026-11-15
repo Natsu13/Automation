@@ -33,7 +33,7 @@ class AutomationRepository(
     suspend fun get(id: Long): AutomationEntity? = dao.getById(id)
 
     suspend fun withTrigger(type: TriggerType): List<AutomationEntity> = dao.getAll().filter {
-        when (type) {
+        !it.needsReview && when (type) {
             TriggerType.ProcessText -> it.triggerProcessText
             TriggerType.Share -> it.triggerShare
             TriggerType.Tile -> it.triggerTile
@@ -44,13 +44,13 @@ class AutomationRepository(
     /** Automations that react to [type], each with its matching event settings. */
     suspend fun withEvent(type: EventType): List<Pair<AutomationEntity, List<EventTrigger>>> =
         dao.getAll().mapNotNull { automation ->
-            val events = automation.events.filter { it.type == type.key }
+            val events = automation.activeEvents.filter { it.type == type.key }
             if (events.isEmpty()) null else automation to events
         }
 
     /** Event types used by at least one automation. */
     suspend fun usedEventTypes(): Set<EventType> =
-        dao.getAll().flatMap { it.events }.mapNotNull { EventType.of(it.type) }.toSet()
+        dao.getAll().flatMap { it.activeEvents }.mapNotNull { EventType.of(it.type) }.toSet()
 
     suspend fun create(name: String, blocks: List<Block> = emptyList()): Long {
         val id = dao.insert(AutomationEntity(name = name, blocksJson = BlockJson.encode(blocks)))
@@ -71,13 +71,17 @@ class AutomationRepository(
 
     suspend fun duplicate(id: Long): Long? {
         val original = dao.getById(id) ?: return null
+        // A copy of an unreviewed import waits for review too (needsReview is copied).
         val copy = original.copy(id = 0, name = original.name + " (kopie)", updatedAt = System.currentTimeMillis())
         val newId = dao.insert(copy)
         onChanged()
         return newId
     }
 
-    /** Stores imported automations as new ones; returns how many were added. */
+    /**
+     * Stores imported automations as new ones; returns how many were added.
+     * They wait for the user's review ([AutomationEntity.needsReview]) before they can run.
+     */
     suspend fun importAll(automations: List<ExportedAutomation>): Int {
         for (imported in automations) {
             dao.insert(
@@ -92,6 +96,7 @@ class AutomationRepository(
                     conditionsJson = BlockJson.encode(imported.conditions),
                     conditionsAny = imported.conditionsAny,
                     eventsJson = EventJson.encode(imported.events),
+                    needsReview = true,
                 )
             )
         }

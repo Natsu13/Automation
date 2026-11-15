@@ -271,6 +271,9 @@ object AutomationRunner {
 
             val failure: Pair<String, Requirement?>? = try {
                 val result = def.execute(ctx, block)
+                // The "next round" mark is used up; entering the loop later again
+                // (e.g. inside an outer loop) is a fresh start counted from 1.
+                if (def.kind == BlockKind.WhileStart) ctx.loopAgain.remove(block.id)
 
                 val entry = when (result) {
                     BlockResult.None -> LogEntry(block.id, def.title)

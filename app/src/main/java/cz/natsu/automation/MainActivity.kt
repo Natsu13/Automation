@@ -126,7 +126,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             val message = try {
                 val count = AutomationTransfer.import(this@MainActivity, app.repository, uri)
-                if (count == 1) "Automatizace importována" else "Importováno automatizací: $count"
+                AutomationTransfer.importedMessage(count)
             } catch (e: ImportException) {
                 e.message
             } catch (e: Exception) {

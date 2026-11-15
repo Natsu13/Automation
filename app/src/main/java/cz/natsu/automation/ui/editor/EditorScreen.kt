@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material.icons.rounded.UnfoldLess
 import androidx.compose.material.icons.rounded.UnfoldMore
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -95,6 +97,8 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
     var showSettings by remember { mutableStateOf(false) }
     var showRun by remember { mutableStateOf(false) }
     var showRename by remember { mutableStateOf(false) }
+    var showReview by remember { mutableStateOf(false) }
+    var lostAcknowledged by remember { mutableStateOf(false) }
     var variableTarget by remember { mutableStateOf<Pair<String, RichTextFieldController>?>(null) }
 
     // Re-check system permissions whenever the user comes back from settings.
@@ -206,7 +210,10 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                         )
                     }
                     IconButton(onClick = { showSettings = true }) { Icon(Icons.Rounded.Tune, "Nastavení") }
-                    FilledTonalIconButton(onClick = { showRun = true }, modifier = Modifier.padding(end = 8.dp)) {
+                    FilledTonalIconButton(
+                        onClick = { if (viewModel.needsReview) showReview = true else showRun = true },
+                        modifier = Modifier.padding(end = 8.dp)
+                    ) {
                         Icon(Icons.Rounded.PlayArrow, "Spustit")
                     }
                 }
@@ -247,6 +254,25 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
             ),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            if (viewModel.needsReview) {
+                item(key = "review") {
+                    Surface(
+                        onClick = { showReview = true },
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        shape = MaterialTheme.shapes.large,
+                    ) {
+                        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.WarningAmber, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Importovaná automatizace – zatím se nespouští. Projdi si kroky a klepnutím sem ji povol.",
+                                Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            }
+
             item(key = "triggers") {
                 TriggerSummary(viewModel) { showSettings = true }
             }
@@ -423,7 +449,7 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
             val blockIndex = viewModel.indexOf(id)
             if (blockIndex >= 0) {
                 // Items above the steps: triggers, launch conditions (and the warning).
-                val before = 2 + (if (!viewModel.structure.valid) 1 else 0)
+                val before = 2 + (if (!viewModel.structure.valid) 1 else 0) + (if (viewModel.needsReview) 1 else 0)
                 listState.animateScrollToItem(before + blockIndex)
             }
         }
@@ -436,6 +462,61 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
             current = viewModel.name,
             onConfirm = { viewModel.rename(it); showRename = false },
             onDismiss = { showRename = false }
+        )
+    }
+
+    if (showReview && viewModel.needsReview) {
+        val summary = remember { viewModel.reviewSummary() }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showReview = false },
+            title = { Text("Povolit importovanou automatizaci?") },
+            text = {
+                Column(
+                    Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("Pochází ze souboru. Povol ji, jen když věříš tomu, kdo ji vytvořil, a víš, co dělá:")
+                    for (line in summary) Text(line, style = MaterialTheme.typography.bodyMedium)
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { viewModel.approve(); showReview = false }) {
+                    Text("Povolit")
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showReview = false }) { Text("Zatím ne") }
+            },
+        )
+    }
+
+    if (viewModel.unreadable) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = onBack,
+            title = { Text("Automatizaci nejde načíst") },
+            text = {
+                Text(
+                    "Uložené kroky jsou poškozené nebo z novější verze aplikace. Nic se nepřepíše – " +
+                            "data zůstávají uložená a po aktualizaci aplikace se můžou znovu načíst."
+                )
+            },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = onBack) { Text("Zpět") } },
+        )
+    } else if (viewModel.lostParts > 0 && !lostAcknowledged) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = onBack,
+            title = { Text("Část automatizace nejde načíst") },
+            text = {
+                Text(
+                    "Nepodařilo se přečíst ${viewModel.lostParts} kroků nebo hodnot (nejspíš jsou z novější verze " +
+                            "aplikace). Dokud nic nezměníš, zůstávají uložené. Když automatizaci upravíš, " +
+                            "tyhle části se ztratí."
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { lostAcknowledged = true }) { Text("Přesto upravit") }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = onBack) { Text("Zpět") } },
         )
     }
 

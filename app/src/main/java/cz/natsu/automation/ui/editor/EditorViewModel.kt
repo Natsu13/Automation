@@ -43,6 +43,18 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         private set
     var missing by mutableStateOf(false)
         private set
+
+    /** The stored steps cannot be read at all; nothing is saved so they are not overwritten. */
+    var unreadable by mutableStateOf(false)
+        private set
+
+    /** Number of steps / values that could not be read and would be lost by the next save. */
+    var lostParts by mutableStateOf(0)
+        private set
+
+    /** Imported and not yet approved: it cannot run until the user allows it. */
+    var needsReview by mutableStateOf(false)
+        private set
     var name by mutableStateOf("")
         private set
     var icon by mutableStateOf("")
@@ -121,8 +133,13 @@ class EditorViewModel(application: Application, private val automationId: Long) 
                 triggerShare = stored.triggerShare
                 triggerTile = stored.triggerTile
                 triggerClipboard = stored.triggerClipboard
-                blocks.addAll(stored.blocks)
-                conditions.addAll(stored.conditions)
+                val storedBlocks = BlockJson.decodeChecked(stored.blocksJson)
+                val storedConditions = BlockJson.decodeChecked(stored.conditionsJson)
+                unreadable = storedBlocks.unreadable || storedConditions.unreadable
+                lostParts = storedBlocks.lost + storedConditions.lost
+                needsReview = stored.needsReview
+                blocks.addAll(storedBlocks.blocks)
+                conditions.addAll(storedConditions.blocks)
                 conditionsAny = stored.conditionsAny
                 events.addAll(stored.events)
                 structure = Structure.analyze(blocks)
@@ -134,7 +151,7 @@ class EditorViewModel(application: Application, private val automationId: Long) 
 
     // ---------- saving ----------
 
-    private fun currentEntity(): AutomationEntity? = entity?.copy(
+    private fun currentEntity(): AutomationEntity? = entity?.takeUnless { unreadable }?.copy(
         name = name.ifBlank { "Bez názvu" },
         icon = icon,
         // Never store a list with a folded (temporarily removed) condition.
@@ -266,7 +283,7 @@ class EditorViewModel(application: Application, private val automationId: Long) 
             onDone(
                 try {
                     val count = cz.natsu.automation.data.AutomationTransfer.import(getApplication(), repository, uri)
-                    if (count == 1) "Automatizace importována – najdeš ji v seznamu" else "Importováno automatizací: $count"
+                    cz.natsu.automation.data.AutomationTransfer.importedMessage(count)
                 } catch (e: cz.natsu.automation.data.ImportException) {
                     e.message
                 } catch (e: Exception) {
@@ -277,6 +294,49 @@ class EditorViewModel(application: Application, private val automationId: Long) 
     }
 
     fun saveNow() {
+        // Without a pending edit there is nothing new; saving would only rewrite the
+        // stored steps (and drop parts that could not be read).
+        if (saveJob?.isActive != true) return
+        saveJob?.cancel()
+        currentEntity()?.let { repository.launchSave(it) }
+    }
+
+    // ---------- review of an imported automation ----------
+
+    /** What an imported automation does that the user should know before allowing it. */
+    fun reviewSummary(): List<String> = buildList {
+        val starts = buildList {
+            if (triggerClipboard) add("změna schránky")
+            for (event in events) EventType.of(event.type)?.let { add(it.title) }
+        }
+        if (starts.isNotEmpty()) add("Spouští se sama: ${starts.distinct().joinToString(", ")}")
+        if (events.any { it.type == EventType.Notification.key }) add("Čte příchozí oznámení (aplikace, nadpis, text)")
+
+        val refs = (blocks + conditions).flatMap { block ->
+            block.params.values.filterIsInstance<ParamValue.Rich>().flatMap { it.segments }
+        }.filterIsInstance<Segment.Var>().map { it.ref }
+        val secrets = refs.filterIsInstance<VarRef.Secret>().map { it.name }.distinct()
+        if (secrets.isNotEmpty()) add("Používá tvoje tajné hodnoty: ${secrets.joinToString(", ")}")
+        if (VarRef.Clipboard in refs || blocks.any { it.type == "get_clipboard" }) add("Čte schránku")
+
+        val addresses = blocks.filter { it.type in setOf("http_request", "web", "open_url") }.map { block ->
+            (block.params["url"] as? ParamValue.Rich)?.segments.orEmpty().joinToString("") {
+                when (it) {
+                    is Segment.Text -> it.text
+                    is Segment.Var -> "{…}"
+                }
+            }.trim().ifEmpty { "(adresa není vyplněná)" }
+        }.distinct()
+        if (addresses.isNotEmpty()) add("Posílá data na internet:\n" + addresses.joinToString("\n") { "• ${it.take(120)}" })
+        if (blocks.any { it.type in setOf("share", "share_file", "save_file") }) add("Sdílí nebo ukládá soubory a text")
+        if (isEmpty()) add("Nespouští se sama, nepoužívá tajné hodnoty a nic neposílá na internet.")
+    }
+
+    /** The user checked the imported automation and allows it to run. */
+    fun approve() {
+        if (!needsReview) return
+        needsReview = false
+        entity = entity?.copy(needsReview = false)
         saveJob?.cancel()
         currentEntity()?.let { repository.launchSave(it) }
     }
@@ -773,7 +833,7 @@ class EditorViewModel(application: Application, private val automationId: Long) 
     private var stepRunFree = false
 
     fun run(input: String?, stepByStep: Boolean = false) {
-        if (running) return
+        if (running || needsReview || unreadable) return
         saveNow()
         running = true
         lastResult = null

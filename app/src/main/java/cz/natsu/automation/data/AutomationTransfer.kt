@@ -64,6 +64,11 @@ object AutomationTransfer {
         })
     )
 
+    /** What to tell the user after an import of [count] automations. */
+    fun importedMessage(count: Int): String =
+        (if (count == 1) "Automatizace importována" else "Importováno automatizací: $count") +
+                " – najdeš ji v seznamu. Než půjde spustit, otevři ji a povol."
+
     /** Accepts a full export file or a single exported automation. */
     fun decode(text: String): List<ExportedAutomation> {
         val trimmed = text.trim().removePrefix("﻿")
