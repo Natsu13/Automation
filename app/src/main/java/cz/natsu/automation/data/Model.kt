@@ -4,6 +4,11 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import java.util.UUID
 
 /**
@@ -111,9 +116,90 @@ object BlockJson {
 
     fun encode(blocks: List<Block>): String = json.encodeToString(serializer, blocks)
 
-    fun decode(text: String): List<Block> = try {
-        json.decodeFromString(serializer, text)
-    } catch (e: Exception) {
-        emptyList()
+    /**
+     * Result of reading stored blocks. [unreadable] = the text is not a list of blocks
+     * at all (nothing could be read, [blocks] is empty). [lost] = number of blocks,
+     * parameters or variables that had to be left out, e.g. because they come from a
+     * newer version of the app.
+     */
+    class Decoded(val blocks: List<Block>, val unreadable: Boolean = false, val lost: Int = 0) {
+        val damaged: Boolean get() = unreadable || lost > 0
+    }
+
+    fun decode(text: String): List<Block> = decodeChecked(text).blocks
+
+    /**
+     * Reads as much as possible: one value the app does not understand must not
+     * throw away the whole automation. The caller decides what to do when
+     * something is [Decoded.damaged] (the editor then never overwrites silently).
+     */
+    fun decodeChecked(text: String): Decoded {
+        try {
+            return Decoded(json.decodeFromString(serializer, text))
+        } catch (e: Exception) {
+            // Fall through to the block-by-block reading.
+        }
+        val array = try {
+            json.parseToJsonElement(text) as? JsonArray
+        } catch (e: Exception) {
+            null
+        } ?: return Decoded(emptyList(), unreadable = true)
+
+        var lost = 0
+        val blocks = array.mapNotNull { element ->
+            try {
+                json.decodeFromJsonElement(Block.serializer(), element)
+            } catch (e: Exception) {
+                val (block, missing) = salvage(element)
+                lost += missing
+                block
+            }
+        }
+        return Decoded(blocks, lost = lost)
+    }
+
+    /** A block with the parts that can still be read, and how many parts were left out. */
+    private fun salvage(element: JsonElement): Pair<Block?, Int> {
+        val obj = element as? JsonObject ?: return null to 1
+        val type = (obj["type"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return null to 1
+        var lost = 0
+        val params = mutableMapOf<String, ParamValue>()
+        for ((key, value) in (obj["params"] as? JsonObject).orEmpty()) {
+            try {
+                params[key] = json.decodeFromJsonElement(ParamValue.serializer(), value)
+            } catch (e: Exception) {
+                val rich = salvageRich(value)
+                if (rich == null) lost++ else {
+                    params[key] = rich.first
+                    lost += rich.second
+                }
+            }
+        }
+        fun string(key: String) = (obj[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
+        val block = Block(
+            id = string("id") ?: UUID.randomUUID().toString(),
+            type = type,
+            params = params,
+            groupId = string("groupId"),
+            disabled = (obj["disabled"] as? JsonPrimitive)?.booleanOrNull ?: false,
+        )
+        return block to lost
+    }
+
+    /** A text value without the segments (variables) that cannot be read. */
+    private fun salvageRich(value: JsonElement): Pair<ParamValue.Rich, Int>? {
+        val obj = value as? JsonObject ?: return null
+        if ((obj["type"] as? JsonPrimitive)?.content != "rich") return null
+        val segments = obj["segments"] as? JsonArray ?: return null
+        var lost = 0
+        val kept = segments.mapNotNull { segment ->
+            try {
+                json.decodeFromJsonElement(Segment.serializer(), segment)
+            } catch (e: Exception) {
+                lost++
+                null
+            }
+        }
+        return ParamValue.Rich(kept) to lost
     }
 }

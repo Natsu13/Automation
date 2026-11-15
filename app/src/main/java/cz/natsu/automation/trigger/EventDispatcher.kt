@@ -17,8 +17,11 @@ import cz.natsu.automation.engine.AudioHardening
 import cz.natsu.automation.engine.AutomationRunner
 import cz.natsu.automation.engine.EventInfo
 import cz.natsu.automation.engine.RunTrigger
+import cz.natsu.automation.data.RunHistory
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 
 /**
  * Runs the automations that react to a system event.
@@ -59,7 +62,19 @@ object EventDispatcher {
             val candidates = repository.withEvent(type).filter { (_, events) -> events.any(matches) }
             if (candidates.isEmpty()) return@launch
             UsageMeter.countEvent(app)
-            for ((automation, _) in candidates) runIfConditions(app, automation, input, event)
+            // Each automation runs on its own: a slow one (waiting, network) must not
+            // hold back the others, and a failure of one must not stop the rest.
+            supervisorScope {
+                for ((automation, _) in candidates) launch {
+                    try {
+                        runIfConditions(app, automation, input, event)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Run of ${automation.id} failed", e)
+                    }
+                }
+            }
             UsageMeter.sample(app)
         }
     }
@@ -96,9 +111,11 @@ object EventDispatcher {
             }
             return
         }
+        val startedAt = System.currentTimeMillis()
         val result = AutomationRunner.run(
             context, blocks, input, ui = null, trigger = RunTrigger.Event, event = event, automationId = automation.id
         )
+        RunHistory.record(context, automation, event.label, startedAt, result)
         if (!result.success && !result.cancelled) {
             Handler(Looper.getMainLooper()).post {
                 Toast.makeText(context, "${automation.name}: ${result.error}", Toast.LENGTH_LONG).show()

@@ -126,6 +126,7 @@ fun AppSettingsScreen(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             UsageSection(resumeCounter)
+            RunHistorySection(resumeCounter)
             SecretsSection()
             StoredValuesSection()
 

@@ -26,7 +26,7 @@ object NotificationEvents {
 
     /** Binds the listener again once an automation uses the event (it unbinds itself when none does). */
     fun sync(context: Context, all: List<AutomationEntity>) {
-        val used = all.any { automation -> automation.events.any { it.type == EventType.Notification.key } }
+        val used = all.any { automation -> automation.activeEvents.any { it.type == EventType.Notification.key } }
         if (used && hasAccess(context)) {
             try {
                 NotificationListenerService.requestRebind(component(context))

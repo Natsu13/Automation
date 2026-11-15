@@ -35,7 +35,7 @@ object EventAlarms {
         val prefs = prefs(context)
         val planned = mutableSetOf<String>()
         for (automation in all) {
-            for (event in automation.events) {
+            for (event in automation.activeEvents) {
                 val type = EventType.of(event.type)
                 if (type != EventType.TimeDaily && type != EventType.TimeInterval) continue
                 planned += event.id
@@ -143,7 +143,7 @@ class EventAlarmReceiver : BroadcastReceiver() {
         repository.appScope.launch {
             try {
                 val automation = repository.get(automationId) ?: return@launch
-                val event = automation.events.firstOrNull { it.id == eventId } ?: return@launch
+                val event = automation.activeEvents.firstOrNull { it.id == eventId } ?: return@launch
                 val type = EventType.of(event.type) ?: return@launch
                 EventAlarms.schedule(app, automation.id, event)
                 withTimeout(9_000) {

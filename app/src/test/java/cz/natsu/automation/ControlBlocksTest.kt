@@ -277,4 +277,29 @@ class ControlBlocksTest {
             assertTrue(h, !HttpBlocks.isLocalHost(h))
         }
     }
+
+    @Test
+    fun nestedWhileCountsRoundsFromOne() {
+        val outer = group()
+        val inner = group()
+        val index = block("loop_index")
+        val blocks = listOf(
+            block("repeat", outer, "count" to richText("2")),
+            block("set_variable", null, "name" to richText("n"), "value" to richText("")),
+            block(
+                "while", inner,
+                "left" to rich(VarRef.Named("n")),
+                "op" to ParamValue.Choice("not_equals"),
+                "right" to richText("xx"),
+            ),
+            append("n", "x"),
+            index,
+            append("log", VarRef.BlockOutput(index.id)),
+            block("end_while", inner),
+            block("end_while", outer),
+            ret(VarRef.Named("log")),
+        )
+        // The inner loop starts again in the second round of the outer one.
+        assertEquals("1212", run(blocks).output)
+    }
 }

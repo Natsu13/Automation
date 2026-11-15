@@ -33,10 +33,19 @@ data class AutomationEntity(
     /** System events that start the automation ([EventTrigger] list). */
     @ColumnInfo(name = "events", defaultValue = "[]") val eventsJson: String = "[]",
     @ColumnInfo(name = "updated_at") val updatedAt: Long = System.currentTimeMillis(),
+    /**
+     * Imported and not yet approved by the user. Such an automation never runs
+     * (not by events, triggers, shortcuts or buttons) until it is approved in the editor:
+     * a file from someone else could otherwise send secrets or notifications away.
+     */
+    @ColumnInfo(name = "needs_review", defaultValue = "0") val needsReview: Boolean = false,
 ) {
     val blocks: List<Block> get() = BlockJson.decode(blocksJson)
     val conditions: List<Block> get() = BlockJson.decode(conditionsJson)
     val events: List<EventTrigger> get() = EventJson.decode(eventsJson)
+
+    /** Events that may start the automation right now (none while it waits for review). */
+    val activeEvents: List<EventTrigger> get() = if (needsReview) emptyList() else events
 }
 
 @Dao
@@ -60,11 +69,18 @@ interface AutomationDao {
     suspend fun delete(id: Long)
 }
 
-@Database(entities = [AutomationEntity::class], version = 7, exportSchema = true)
+@Database(entities = [AutomationEntity::class], version = 8, exportSchema = true)
 abstract class AutomationDatabase : RoomDatabase() {
     abstract fun automationDao(): AutomationDao
 
     companion object {
+        /** 7 -> 8: imported automations wait for the user's review. */
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE automations ADD COLUMN needs_review INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         /** 6 -> 7: system event triggers. */
         private val MIGRATION_6_7 = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -89,7 +105,7 @@ abstract class AutomationDatabase : RoomDatabase() {
 
         fun build(context: Context): AutomationDatabase =
             Room.databaseBuilder(context, AutomationDatabase::class.java, "database")
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 // Versions 1-3 only contained the old "demo" prototype project.
                 .fallbackToDestructiveMigrationFrom(1, 2, 3)
                 .build()

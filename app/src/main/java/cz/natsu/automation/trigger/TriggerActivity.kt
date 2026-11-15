@@ -44,6 +44,7 @@ import androidx.lifecycle.lifecycleScope
 import cz.natsu.automation.AutomationApplication
 import cz.natsu.automation.MainActivity
 import cz.natsu.automation.data.AutomationEntity
+import cz.natsu.automation.data.RunHistory
 import cz.natsu.automation.data.TriggerType
 import cz.natsu.automation.engine.AutomationRunner
 import cz.natsu.automation.engine.EventInfo
@@ -210,6 +211,10 @@ class TriggerActivity : ComponentActivity() {
                 val automation = directId?.let { repository.get(it) }
                 if (automation == null) {
                     state = TriggerUiState.Empty("Automatizace už neexistuje.")
+                } else if (automation.needsReview) {
+                    state = TriggerUiState.Empty(
+                        "„${automation.name}“ je importovaná a čeká na kontrolu. Otevři ji v aplikaci a povol ji."
+                    )
                 } else {
                     start(automation)
                 }
@@ -308,9 +313,11 @@ class TriggerActivity : ComponentActivity() {
             input = text
             for (automation in matching(repository.withTrigger(TriggerType.Clipboard))) {
                 state = TriggerUiState.Running(automation)
+                val startedAt = System.currentTimeMillis()
                 val result = AutomationRunner.run(
                     this@TriggerActivity, automation.blocks, text, runUi, runTrigger, automationId = automation.id
                 )
+                RunHistory.record(this@TriggerActivity, automation, runTrigger.label, startedAt, result)
                 if (!report(automation, result)) break
             }
             finishCanceled()
@@ -329,8 +336,12 @@ class TriggerActivity : ComponentActivity() {
         lifecycleScope.launch {
             // Wait for window focus so blocks can read the clipboard.
             windowFocused.first { it }
+            val startedAt = System.currentTimeMillis()
             val result = AutomationRunner.run(
                 this@TriggerActivity, automation.blocks, input, runUi, runTrigger, event, automationId = automation.id
+            )
+            RunHistory.record(
+                this@TriggerActivity, automation, event?.label ?: runTrigger.label, startedAt, result
             )
             finishWith(automation, result)
         }
