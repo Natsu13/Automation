@@ -274,6 +274,20 @@ fun AutomationSettingsSheet(
                     }
                 }
             }
+            if (viewModel.triggerTile && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                FilledTonalButton(
+                    onClick = {
+                        // Saved first, so the numbered tile is switched on before Android is asked to add it.
+                        viewModel.saveNow()
+                        requestAddTile(context, viewModel.tileSlot, viewModel.name)
+                    },
+                    modifier = Modifier.padding(start = 52.dp, top = 4.dp)
+                ) {
+                    Icon(Icons.Rounded.AddToHomeScreen, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(tr("Přidat dlaždici"))
+                }
+            }
             TriggerRow(
                 icon = Icons.Rounded.ContentPaste,
                 title = tr("Při změně schránky"),
@@ -288,21 +302,6 @@ fun AutomationSettingsSheet(
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(start = 52.dp, bottom = 4.dp)
                 )
-            }
-
-            if (viewModel.triggerTile && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                FilledTonalButton(
-                    onClick = {
-                        // Saved first, so the numbered tile is switched on before Android is asked to add it.
-                        viewModel.saveNow()
-                        requestAddTile(context, viewModel.tileSlot, viewModel.name)
-                    },
-                    modifier = Modifier.padding(start = 52.dp, top = 4.dp)
-                ) {
-                    Icon(Icons.Rounded.AddToHomeScreen, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(tr("Přidat dlaždici"))
-                }
             }
 
             EventsSection(viewModel)
