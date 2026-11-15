@@ -1,5 +1,7 @@
 package cz.natsu.automation.trigger
 
+import cz.natsu.automation.i18n.tr
+
 import android.content.BroadcastReceiver
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -22,10 +24,10 @@ class NotificationButtonReceiver : BroadcastReceiver() {
         // Copying from our own notification must not start the clipboard automations.
         ClipboardMonitor.markOwnWrite(text)
         context.getSystemService(ClipboardManager::class.java)
-            ?.setPrimaryClip(ClipData.newPlainText("Automatizace", text))
+            ?.setPrimaryClip(ClipData.newPlainText(tr("Automatizace"), text))
         // Android 13+ shows its own confirmation of a copy.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            Toast.makeText(context, "Zkopírováno", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, tr("Zkopírováno"), Toast.LENGTH_SHORT).show()
         }
     }
 

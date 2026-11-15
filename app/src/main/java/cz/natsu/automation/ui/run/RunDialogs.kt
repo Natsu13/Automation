@@ -1,5 +1,7 @@
 package cz.natsu.automation.ui.run
 
+import cz.natsu.automation.i18n.tr
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.widget.Toast
@@ -69,7 +71,7 @@ class DialogRunUi : RunUi {
                         val answer: CompletableDeferred<Boolean>) : Request
 
         data class PickFile(val mime: String, val answer: CompletableDeferred<String?>) : Request {
-            override val title: String get() = "Vybrat soubor"
+            override val title: String get() = tr("Vybrat soubor")
         }
 
         data class Images(override val title: String, val images: List<String>, val pick: Boolean,
@@ -174,7 +176,7 @@ private fun ImagesDialog(request: DialogRunUi.Request.Images) {
                                     contentScale = ContentScale.FillWidth,
                                     modifier = Modifier.fillMaxWidth()
                                 )
-                                loaded.first -> Text("Obrázek nejde načíst", style = MaterialTheme.typography.bodySmall)
+                                loaded.first -> Text(tr("Obrázek nejde načíst"), style = MaterialTheme.typography.bodySmall)
                                 else -> CircularProgressIndicator(Modifier.size(32.dp))
                             }
                         }
@@ -189,9 +191,9 @@ private fun ImagesDialog(request: DialogRunUi.Request.Images) {
             }
         },
         confirmButton = {
-            if (!request.pick) TextButton(onClick = { request.answer.complete("") }) { Text("Pokračovat") }
+            if (!request.pick) TextButton(onClick = { request.answer.complete("") }) { Text(tr("Pokračovat")) }
         },
-        dismissButton = { TextButton(onClick = { request.answer.complete(null) }) { Text("Zrušit") } },
+        dismissButton = { TextButton(onClick = { request.answer.complete(null) }) { Text(tr("Zrušit")) } },
     )
 }
 
@@ -218,8 +220,8 @@ private fun AskDialog(request: DialogRunUi.Request.Ask) {
                     .focusRequester(focus)
             )
         },
-        confirmButton = { TextButton(onClick = { request.answer.complete(value.text) }) { Text("OK") } },
-        dismissButton = { TextButton(onClick = { request.answer.complete(null) }) { Text("Zrušit") } },
+        confirmButton = { TextButton(onClick = { request.answer.complete(value.text) }) { Text(tr("OK")) } },
+        dismissButton = { TextButton(onClick = { request.answer.complete(null) }) { Text(tr("Zrušit")) } },
     )
 }
 
@@ -240,7 +242,7 @@ private fun ChooseDialog(request: DialogRunUi.Request.Choose) {
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = { request.answer.complete(null) }) { Text("Zrušit") } },
+        dismissButton = { TextButton(onClick = { request.answer.complete(null) }) { Text(tr("Zrušit")) } },
     )
 }
 
@@ -258,19 +260,19 @@ private fun ShowDialog(request: DialogRunUi.Request.Show) {
             ) {
                 // Very long texts (e.g. raw API responses) would freeze the dialog; "Kopírovat" still copies all of it.
                 val shown = if (request.text.length > 20_000) {
-                    request.text.take(20_000) + "\n… (zkráceno pro zobrazení, celkem ${request.text.length} znaků – Kopírovat vezme vše)"
+                    request.text.take(20_000) + tr("\n… (zkráceno pro zobrazení, celkem %s znaků – Kopírovat vezme vše)", request.text.length)
                 } else request.text
-                SelectionContainer { Text(shown.ifEmpty { "(prázdné)" }, modifier = Modifier.padding(top = 4.dp)) }
+                SelectionContainer { Text(shown.ifEmpty { tr("(prázdné)") }, modifier = Modifier.padding(top = 4.dp)) }
             }
         },
-        confirmButton = { TextButton(onClick = { request.answer.complete(true) }) { Text("Pokračovat") } },
+        confirmButton = { TextButton(onClick = { request.answer.complete(true) }) { Text(tr("Pokračovat")) } },
         dismissButton = {
             TextButton(onClick = {
                 cz.natsu.automation.trigger.ClipboardMonitor.markOwnWrite(request.text)
                 context.getSystemService(ClipboardManager::class.java)
                     ?.setPrimaryClip(ClipData.newPlainText(request.title, request.text))
-                Toast.makeText(context, "Zkopírováno", Toast.LENGTH_SHORT).show()
-            }) { Text("Kopírovat") }
+                Toast.makeText(context, tr("Zkopírováno"), Toast.LENGTH_SHORT).show()
+            }) { Text(tr("Kopírovat")) }
         },
     )
 }

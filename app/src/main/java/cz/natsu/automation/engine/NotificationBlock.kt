@@ -1,5 +1,7 @@
 package cz.natsu.automation.engine
 
+import cz.natsu.automation.i18n.tr
+
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -103,7 +105,7 @@ object NotificationBlock {
         ) + (1..BUTTONS).flatMap(::buttonParams),
     ) { block ->
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
-            throw BlockException("oznámení jsou pro aplikaci vypnutá", Requirement.PostNotifications)
+            throw BlockException(tr("oznámení jsou pro aplikaci vypnutá"), Requirement.PostNotifications)
         }
         val quiet = bool(block, "quiet")
         ensureChannels(context)
@@ -142,14 +144,14 @@ object NotificationBlock {
                 )
                 Action.Run -> {
                     val target = choice(block, "b${index}_automation").toLongOrNull()
-                        ?: throw BlockException("u tlačítka „$label“ není vybraná automatizace")
+                        ?: throw BlockException(tr("u tlačítka „%s“ není vybraná automatizace", label))
                     activity(context, requestCode, TriggerActivity.notificationRunIntent(
                         context, id, target, text(block, "b${index}_input")
                     ))
                 }
                 Action.Url -> {
                     var url = text(block, "b${index}_url").trim()
-                    if (url.isEmpty()) throw BlockException("u tlačítka „$label“ chybí adresa")
+                    if (url.isEmpty()) throw BlockException(tr("u tlačítka „%s“ chybí adresa", label))
                     if (!url.contains(":")) url = "https://$url"
                     activity(context, requestCode, TriggerActivity.notificationOpenIntent(context, id, url))
                 }

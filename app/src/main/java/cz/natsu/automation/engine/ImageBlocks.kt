@@ -1,5 +1,7 @@
 package cz.natsu.automation.engine
 
+import cz.natsu.automation.i18n.tr
+
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -197,11 +199,11 @@ object ImageTools {
     /** A local file (content://, file://) or an https:// address downloaded first. */
     private suspend fun local(context: Context, source: String): HttpBlocks.Source {
         val trimmed = source.trim().removePrefix("@")
-        if (trimmed.isEmpty()) throw BlockException("obrázek není zadaný")
+        if (trimmed.isEmpty()) throw BlockException(tr("obrázek není zadaný"))
         if (trimmed.startsWith("http://", true) || trimmed.startsWith("https://", true)) {
             val response = HttpBlocks.request(context, "GET", trimmed, emptyList(), null, saveToFile = true)
-            if (response.code >= 400) throw BlockException("obrázek nejde stáhnout (chyba ${response.code})")
-            return HttpBlocks.openSource(context, response.file ?: throw BlockException("obrázek nejde stáhnout"))
+            if (response.code >= 400) throw BlockException(tr("obrázek nejde stáhnout (chyba %s)", response.code))
+            return HttpBlocks.openSource(context, response.file ?: throw BlockException(tr("obrázek nejde stáhnout")))
         }
         return HttpBlocks.openSource(context, trimmed)
     }
@@ -210,12 +212,12 @@ object ImageTools {
         val file = local(context, source)
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         file.open().use { BitmapFactory.decodeStream(it, null, bounds) }
-        if (bounds.outWidth <= 0) throw BlockException("soubor není obrázek")
+        if (bounds.outWidth <= 0) throw BlockException(tr("soubor není obrázek"))
         var sample = 1
         while (bounds.outWidth / sample > MAX_DECODE || bounds.outHeight / sample > MAX_DECODE) sample *= 2
         val decoded = file.open().use {
             BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
-        } ?: throw BlockException("obrázek nejde načíst")
+        } ?: throw BlockException(tr("obrázek nejde načíst"))
         // Photos are often stored sideways with an EXIF note how to turn them.
         val orientation = runCatching {
             file.open().use { ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL) }
@@ -261,7 +263,7 @@ object ImageTools {
             val buffer = ByteArray(64 * 1024)
             while (counting.read(buffer, 0, buffer.size) > 0) Unit
         }
-        if (bounds.outWidth <= 0) throw BlockException("soubor není obrázek")
+        if (bounds.outWidth <= 0) throw BlockException(tr("soubor není obrázek"))
         Info(bounds.outWidth, bounds.outHeight, bytes, bounds.outMimeType ?: file.mime, file.name)
     }
 }

@@ -1,5 +1,7 @@
 package cz.natsu.automation.ui.list
 
+import cz.natsu.automation.i18n.tr
+
 import android.app.Application
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -90,7 +92,7 @@ class AutomationListViewModel(application: Application) : AndroidViewModel(appli
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun create(onCreated: (Long) -> Unit) {
-        viewModelScope.launch { onCreated(repository.create("Nová automatizace")) }
+        viewModelScope.launch { onCreated(repository.create(tr("Nová automatizace"))) }
     }
 
     fun createExamples(chosen: List<Examples.Example>, onDone: (Int) -> Unit = {}) {
@@ -122,7 +124,7 @@ class AutomationListViewModel(application: Application) : AndroidViewModel(appli
                 } catch (e: ImportException) {
                     e.message
                 } catch (e: Exception) {
-                    "Import se nepodařil: ${e.message}"
+                    tr("Import se nepodařil: %s", e.message)
                 }
             )
         }
@@ -142,7 +144,7 @@ fun AutomationListScreen(viewModel: AutomationListViewModel, onOpen: (Long) -> U
             onCreate = { chosen ->
                 showExamples = false
                 viewModel.createExamples(chosen) { added ->
-                    val message = if (added == 1) "Ukázka přidána" else "Přidáno ukázek: $added"
+                    val message = if (added == 1) tr("Ukázka přidána") else tr("Přidáno ukázek: %s", added)
                     android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
                 }
             },
@@ -178,18 +180,18 @@ fun AutomationListScreen(viewModel: AutomationListViewModel, onOpen: (Long) -> U
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
-                title = { Text("Automatizace") },
+                title = { Text(tr("Automatizace")) },
                 scrollBehavior = scrollBehavior,
                 actions = {
                     IconButton(onClick = { showExamples = true }) {
-                        Icon(Icons.Rounded.AutoAwesome, "Přidat ukázkové automatizace")
+                        Icon(Icons.Rounded.AutoAwesome, tr("Přidat ukázkové automatizace"))
                     }
                     var menu by remember { mutableStateOf(false) }
                     Box {
-                        IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "Další možnosti") }
+                        IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, tr("Další možnosti")) }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                             DropdownMenuItem(
-                                text = { Text("Importovat ze souboru") },
+                                text = { Text(tr("Importovat ze souboru")) },
                                 leadingIcon = { Icon(Icons.Rounded.FileOpen, null) },
                                 onClick = {
                                     menu = false
@@ -197,14 +199,14 @@ fun AutomationListScreen(viewModel: AutomationListViewModel, onOpen: (Long) -> U
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Exportovat vše") },
+                                text = { Text(tr("Exportovat vše")) },
                                 leadingIcon = { Icon(Icons.Rounded.Share, null) },
                                 enabled = !automations.isNullOrEmpty(),
                                 onClick = { menu = false; viewModel.share(context) }
                             )
                             HorizontalDivider()
                             DropdownMenuItem(
-                                text = { Text("Nastavení") },
+                                text = { Text(tr("Nastavení")) },
                                 leadingIcon = { Icon(Icons.Rounded.Settings, null) },
                                 onClick = { menu = false; onOpenSettings() }
                             )
@@ -217,7 +219,7 @@ fun AutomationListScreen(viewModel: AutomationListViewModel, onOpen: (Long) -> U
             ExtendedFloatingActionButton(
                 onClick = { viewModel.create(onOpen) },
                 icon = { Icon(Icons.Rounded.Add, null) },
-                text = { Text("Nová") }
+                text = { Text(tr("Nová")) }
             )
         }
     ) { padding ->
@@ -256,14 +258,14 @@ fun AutomationListScreen(viewModel: AutomationListViewModel, onOpen: (Long) -> U
     toDelete?.let { automation ->
         AlertDialog(
             onDismissRequest = { toDelete = null },
-            title = { Text("Smazat „${automation.name}“?") },
-            text = { Text("Automatizace i všechny její kroky budou odstraněny.") },
+            title = { Text(tr("Smazat „%s“?", automation.name)) },
+            text = { Text(tr("Automatizace i všechny její kroky budou odstraněny.")) },
             confirmButton = {
                 TextButton(onClick = { viewModel.delete(automation.id); toDelete = null }) {
-                    Text("Smazat", color = MaterialTheme.colorScheme.error)
+                    Text(tr("Smazat"), color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { toDelete = null }) { Text("Zrušit") } }
+            dismissButton = { TextButton(onClick = { toDelete = null }) { Text(tr("Zrušit")) } }
         )
     }
 }
@@ -297,17 +299,17 @@ private fun AutomationCard(
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        if (automation.needsReview) "čeká na kontrolu" else stepsLabel(stepCount),
+                        if (automation.needsReview) tr("čeká na kontrolu") else stepsLabel(stepCount),
                         style = MaterialTheme.typography.bodySmall,
                         color = if (automation.needsReview) MaterialTheme.colorScheme.error
                         else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     val iconMod = Modifier.padding(start = 8.dp).size(16.dp)
                     val tint = MaterialTheme.colorScheme.primary
-                    if (automation.triggerProcessText) Icon(Icons.Rounded.TextFields, "Výběr textu", iconMod, tint)
-                    if (automation.triggerShare) Icon(Icons.Rounded.Share, "Sdílet", iconMod, tint)
-                    if (automation.triggerTile) Icon(Icons.Rounded.Tune, "Dlaždice", iconMod, tint)
-                    if (automation.triggerClipboard) Icon(Icons.Rounded.ContentPaste, "Změna schránky", iconMod, tint)
+                    if (automation.triggerProcessText) Icon(Icons.Rounded.TextFields, tr("Výběr textu"), iconMod, tint)
+                    if (automation.triggerShare) Icon(Icons.Rounded.Share, tr("Sdílet"), iconMod, tint)
+                    if (automation.triggerTile) Icon(Icons.Rounded.Tune, tr("Dlaždice"), iconMod, tint)
+                    if (automation.triggerClipboard) Icon(Icons.Rounded.ContentPaste, tr("Změna schránky"), iconMod, tint)
                     for (event in automation.events.take(4)) {
                         Icon(
                             cz.natsu.automation.ui.editor.eventIcon(cz.natsu.automation.data.EventType.of(event.type)),
@@ -318,35 +320,35 @@ private fun AutomationCard(
             }
             var menu by remember { mutableStateOf(false) }
             Box {
-                IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "Možnosti") }
+                IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, tr("Možnosti")) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(
-                        text = { Text("Duplikovat") },
+                        text = { Text(tr("Duplikovat")) },
                         leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) },
                         onClick = { menu = false; onDuplicate() }
                     )
                     DropdownMenuItem(
-                        text = { Text("Sdílet (export)") },
+                        text = { Text(tr("Sdílet (export)")) },
                         leadingIcon = { Icon(Icons.Rounded.Share, null) },
                         onClick = { menu = false; onShare() }
                     )
                     DropdownMenuItem(
-                        text = { Text("Smazat", color = MaterialTheme.colorScheme.error) },
+                        text = { Text(tr("Smazat"), color = MaterialTheme.colorScheme.error) },
                         leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error) },
                         onClick = { menu = false; onDelete() }
                     )
                 }
             }
-            FilledTonalIconButton(onClick = onRun) { Icon(Icons.Rounded.PlayArrow, "Spustit") }
+            FilledTonalIconButton(onClick = onRun) { Icon(Icons.Rounded.PlayArrow, tr("Spustit")) }
         }
     }
 }
 
 private fun stepsLabel(count: Int) = when (count) {
-    0 -> "Žádné kroky"
-    1 -> "1 krok"
-    in 2..4 -> "$count kroky"
-    else -> "$count kroků"
+    0 -> tr("Žádné kroky")
+    1 -> tr("1 krok")
+    in 2..4 -> tr("%s kroky", count)
+    else -> tr("%s kroků", count)
 }
 
 @Composable
@@ -360,11 +362,11 @@ private fun EmptyList(modifier: Modifier, onExamples: () -> Unit) {
     ) {
         Icon(Icons.Rounded.Bolt, null, Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.height(16.dp))
-        Text("Žádné automatizace", style = MaterialTheme.typography.headlineSmall)
+        Text(tr("Žádné automatizace"), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Automatizace je řada kroků, které se spustí z aplikace, po označení textu, " +
-                    "přes Sdílet nebo dlaždicí v rychlém nastavení.",
+            tr("Automatizace je řada kroků, které se spustí z aplikace, po označení textu, ") +
+                    tr("přes Sdílet nebo dlaždicí v rychlém nastavení."),
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -372,7 +374,7 @@ private fun EmptyList(modifier: Modifier, onExamples: () -> Unit) {
         FilledTonalButton(onClick = onExamples) {
             Icon(Icons.Rounded.AutoAwesome, null, Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
-            Text("Vytvořit ukázkové automatizace")
+            Text(tr("Vytvořit ukázkové automatizace"))
         }
     }
 }
@@ -381,7 +383,7 @@ private fun EmptyList(modifier: Modifier, onExamples: () -> Unit) {
 @Composable
 private fun UsageWarning(summary: cz.natsu.automation.trigger.UsageMeter.Summary, onDetails: () -> Unit) {
     val worst = maxOf(summary.today.backgroundCpuMs, summary.yesterday.backgroundCpuMs)
-    val day = if (summary.today.backgroundCpuMs >= summary.yesterday.backgroundCpuMs) "dnes" else "včera"
+    val day = if (summary.today.backgroundCpuMs >= summary.yesterday.backgroundCpuMs) tr("dnes") else tr("včera")
     androidx.compose.material3.Surface(
         onClick = onDetails,
         shape = MaterialTheme.shapes.large,
@@ -396,13 +398,13 @@ private fun UsageWarning(summary: cz.natsu.automation.trigger.UsageMeter.Summary
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    "Vyšší spotřeba na pozadí",
+                    tr("Vyšší spotřeba na pozadí"),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onErrorContainer
                 )
                 Text(
-                    "Aplikace $day na pozadí použila ${cz.natsu.automation.trigger.UsageMeter.formatCpu(worst)} procesoru. " +
-                            "Klepni pro podrobnosti – nejvíc obvykle stojí sledování schránky.",
+                    tr("Aplikace %s na pozadí použila %s procesoru. ", day, cz.natsu.automation.trigger.UsageMeter.formatCpu(worst)) +
+                            tr("Klepni pro podrobnosti – nejvíc obvykle stojí sledování schránky."),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onErrorContainer
                 )
@@ -425,7 +427,7 @@ private fun ExamplesDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Rounded.AutoAwesome, null) },
-        title = { Text("Ukázkové automatizace") },
+        title = { Text(tr("Ukázkové automatizace")) },
         text = {
             LazyColumn(Modifier.heightIn(max = 460.dp)) {
                 items(Examples.all, key = { it.name }) { example ->
@@ -442,15 +444,15 @@ private fun ExamplesDialog(
                         AutomationBadge(example.icon, size = 36.dp)
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(example.name, style = MaterialTheme.typography.titleSmall)
+                            Text(tr(example.name), style = MaterialTheme.typography.titleSmall)
                             Text(
-                                example.description,
+                                tr(example.description),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            if (example.name in existing) {
+                            if (example.name in existing || tr(example.name) in existing) {
                                 Text(
-                                    "Už ji máš – vytvoří se kopie",
+                                    tr("Už ji máš – vytvoří se kopie"),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.primary,
                                 )
@@ -464,8 +466,8 @@ private fun ExamplesDialog(
             TextButton(
                 onClick = { onCreate(Examples.all.filter { it.name in chosen }) },
                 enabled = chosen.isNotEmpty(),
-            ) { Text(if (chosen.isEmpty()) "Vytvořit" else "Vytvořit (${chosen.size})") }
+            ) { Text(if (chosen.isEmpty()) tr("Vytvořit") else tr("Vytvořit (%s)", chosen.size)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Zrušit") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Zrušit")) } },
     )
 }

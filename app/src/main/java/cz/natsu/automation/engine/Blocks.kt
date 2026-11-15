@@ -1,5 +1,7 @@
 package cz.natsu.automation.engine
 
+import cz.natsu.automation.i18n.tr
+
 import android.app.NotificationManager
 import android.content.ActivityNotFoundException
 import android.content.ClipData
@@ -59,6 +61,7 @@ object Blocks {
 
     const val IF = "if"
     const val ELSE = "else"
+    const val ELSE_IF = "else_if"
     const val END_IF = "end_if"
     const val WHILE = "while"
     const val END_WHILE = "end_while"
@@ -68,6 +71,7 @@ object Blocks {
 
     /** The "end" block type that closes a group started by [kind]. */
     fun endTypeFor(kind: BlockKind): String = when (kind) {
+        BlockKind.ParallelStart -> ControlBlocks.END_PARALLEL
         BlockKind.WhileStart -> END_WHILE
         BlockKind.TryStart -> END_TRY
         else -> END_IF
@@ -90,6 +94,8 @@ object Blocks {
         ChoiceOption("not_empty", "není prázdné"),
         ChoiceOption("greater", "je větší než"),
         ChoiceOption("less", "je menší než"),
+        ChoiceOption("greater_eq", "je větší nebo rovno"),
+        ChoiceOption("less_eq", "je menší nebo rovno"),
     )
 
     /**
@@ -119,17 +125,28 @@ object Blocks {
 
     /** Parameters shared by "Pokud" and the launch conditions. */
     private fun conditionParams() = listOf(
+        ParamDef.Choice(
+            "mode", "Zápis", listOf(
+                ChoiceOption("simple", "Jednoduchý – hodnota a podmínka", ""),
+                ChoiceOption("expert", "Výraz – a / nebo, čísla, funkce", ""),
+            )
+        ).apply { hiddenInSummaryWhen = { true } },
         ParamDef.Text("left", "Hodnota", defaultRef = VarRef.Input).apply {
-            hiddenWhen = { conditionSource(it) != null }
+            hiddenWhen = { conditionSource(it) != null || isExpert(it) }
         },
-        ParamDef.Choice("op", "Podmínka", conditionOps),
+        ParamDef.Choice("op", "Podmínka", conditionOps).apply { hiddenWhen = { isExpert(it) } },
         ParamDef.Text("right", "Porovnat s", placeholder = "hodnota").apply {
-            hiddenWhen = { (it["op"] as? ParamValue.Choice)?.value in setOf("empty", "not_empty") }
+            hiddenWhen = { isExpert(it) || (it["op"] as? ParamValue.Choice)?.value in setOf("empty", "not_empty") }
+        },
+        ParamDef.Text("expression", "Výraz", placeholder = "např. baterie < 20 nebo stav == \"vip\"").apply {
+            hiddenWhen = { !isExpert(it) }
         },
     )
 
     /** Evaluates the left / op / right parameters of a condition block. */
     suspend fun evaluateCondition(ctx: RunContext, block: Block): Boolean {
+        // Written as an expression of the Skript language: a / nebo, numbers, functions.
+        if (ctx.choice(block, "mode") == "expert") return Script.truthy(ctx.script(block, "expression"))
         val left = when (val source = conditionSource(block.params)) {
             null -> ctx.text(block, "left")
             "input" -> ctx.resolve(VarRef.Input)
@@ -137,7 +154,8 @@ object Blocks {
             else -> ctx.resolve(VarRef.Event(source))
         }
         val right = ctx.text(block, "right")
-        return when (ctx.choice(block, "op")) {
+        val op = ctx.choice(block, "op")
+        fun check(left: String): Boolean = when (op) {
             "equals" -> left.equals(right, ignoreCase = true)
             "not_equals" -> !left.equals(right, ignoreCase = true)
             "contains" -> left.contains(right, ignoreCase = true)
@@ -147,17 +165,25 @@ object Blocks {
             "matches" -> try {
                 Regex(right).containsMatchIn(left)
             } catch (e: Exception) {
-                throw BlockException("neplatný regulární výraz")
+                throw BlockException(tr("neplatný regulární výraz"))
             }
             "empty" -> left.isBlank()
             "not_empty" -> left.isNotBlank()
-            "greater", "less" -> {
-                val a = parseNumber(left) ?: throw BlockException("\"$left\" není číslo")
-                val b = parseNumber(right) ?: throw BlockException("\"$right\" není číslo")
-                if (ctx.choice(block, "op") == "greater") a > b else a < b
+            "greater", "less", "greater_eq", "less_eq" -> {
+                val a = parseNumber(left) ?: throw BlockException(tr("\"%s\" není číslo", left))
+                val b = parseNumber(right) ?: throw BlockException(tr("\"%s\" není číslo", right))
+                when (ctx.choice(block, "op")) {
+                    "greater" -> a > b
+                    "less" -> a < b
+                    "greater_eq" -> a >= b
+                    else -> a <= b
+                }
             }
             else -> false
         }
+        // "Sdílení" and "Sharing" are the same value (see Equivalents), whichever the app shows now.
+        val results = Equivalents.variants(left).map { check(it) }
+        return if (op == "not_equals" || op == "not_contains") results.all { it } else results.any { it }
     }
 
     private val yesNo = { value: Boolean -> if (value) "true" else "false" }
@@ -202,7 +228,7 @@ object Blocks {
                 val regex = try {
                     Regex(find, options)
                 } catch (e: Exception) {
-                    throw BlockException("neplatný regulární výraz (${e.message})")
+                    throw BlockException(tr("neplatný regulární výraz (%s)", e.message))
                 }
                 source.replace(regex, replacement)
             } else {
@@ -336,13 +362,13 @@ object Blocks {
                 // Rounding is part of the expression: round(x; places).
                 Calc.evaluate(text(block, "expression"))
             } else {
-                val a = parseNumber(text(block, "a")) ?: throw BlockException("první hodnota není číslo")
-                val b = parseNumber(text(block, "b")) ?: throw BlockException("druhá hodnota není číslo")
+                val a = parseNumber(text(block, "a")) ?: throw BlockException(tr("první hodnota není číslo"))
+                val b = parseNumber(text(block, "b")) ?: throw BlockException(tr("druhá hodnota není číslo"))
                 when (choice(block, "op")) {
                     "-" -> a - b
                     "*" -> a * b
-                    "/" -> if (b == 0.0) throw BlockException("dělení nulou") else a / b
-                    "%" -> if (b == 0.0) throw BlockException("dělení nulou") else a % b
+                    "/" -> if (b == 0.0) throw BlockException(tr("dělení nulou")) else a / b
+                    "%" -> if (b == 0.0) throw BlockException(tr("dělení nulou")) else a % b
                     else -> a + b
                 }
             }
@@ -352,6 +378,7 @@ object Blocks {
         // ---------- Clipboard ----------
         BlockDef(
             type = "get_clipboard",
+            needsWindow = true,
             summary = "Získat obsah schránky",
             title = "Získat schránku",
             description = "Načte aktuální obsah schránky.",
@@ -372,7 +399,7 @@ object Blocks {
             val value = text(block, "text")
             withContext(Dispatchers.Main) {
                 val clipboard = context.getSystemService(ClipboardManager::class.java)
-                    ?: throw BlockException("schránka není dostupná")
+                    ?: throw BlockException(tr("schránka není dostupná"))
                 cz.natsu.automation.trigger.ClipboardMonitor.markOwnWrite(value)
                 clipboard.setPrimaryClip(ClipData.newPlainText("Automation", value))
             }
@@ -393,7 +420,7 @@ object Blocks {
             ),
         ) { block ->
             val name = text(block, "name").trim()
-            if (name.isEmpty()) throw BlockException("proměnná nemá název")
+            if (name.isEmpty()) throw BlockException(tr("proměnná nemá název"))
             variables[name] = text(block, "value")
             BlockResult.None
         },
@@ -401,7 +428,7 @@ object Blocks {
         // ---------- Control ----------
         BlockDef(
             type = IF,
-            summary = "Pokud {left} {op} {right}",
+            summary = "Pokud {left} {op} {right}{expression}",
             title = "Pokud",
             description = "Spustí následující kroky jen když platí podmínka. Může mít větev Jinak.",
             category = BlockCategory.Control,
@@ -412,7 +439,7 @@ object Blocks {
 
         BlockDef(
             type = WHILE,
-            summary = "Opakuj dokud {left} {op} {right}",
+            summary = "Opakuj dokud {left} {op} {right}{expression}",
             title = "Opakuj dokud",
             description = "Opakuje následující kroky, dokud platí podmínka.",
             category = BlockCategory.Control,
@@ -423,17 +450,21 @@ object Blocks {
 
         BlockDef(
             type = LAUNCH_CONDITION,
-            summary = "{source}{left} {op} {right}",
+            summary = "{source}{left} {op} {right}{expression}",
             title = "Podmínka spuštění",
             description = "Automatizace se nabídne, jen když podmínka platí.",
             category = BlockCategory.Control,
             icon = Icons.Rounded.AltRoute,
-            params = listOf(
-                ParamDef.Choice("source", "Co kontrolovat", conditionSources, default = "custom").apply {
-                    // In the summary "custom" is not shown – the text field's value is.
-                    hiddenInSummaryWhen = { conditionSource(it) == null }
-                },
-            ) + conditionParams(),
+            params = conditionParams().let { shared ->
+                listOf(
+                    shared.first(),
+                    ParamDef.Choice("source", "Co kontrolovat", conditionSources, default = "custom").apply {
+                        hiddenWhen = { isExpert(it) }
+                        // In the summary "custom" is not shown – the text field's value is.
+                        hiddenInSummaryWhen = { conditionSource(it) == null }
+                    },
+                ) + shared.drop(1)
+            },
             showInLibrary = false,
         ) { block -> BlockResult.Condition(Blocks.evaluateCondition(this, block)) },
 
@@ -447,6 +478,18 @@ object Blocks {
             kind = BlockKind.Else,
             showInLibrary = false,
         ),
+
+        BlockDef(
+            type = ELSE_IF,
+            summary = "Jinak pokud {left} {op} {right}{expression}",
+            title = "Jinak pokud",
+            description = "Další podmínka, která se zkusí, když žádná předchozí neplatila.",
+            category = BlockCategory.Control,
+            icon = Icons.AutoMirrored.Rounded.AltRoute,
+            kind = BlockKind.ElseIf,
+            params = conditionParams(),
+            showInLibrary = false,
+        ) { block -> BlockResult.Condition(Blocks.evaluateCondition(this, block)) },
 
         BlockDef(
             type = END_IF,
@@ -514,14 +557,28 @@ object Blocks {
 
         BlockDef(
             type = "wait",
-            summary = "Počkat {seconds}",
+            summary = "Počkat {seconds} {unit}",
             title = "Počkat",
-            description = "Pozastaví akci na zadaný počet sekund.",
+            description = "Pozastaví akci na zadanou dobu – sekundy, minuty nebo hodiny.",
             category = BlockCategory.Control,
             icon = Icons.Rounded.Timer,
-            params = listOf(ParamDef.Number("seconds", "Doba", 0f, 30f, 1f, step = 0.5f, unit = "s")),
+            params = listOf(
+                ParamDef.Number("seconds", "Doba", 0f, 60f, 1f, step = 0.5f),
+                ParamDef.Choice(
+                    "unit", "Jednotka", listOf(
+                        ChoiceOption("s", "sekundy", "s"),
+                        ChoiceOption("min", "minuty", "min"),
+                        ChoiceOption("h", "hodiny", "h"),
+                    )
+                ),
+            ),
         ) { block ->
-            delay((number(block, "seconds") * 1000).toLong())
+            val factor = when (choice(block, "unit")) {
+                "min" -> 60_000L
+                "h" -> 3_600_000L
+                else -> 1000L
+            }
+            delay((number(block, "seconds") * factor).toLong())
             BlockResult.None
         },
 
@@ -560,7 +617,7 @@ object Blocks {
             requirement = null,
         ) { block ->
             val audio = context.getSystemService(AudioManager::class.java)
-                ?: throw BlockException("zvuk není dostupný")
+                ?: throw BlockException(tr("zvuk není dostupný"))
             val stream = when (choice(block, "stream")) {
                 "ring" -> AudioManager.STREAM_RING
                 "notification" -> AudioManager.STREAM_NOTIFICATION
@@ -607,10 +664,10 @@ object Blocks {
             requirement = Requirement.NotificationPolicy,
         ) { block ->
             val audio = context.getSystemService(AudioManager::class.java)
-                ?: throw BlockException("zvuk není dostupný")
+                ?: throw BlockException(tr("zvuk není dostupný"))
             val notifications = context.getSystemService(NotificationManager::class.java)
             if (notifications?.isNotificationPolicyAccessGranted != true) {
-                throw BlockException("chybí přístup k režimu Nerušit", Requirement.NotificationPolicy)
+                throw BlockException(tr("chybí přístup k režimu Nerušit"), Requirement.NotificationPolicy)
             }
             val mode = when (choice(block, "mode")) {
                 "vibrate" -> AudioManager.RINGER_MODE_VIBRATE
@@ -640,7 +697,7 @@ object Blocks {
             } else {
                 @Suppress("DEPRECATION")
                 context.getSystemService(Vibrator::class.java)
-            } ?: throw BlockException("vibrace nejsou dostupné")
+            } ?: throw BlockException(tr("vibrace nejsou dostupné"))
             vibrator.vibrate(
                 VibrationEffect.createOneShot(number(block, "duration").toLong(), VibrationEffect.DEFAULT_AMPLITUDE)
             )
@@ -714,7 +771,7 @@ object Blocks {
             outputName = "Baterie",
         ) { block ->
             val battery = context.getSystemService(BatteryManager::class.java)
-                ?: throw BlockException("baterie není dostupná")
+                ?: throw BlockException(tr("baterie není dostupná"))
             val value = when (choice(block, "info")) {
                 "charging" -> yesNo(battery.isCharging)
                 else -> battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY).toString()
@@ -741,6 +798,7 @@ object Blocks {
 
         BlockDef(
             type = "open_url",
+            needsWindow = true,
             summary = "Otevřít {url}",
             title = "Otevřít odkaz",
             description = "Otevře webovou adresu nebo jiný odkaz (tel:, mailto:, geo:…).",
@@ -749,13 +807,13 @@ object Blocks {
             params = listOf(ParamDef.Text("url", "Adresa", placeholder = "https://…")),
         ) { block ->
             var url = text(block, "url").trim()
-            if (url.isEmpty()) throw BlockException("adresa je prázdná")
+            if (url.isEmpty()) throw BlockException(tr("adresa je prázdná"))
             if (!url.contains(":")) url = "https://$url"
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             try {
                 withContext(Dispatchers.Main) { context.startActivity(intent) }
             } catch (e: ActivityNotFoundException) {
-                throw BlockException("žádná aplikace neumí otevřít \"$url\"")
+                throw BlockException(tr("žádná aplikace neumí otevřít \"%s\"", url))
             }
             BlockResult.None
         },
@@ -774,11 +832,12 @@ object Blocks {
             val value = try {
                 SimpleDateFormat(format, Locale.getDefault()).format(Date())
             } catch (e: IllegalArgumentException) {
-                throw BlockException("neplatný formát data")
+                throw BlockException(tr("neplatný formát data"))
             }
             BlockResult.Output(value)
         },
-    ) + MoreBlocks.all + DataBlocks.all + HttpBlocks.all + ImageBlocks.all + ExtraBlocks.all + NotificationBlock.def
+    ) + MoreBlocks.all + DataBlocks.all + HttpBlocks.all + ImageBlocks.all + ExtraBlocks.all + NotificationBlock.def +
+            ControlBlocks.all + AppBlocks.all
 
     private val byType = all.associateBy { it.type }
 

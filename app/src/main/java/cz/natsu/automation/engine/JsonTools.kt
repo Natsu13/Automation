@@ -1,5 +1,7 @@
 package cz.natsu.automation.engine
 
+import cz.natsu.automation.i18n.tr
+
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -16,7 +18,7 @@ import kotlinx.serialization.json.doubleOrNull
 object JsonTools {
     private val pretty = Json { prettyPrint = true }
 
-    fun parse(text: String): JsonElement = parseOrNull(text) ?: throw BlockException("text není platný JSON")
+    fun parse(text: String): JsonElement = parseOrNull(text) ?: throw BlockException(tr("text není platný JSON"))
 
     fun parseOrNull(text: String): JsonElement? {
         val trimmed = text.trim()
@@ -112,7 +114,7 @@ object JsonTools {
                         inner == "*" -> Step.All
                         inner.length >= 2 && (inner[0] == '"' || inner[0] == '\'') && inner.last() == inner[0] ->
                             Step.Key(inner.substring(1, inner.length - 1))
-                        else -> Step.Index(inner.toIntOrNull() ?: throw BlockException("neplatný index [$inner] v cestě"))
+                        else -> Step.Index(inner.toIntOrNull() ?: throw BlockException(tr("neplatný index [%s] v cestě", inner)))
                     }
                     i = end
                 }
@@ -136,7 +138,7 @@ object JsonTools {
                 return j
             }
         }
-        throw BlockException("v cestě chybí ]")
+        throw BlockException(tr("v cestě chybí ]"))
     }
 
     /** Value at [steps], or null when it does not exist. `[*]` collects the results into an array. */
@@ -188,7 +190,7 @@ object JsonTools {
                         val child = set(list[index], steps, value, from + 1)
                         if (child == null) list.removeAt(index) else list[index] = child
                     }
-                    else -> throw BlockException("index ${step.index} je mimo seznam (má ${list.size} položek)")
+                    else -> throw BlockException(tr("index %s je mimo seznam (má %s položek)", step.index, list.size))
                 }
                 JsonArray(list)
             }
@@ -205,7 +207,7 @@ object JsonTools {
         text.lines().mapNotNull { line ->
             if (line.isBlank()) return@mapNotNull null
             val at = line.indexOfAny(separators)
-            if (at <= 0) throw BlockException("řádek \"${line.trim().take(40)}\" nemá tvar klíč: hodnota")
+            if (at <= 0) throw BlockException(tr("řádek \"%s\" nemá tvar klíč: hodnota", line.trim().take(40)))
             line.substring(0, at).trim() to line.substring(at + 1).trim()
         }
 }

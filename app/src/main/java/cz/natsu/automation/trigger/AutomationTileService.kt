@@ -1,7 +1,7 @@
 package cz.natsu.automation.trigger
 
-import android.annotation.SuppressLint
-import android.app.PendingIntent
+import cz.natsu.automation.i18n.tr
+
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
@@ -26,12 +26,12 @@ class AutomationTileService : TileService() {
             }
             val tile = qsTile ?: return@launch
             tile.state = if (automations.isEmpty()) Tile.STATE_INACTIVE else Tile.STATE_ACTIVE
-            tile.label = automations.singleOrNull()?.name ?: "Automatizace"
+            tile.label = automations.singleOrNull()?.name ?: tr("Automatizace")
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 tile.subtitle = when (automations.size) {
-                    0 -> "Nic nenastaveno"
-                    1 -> "Spustit"
-                    else -> "Vybrat z ${automations.size}"
+                    0 -> tr("Nic nenastaveno")
+                    1 -> tr("Spustit")
+                    else -> tr("Vybrat z %s", automations.size)
                 }
             }
             tile.updateTile()
@@ -47,19 +47,7 @@ class AutomationTileService : TileService() {
         }
     }
 
-    @SuppressLint("StartActivityAndCollapseDeprecated")
-    private fun launchTrigger() {
-        val intent = TriggerActivity.tileIntent(this)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            val pending = PendingIntent.getActivity(
-                this, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-            startActivityAndCollapse(pending)
-        } else {
-            @Suppress("DEPRECATION")
-            startActivityAndCollapse(intent)
-        }
-    }
+    private fun launchTrigger() = TileSlots.launch(this, null)
 
     override fun onDestroy() {
         scope.cancel()

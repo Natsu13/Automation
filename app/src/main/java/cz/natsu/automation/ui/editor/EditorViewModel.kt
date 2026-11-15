@@ -1,5 +1,7 @@
 package cz.natsu.automation.ui.editor
 
+import cz.natsu.automation.i18n.tr
+
 import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -23,6 +25,7 @@ import cz.natsu.automation.engine.BlockKind
 import cz.natsu.automation.engine.Blocks
 import cz.natsu.automation.engine.RunResult
 import cz.natsu.automation.engine.Structure
+import cz.natsu.automation.i18n.tr
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -65,6 +68,15 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         private set
     var triggerTile by mutableStateOf(false)
         private set
+
+    /** 0 = the general tile, 1..5 = a quick settings tile of its own. */
+    var tileSlot by mutableStateOf(0)
+        private set
+
+    fun changeTileSlot(slot: Int) {
+        tileSlot = slot
+        changed()
+    }
     var triggerClipboard by mutableStateOf(false)
         private set
 
@@ -132,6 +144,7 @@ class EditorViewModel(application: Application, private val automationId: Long) 
                 triggerProcessText = stored.triggerProcessText
                 triggerShare = stored.triggerShare
                 triggerTile = stored.triggerTile
+                tileSlot = stored.tileSlot
                 triggerClipboard = stored.triggerClipboard
                 val storedBlocks = BlockJson.decodeChecked(stored.blocksJson)
                 val storedConditions = BlockJson.decodeChecked(stored.conditionsJson)
@@ -152,13 +165,14 @@ class EditorViewModel(application: Application, private val automationId: Long) 
     // ---------- saving ----------
 
     private fun currentEntity(): AutomationEntity? = entity?.takeUnless { unreadable }?.copy(
-        name = name.ifBlank { "Bez názvu" },
+        name = name.ifBlank { tr("Bez názvu") },
         icon = icon,
         // Never store a list with a folded (temporarily removed) condition.
         blocksJson = BlockJson.encode(foldedGroup?.before ?: blocks.toList()),
         triggerProcessText = triggerProcessText,
         triggerShare = triggerShare,
         triggerTile = triggerTile,
+        tileSlot = tileSlot,
         triggerClipboard = triggerClipboard,
         conditionsJson = BlockJson.encode(conditions.toList()),
         conditionsAny = conditionsAny,
@@ -287,7 +301,7 @@ class EditorViewModel(application: Application, private val automationId: Long) 
                 } catch (e: cz.natsu.automation.data.ImportException) {
                     e.message
                 } catch (e: Exception) {
-                    "Import se nepodařil: ${e.message}"
+                    tr("Import se nepodařil: %s", e.message)
                 }
             )
         }
@@ -306,18 +320,18 @@ class EditorViewModel(application: Application, private val automationId: Long) 
     /** What an imported automation does that the user should know before allowing it. */
     fun reviewSummary(): List<String> = buildList {
         val starts = buildList {
-            if (triggerClipboard) add("změna schránky")
-            for (event in events) EventType.of(event.type)?.let { add(it.title) }
+            if (triggerClipboard) add(tr("změna schránky"))
+            for (event in events) EventType.of(event.type)?.let { add(tr(it.title)) }
         }
-        if (starts.isNotEmpty()) add("Spouští se sama: ${starts.distinct().joinToString(", ")}")
-        if (events.any { it.type == EventType.Notification.key }) add("Čte příchozí oznámení (aplikace, nadpis, text)")
+        if (starts.isNotEmpty()) add(tr("Spouští se sama: %s", starts.distinct().joinToString(", ")))
+        if (events.any { it.type == EventType.Notification.key }) add(tr("Čte příchozí oznámení (aplikace, nadpis, text)"))
 
         val refs = (blocks + conditions).flatMap { block ->
             block.params.values.filterIsInstance<ParamValue.Rich>().flatMap { it.segments }
         }.filterIsInstance<Segment.Var>().map { it.ref }
         val secrets = refs.filterIsInstance<VarRef.Secret>().map { it.name }.distinct()
-        if (secrets.isNotEmpty()) add("Používá tvoje tajné hodnoty: ${secrets.joinToString(", ")}")
-        if (VarRef.Clipboard in refs || blocks.any { it.type == "get_clipboard" }) add("Čte schránku")
+        if (secrets.isNotEmpty()) add(tr("Používá tvoje tajné hodnoty: %s", secrets.joinToString(", ")))
+        if (VarRef.Clipboard in refs || blocks.any { it.type == "get_clipboard" }) add(tr("Čte schránku"))
 
         val addresses = blocks.filter { it.type in setOf("http_request", "web", "open_url") }.map { block ->
             (block.params["url"] as? ParamValue.Rich)?.segments.orEmpty().joinToString("") {
@@ -325,11 +339,16 @@ class EditorViewModel(application: Application, private val automationId: Long) 
                     is Segment.Text -> it.text
                     is Segment.Var -> "{…}"
                 }
-            }.trim().ifEmpty { "(adresa není vyplněná)" }
+            }.trim().ifEmpty { tr("(adresa není vyplněná)") }
         }.distinct()
-        if (addresses.isNotEmpty()) add("Posílá data na internet:\n" + addresses.joinToString("\n") { "• ${it.take(120)}" })
-        if (blocks.any { it.type in setOf("share", "share_file", "save_file") }) add("Sdílí nebo ukládá soubory a text")
-        if (isEmpty()) add("Nespouští se sama, nepoužívá tajné hodnoty a nic neposílá na internet.")
+        if (addresses.isNotEmpty()) add(tr("Posílá data na internet:\n") + addresses.joinToString("\n") { "• ${it.take(120)}" })
+        if (blocks.any { it.type in setOf("share", "share_file", "save_file") }) add(tr("Sdílí nebo ukládá soubory a text"))
+        if (blocks.any { it.type in setOf("open_app", "send_intent") }) {
+            add("Otevírá jiné aplikace nebo jim posílá příkazy (intent, spuštění služby)")
+        }
+        if (blocks.any { it.type == "run_automation" }) add(tr("Spouští jiné tvoje automatizace"))
+        if (blocks.any { it.type == "script" }) add(tr("Obsahuje skript – přečti si ho"))
+        if (isEmpty()) add(tr("Nespouští se sama, nepoužívá tajné hodnoty a nic neposílá na internet."))
     }
 
     /** The user checked the imported automation and allows it to run. */
@@ -433,24 +452,24 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         val context = getApplication<Application>()
         return when (subject) {
             "trigger" -> ValueSuggestions(buildList {
-                add(cz.natsu.automation.engine.RunTrigger.Manual.label)
-                if (triggerShare) add(cz.natsu.automation.engine.RunTrigger.Share.label)
-                if (triggerProcessText) add(cz.natsu.automation.engine.RunTrigger.ProcessText.label)
-                if (triggerClipboard) add(cz.natsu.automation.engine.RunTrigger.Clipboard.label)
-                if (triggerTile) add(cz.natsu.automation.engine.RunTrigger.Tile.label)
-                if (runFromNotification) add(cz.natsu.automation.engine.RunTrigger.NotificationButton.label)
-                events.mapNotNullTo(this) { EventType.of(it.type)?.title }
-            }.distinct(), hint = "Podle toho, jak se automatizace dá spustit (Spouštění a Události).")
+                add(tr(cz.natsu.automation.engine.RunTrigger.Manual.label))
+                if (triggerShare) add(tr(cz.natsu.automation.engine.RunTrigger.Share.label))
+                if (triggerProcessText) add(tr(cz.natsu.automation.engine.RunTrigger.ProcessText.label))
+                if (triggerClipboard) add(tr(cz.natsu.automation.engine.RunTrigger.Clipboard.label))
+                if (triggerTile) add(tr(cz.natsu.automation.engine.RunTrigger.Tile.label))
+                if (runFromNotification) add(tr(cz.natsu.automation.engine.RunTrigger.NotificationButton.label))
+                events.mapNotNullTo(this) { event -> EventType.of(event.type)?.title?.let { tr(it) } }
+            }.distinct(), hint = tr("Podle toho, jak se automatizace dá spustit (Spouštění a Události)."))
             "network" -> ValueSuggestions(listOf("wifi", "mobile", "ethernet", "none"))
             "charging", "bool" -> ValueSuggestions(listOf("true", "false"))
             "dnd" -> ValueSuggestions(listOf("zapnuto", "vypnuto"))
             "orientation" -> ValueSuggestions(listOf("portrait", "landscape"))
-            "battery" -> ValueSuggestions(listOf("20", "50", "80"), hint = "Pro čísla použij „je menší než“ / „je větší než“.")
+            "battery" -> ValueSuggestions(listOf("20", "50", "80"), hint = tr("Pro čísla použij „je menší než“ / „je větší než“."))
             "wifi_name" -> ValueSuggestions(
                 listOfNotNull(cz.natsu.automation.engine.DeviceState.wifiName(context).takeIf { it.isNotEmpty() }),
-                hint = "Nabízí se Wi-Fi, ke které je telefon připojený teď."
+                hint = tr("Nabízí se Wi-Fi, ke které je telefon připojený teď.")
             )
-            "bt_device" -> ValueSuggestions(pairedBluetoothNames(context), hint = "Spárovaná zařízení.")
+            "bt_device" -> ValueSuggestions(pairedBluetoothNames(context), hint = tr("Spárovaná zařízení."))
             "notif_app" -> ValueSuggestions(emptyList(), app = AppValue.Label)
             "notif_package" -> ValueSuggestions(emptyList(), app = AppValue.Package)
             else -> null
@@ -476,7 +495,16 @@ class EditorViewModel(application: Application, private val automationId: Long) 
                 blocks.add(it)
                 // "Zkusit" is useful with its "Když selže" branch, so it comes with it.
                 if (def.kind == BlockKind.TryStart) blocks.add(Blocks.get(Blocks.CATCH)!!.newBlock(group))
-                blocks.add(Blocks.get(Blocks.endTypeFor(def.kind))!!.newBlock(group))
+                // "Vyber podle" and "Souběžně" make sense only with branches, so they come with them.
+                when (def.type) {
+                    cz.natsu.automation.engine.ControlBlocks.SWITCH -> {
+                        blocks.add(Blocks.get(cz.natsu.automation.engine.ControlBlocks.CASE)!!.newBlock(group))
+                        blocks.add(Blocks.get(Blocks.ELSE)!!.newBlock(group))
+                    }
+                    cz.natsu.automation.engine.ControlBlocks.PARALLEL ->
+                        blocks.add(Blocks.get(cz.natsu.automation.engine.ControlBlocks.BRANCH)!!.newBlock(group))
+                }
+                blocks.add(Blocks.get(cz.natsu.automation.engine.ControlBlocks.endTypeFor(def))!!.newBlock(group))
             }
         } else {
             def.newBlock().also { blocks.add(it) }
@@ -562,6 +590,26 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         changed()
     }
 
+    /**
+     * Adds "Jinak pokud" to the condition [block] belongs to: after the branch of
+     * [block] (an "if" or another "Jinak pokud"), so before the next branch or the end.
+     */
+    fun addElseIf(block: Block) {
+        val index = indexOf(block.id)
+        if (index < 0) return
+        val branchKinds = setOf(BlockKind.ElseIf, BlockKind.Else, BlockKind.End, BlockKind.Branch)
+        val next = (index + 1 until blocks.size).firstOrNull {
+            blocks[it].groupId == block.groupId && Blocks.get(blocks[it].type)?.kind in branchKinds
+        } ?: return
+        // What kind of branch depends on the block the group starts with (if / choose by / parallel).
+        val start = blocks.firstOrNull { it.groupId == block.groupId } ?: return
+        val type = cz.natsu.automation.engine.ControlBlocks.branchTypeFor(start.type) ?: return
+        val added = Blocks.get(type)!!.newBlock(block.groupId)
+        blocks.add(next, added)
+        expandedIds[added.id] = true
+        changed()
+    }
+
     // ---------- launch conditions ----------
 
     fun isCondition(blockId: String) = conditions.any { it.id == blockId }
@@ -642,10 +690,18 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         val block = blocks[index]
         val before = snapshot()
         val range = when (Blocks.get(block.type)?.kind) {
-            BlockKind.IfStart, BlockKind.WhileStart, BlockKind.TryStart -> groupRange(index)
+            BlockKind.IfStart, BlockKind.WhileStart, BlockKind.TryStart, BlockKind.ParallelStart -> groupRange(index)
             BlockKind.Else -> {
                 val end = blocks.indexOfFirst { it.groupId == block.groupId && Blocks.get(it.type)?.kind == BlockKind.End }
                 if (end > index) index until end else index..index
+            }
+            // "Jinak pokud" goes with the steps of its branch: up to the next branch or the end.
+            BlockKind.ElseIf, BlockKind.Branch -> {
+                val next = (index + 1 until blocks.size).firstOrNull {
+                    blocks[it].groupId == block.groupId && Blocks.get(blocks[it].type)?.kind in
+                            setOf(BlockKind.ElseIf, BlockKind.Else, BlockKind.End, BlockKind.Branch)
+                }
+                if (next != null) index until next else index..index
             }
             BlockKind.End -> return null
             else -> index..index
@@ -656,7 +712,10 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         changed()
         // Steps that were inside (control blocks of the removed condition itself don't count).
         val inner = if (removed.size == 1) 0 else removed.count {
-            it.groupId != block.groupId && Blocks.get(it.type)?.kind.let { k -> k != BlockKind.Else && k != BlockKind.End }
+            it.groupId != block.groupId &&
+                    Blocks.get(it.type)?.kind.let { k ->
+                        k != BlockKind.Else && k != BlockKind.End && k != BlockKind.ElseIf && k != BlockKind.Branch
+                    }
         }
         return Removal(before, inner)
     }
@@ -752,10 +811,10 @@ class EditorViewModel(application: Application, private val automationId: Long) 
 
     fun variablesFor(blockId: String): List<VariableOption> {
         val options = mutableListOf(
-            VariableOption(VarRef.Input, "Vstup", "Text, se kterým byla akce spuštěna (označený, sdílený nebo zkopírovaný)"),
-            VariableOption(VarRef.Trigger, "Typ spuštění", TRIGGER_DESCRIPTION),
-            VariableOption(VarRef.Clipboard, "Schránka", "Aktuální obsah schránky"),
-            VariableOption(VarRef.CurrentDate, "Aktuální datum", "Datum a čas spuštění"),
+            VariableOption(VarRef.Input, tr("Vstup"), tr("Text, se kterým byla akce spuštěna (označený, sdílený nebo zkopírovaný)")),
+            VariableOption(VarRef.Trigger, tr("Typ spuštění"), TRIGGER_DESCRIPTION),
+            VariableOption(VarRef.Clipboard, tr("Schránka"), tr("Aktuální obsah schránky")),
+            VariableOption(VarRef.CurrentDate, tr("Aktuální datum"), tr("Datum a čas spuštění")),
         )
         // Launch conditions run before any step; event values are picked in their
         // "Co kontrolovat" choice. In steps they come from blocks.
@@ -769,7 +828,7 @@ class EditorViewModel(application: Application, private val automationId: Long) 
                 options += VariableOption(
                     VarRef.BlockOutput(block.id),
                     outputLabel(block),
-                    "Výstup kroku ${i + 1}: ${def.title}"
+                    tr("Výstup kroku") + " ${i + 1}: " + tr(def.title)
                 )
             }
             if (block.type == Blocks.SET_VARIABLE) {
@@ -777,10 +836,10 @@ class EditorViewModel(application: Application, private val automationId: Long) 
             }
         }
         for (variable in names) {
-            options += VariableOption(VarRef.Named(variable), variable, "Proměnná")
+            options += VariableOption(VarRef.Named(variable), variable, tr("Proměnná"))
         }
         for (secret in cz.natsu.automation.data.SecretStore.names(getApplication())) {
-            options += VariableOption(VarRef.Secret(secret), "🔑 $secret", "Tajná hodnota – v exportu se neukládá")
+            options += VariableOption(VarRef.Secret(secret), "🔑 $secret", tr("Tajná hodnota – v exportu se neukládá"))
         }
         return options
     }
@@ -790,15 +849,16 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         val def = Blocks.get(block.type) ?: return "?"
         val sameKind = blocks.filter { Blocks.get(it.type)?.outputName == def.outputName }
         val position = sameKind.indexOfFirst { it.id == block.id }
-        return if (sameKind.size > 1) "${def.outputName} ${position + 1}" else def.outputName ?: def.title
+        val name = tr(def.outputName ?: def.title)
+        return if (sameKind.size > 1) "$name ${position + 1}" else name
     }
 
     fun labelOf(ref: VarRef): String? = when (ref) {
-        VarRef.Input -> "Vstup"
-        VarRef.Clipboard -> "Schránka"
-        VarRef.CurrentDate -> "Aktuální datum"
-        VarRef.Trigger -> "Typ spuštění"
-        is VarRef.Event -> EventValue.of(ref.key)?.label
+        VarRef.Input -> tr("Vstup")
+        VarRef.Clipboard -> tr("Schránka")
+        VarRef.CurrentDate -> tr("Aktuální datum")
+        VarRef.Trigger -> tr("Typ spuštění")
+        is VarRef.Event -> EventValue.of(ref.key)?.label?.let { tr(it) }
         is VarRef.Named -> ref.name
         is VarRef.Secret -> "🔑 ${ref.name}"
         is VarRef.BlockOutput -> blocks.firstOrNull { it.id == ref.blockId }?.let { outputLabel(it) }
@@ -916,8 +976,8 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         /** Typing into one field within this time counts as one history step. */
         private const val MERGE_WINDOW_MS = 1500L
 
-        val TRIGGER_DESCRIPTION = "Jak byla automatizace spuštěna: " +
-                cz.natsu.automation.engine.RunTrigger.entries.joinToString(", ") { it.label }
+        val TRIGGER_DESCRIPTION = tr("Jak byla automatizace spuštěna: ") +
+                cz.natsu.automation.engine.RunTrigger.entries.joinToString(", ") { tr(it.label) }
 
         fun plainText(value: ParamValue?): String? = (value as? ParamValue.Rich)?.segments
             ?.joinToString("") { (it as? Segment.Text)?.text ?: "" }

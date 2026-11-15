@@ -1,5 +1,7 @@
 package cz.natsu.automation.ui.editor
 
+import cz.natsu.automation.i18n.tr
+
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -101,7 +103,7 @@ private fun buildSummary(
             is ParamValue.Rich -> {
                 val meaningful = value.segments.filter { it !is Segment.Text || it.text.isNotEmpty() }
                 if (meaningful.isEmpty()) {
-                    pill("prázdné", emptyStyle, keepTogether = true, italic = true)
+                    pill(tr("prázdné"), emptyStyle, keepTogether = true, italic = true)
                     return
                 }
                 var budget = MAX_TEXT
@@ -123,7 +125,7 @@ private fun buildSummary(
                 }
             }
             is ParamValue.Choice -> {
-                val label = (param as? ParamDef.Choice)?.shortOf(value.value) ?: value.value
+                val label = (param as? ParamDef.Choice)?.shortOf(value.value)?.let { tr(it) } ?: value.value
                 pill(label, valueStyle, keepTogether = true)
             }
             is ParamValue.Number -> {
@@ -132,21 +134,22 @@ private fun buildSummary(
             }
             is ParamValue.Bool -> {
                 val label = (param as? ParamDef.Toggle)?.summaryWhenOn
-                if (value.value && label != null) builder.append(label)
+                if (value.value && label != null) builder.append(tr(label))
             }
         }
     }
 
     val values = def.params.associate { it.key to (block.params[it.key] ?: it.defaultValue()) }
+    val summaryText = tr(def.summary)
     var last = 0
-    for (match in PLACEHOLDER.findAll(def.summary)) {
-        builder.append(def.summary.substring(last, match.range.first))
+    for (match in PLACEHOLDER.findAll(summaryText)) {
+        builder.append(summaryText.substring(last, match.range.first))
         last = match.range.last + 1
         val param = def.param(match.groupValues[1]) ?: continue
         if (param.isHidden(values) || param.hiddenInSummaryWhen?.invoke(values) == true) continue
         appendValue(param, values.getValue(param.key))
     }
-    builder.append(def.summary.substring(last).trimEnd())
+    builder.append(summaryText.substring(last).trimEnd())
 
     if (outputLabel != null && outputStyle != null) {
         builder.append("  → ")

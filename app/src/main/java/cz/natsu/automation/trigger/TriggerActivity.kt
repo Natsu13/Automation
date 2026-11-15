@@ -1,5 +1,7 @@
 package cz.natsu.automation.trigger
 
+import cz.natsu.automation.i18n.tr
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -98,10 +100,12 @@ class TriggerActivity : ComponentActivity() {
                 .setAction(ACTION_RUN)
                 .putExtra(EXTRA_AUTOMATION_ID, automationId)
 
-        fun tileIntent(context: Context): Intent =
+        /** [automationId] = a numbered tile that runs one automation; null = the general tile. */
+        fun tileIntent(context: Context, automationId: Long? = null): Intent =
             Intent(context, TriggerActivity::class.java)
                 .setAction(ACTION_TILE)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .apply { if (automationId != null) putExtra(EXTRA_AUTOMATION_ID, automationId) }
 
         private const val ACTION_NOTIFICATION_RUN = "cz.natsu.automation.action.NOTIFICATION_RUN"
         private const val ACTION_NOTIFICATION_OPEN = "cz.natsu.automation.action.NOTIFICATION_OPEN"
@@ -165,7 +169,10 @@ class TriggerActivity : ComponentActivity() {
                     ?: intent.getStringExtra(Intent.EXTRA_SUBJECT)
                 directId = intent.getStringExtra(Intent.EXTRA_SHORTCUT_ID)?.let(ShortcutPublisher::automationId)
             }
-            ACTION_TILE -> mode = Mode.Tile
+            ACTION_TILE -> {
+                mode = Mode.Tile
+                directId = intent.getLongExtra(EXTRA_AUTOMATION_ID, -1L).takeIf { it >= 0 }
+            }
             ACTION_CLIPBOARD -> mode = Mode.Clipboard
             ACTION_NOTIFICATION_RUN -> {
                 mode = Mode.Notification
@@ -210,10 +217,10 @@ class TriggerActivity : ComponentActivity() {
             if (mode == Mode.Direct || directId != null) {
                 val automation = directId?.let { repository.get(it) }
                 if (automation == null) {
-                    state = TriggerUiState.Empty("Automatizace už neexistuje.")
+                    state = TriggerUiState.Empty(tr("Automatizace už neexistuje."))
                 } else if (automation.needsReview) {
                     state = TriggerUiState.Empty(
-                        "„${automation.name}“ je importovaná a čeká na kontrolu. Otevři ji v aplikaci a povol ji."
+                        tr("„%s“ je importovaná a čeká na kontrolu. Otevři ji v aplikaci a povol ji.", automation.name)
                     )
                 } else {
                     start(automation)
@@ -236,7 +243,7 @@ class TriggerActivity : ComponentActivity() {
             val matching = matching(options)
             when (matching.size) {
                 0 -> state = TriggerUiState.Empty(
-                    "Žádná automatizace se na tohle nehodí – u všech se nesplnily podmínky spuštění."
+                    tr("Žádná automatizace se na tohle nehodí – u všech se nesplnily podmínky spuštění.")
                 )
                 1 -> start(matching.first())
                 else -> state = TriggerUiState.Pick(matching)
@@ -264,7 +271,7 @@ class TriggerActivity : ComponentActivity() {
         try {
             startActivity(target)
         } catch (e: android.content.ActivityNotFoundException) {
-            Toast.makeText(this, "Žádná aplikace neumí otevřít \"$text\"", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, tr("Žádná aplikace neumí otevřít \"%s\"", text), Toast.LENGTH_LONG).show()
         }
         finishCanceled()
         return true
@@ -289,10 +296,10 @@ class TriggerActivity : ComponentActivity() {
         }
 
     private fun emptyMessage(type: TriggerType) = when (type) {
-        TriggerType.ProcessText -> "Žádná automatizace nemá zapnuté spuštění při výběru textu."
-        TriggerType.Share -> "Žádná automatizace nemá zapnuté spuštění přes Sdílet."
-        TriggerType.Tile -> "Žádná automatizace nemá zapnuté spuštění dlaždicí."
-        TriggerType.Clipboard -> "Žádná automatizace nemá zapnuté spuštění při změně schránky."
+        TriggerType.ProcessText -> tr("Žádná automatizace nemá zapnuté spuštění při výběru textu.")
+        TriggerType.Share -> tr("Žádná automatizace nemá zapnuté spuštění přes Sdílet.")
+        TriggerType.Tile -> tr("Žádná automatizace nemá zapnuté spuštění dlaždicí.")
+        TriggerType.Clipboard -> tr("Žádná automatizace nemá zapnuté spuštění při změně schránky.")
     }
 
     /**
@@ -365,7 +372,7 @@ class TriggerActivity : ComponentActivity() {
     private fun report(automation: AutomationEntity, result: RunResult): Boolean {
         if (result.cancelled) return false
         if (!result.success) {
-            val hint = result.requirement?.let { "\nPovol v aplikaci: ${it.title}" } ?: ""
+            val hint = result.requirement?.let { tr("\nPovol v aplikaci: %s", it.title) } ?: ""
             Toast.makeText(this, "${automation.name}: ${result.error}$hint", Toast.LENGTH_LONG).show()
             return false
         }
@@ -374,7 +381,7 @@ class TriggerActivity : ComponentActivity() {
             ClipboardMonitor.markOwnWrite(output)
             getSystemService(ClipboardManager::class.java)
                 ?.setPrimaryClip(ClipData.newPlainText(automation.name, output))
-            Toast.makeText(this, "Výsledek zkopírován do schránky", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, tr("Výsledek zkopírován do schránky"), Toast.LENGTH_SHORT).show()
         }
         return true
     }
@@ -429,7 +436,7 @@ private fun TriggerContent(
 
         is TriggerUiState.Pick -> ModalBottomSheet(onDismissRequest = onDismiss) {
             Text(
-                "Spustit automatizaci",
+                tr("Spustit automatizaci"),
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
@@ -454,14 +461,14 @@ private fun TriggerContent(
                     .navigationBarsPadding()
                     .padding(bottom = 24.dp)
             ) {
-                Text("Nic ke spuštění", style = MaterialTheme.typography.titleLarge)
+                Text(tr("Nic ke spuštění"), style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.height(8.dp))
                 Text(state.message, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(16.dp))
                 Row {
-                    TextButton(onClick = onDismiss) { Text("Zavřít") }
+                    TextButton(onClick = onDismiss) { Text(tr("Zavřít")) }
                     Spacer(Modifier.weight(1f))
-                    FilledTonalButton(onClick = onOpenApp) { Text("Otevřít aplikaci") }
+                    FilledTonalButton(onClick = onOpenApp) { Text(tr("Otevřít aplikaci")) }
                 }
             }
         }

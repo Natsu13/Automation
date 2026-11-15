@@ -1,5 +1,7 @@
 package cz.natsu.automation.data
 
+import cz.natsu.automation.i18n.tr
+
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
@@ -74,11 +76,11 @@ object AutomationTransfer {
         val trimmed = text.trim().removePrefix("﻿")
         val file = runCatching { json.decodeFromString(ExportFile.serializer(), trimmed) }.getOrNull()
         if (file != null) {
-            if (file.format != FORMAT) throw ImportException("Soubor není export z Automatizací.")
+            if (file.format != FORMAT) throw ImportException(tr("Soubor není export z Automatizací."))
             return file.automations
         }
         val single = runCatching { json.decodeFromString(ExportedAutomation.serializer(), trimmed) }.getOrNull()
-            ?: throw ImportException("Soubor se nepodařilo přečíst – není to export automatizací.")
+            ?: throw ImportException(tr("Soubor se nepodařilo přečíst – není to export automatizací."))
         return listOf(single)
     }
 
@@ -121,12 +123,12 @@ object AutomationTransfer {
             context.contentResolver.openInputStream(uri)?.use { stream ->
                 // An export is small; refuse anything that clearly isn't one.
                 val bytes = stream.readNBytesCompat(5 * 1024 * 1024)
-                    ?: throw ImportException("Soubor je příliš velký.")
+                    ?: throw ImportException(tr("Soubor je příliš velký."))
                 bytes.toString(Charsets.UTF_8)
-            } ?: throw ImportException("Soubor se nepodařilo otevřít.")
+            } ?: throw ImportException(tr("Soubor se nepodařilo otevřít."))
         }
         val automations = decode(text)
-        if (automations.isEmpty()) throw ImportException("V souboru nejsou žádné automatizace.")
+        if (automations.isEmpty()) throw ImportException(tr("V souboru nejsou žádné automatizace."))
         return repository.importAll(automations)
     }
 

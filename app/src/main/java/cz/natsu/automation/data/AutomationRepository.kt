@@ -14,7 +14,6 @@ import kotlinx.coroutines.launch
 /** Keys of the icons an automation can use; mapped to vectors in the UI layer. */
 object AutomationIcons {
     const val DEFAULT = "bolt"
-    val ALL = listOf("bolt", "paste", "text", "translate", "link", "volume", "phone", "star", "code", "magic")
 }
 
 enum class TriggerType { ProcessText, Share, Tile, Clipboard }
@@ -36,10 +35,15 @@ class AutomationRepository(
         !it.needsReview && when (type) {
             TriggerType.ProcessText -> it.triggerProcessText
             TriggerType.Share -> it.triggerShare
-            TriggerType.Tile -> it.triggerTile
+            // The general tile offers only those without a tile of their own.
+            TriggerType.Tile -> it.triggerTile && it.tileSlot == 0
             TriggerType.Clipboard -> it.triggerClipboard
         }
     }
+
+    /** The automation that took the numbered tile [slot], if any. */
+    suspend fun forTileSlot(slot: Int): AutomationEntity? =
+        dao.getAll().firstOrNull { it.triggerTile && it.tileSlot == slot && !it.needsReview }
 
     /** Automations that react to [type], each with its matching event settings. */
     suspend fun withEvent(type: EventType): List<Pair<AutomationEntity, List<EventTrigger>>> =
@@ -59,6 +63,12 @@ class AutomationRepository(
     }
 
     suspend fun save(entity: AutomationEntity) {
+        // A numbered tile runs one automation: taking a slot frees it from whoever had it.
+        if (entity.triggerTile && entity.tileSlot > 0) {
+            for (other in dao.getAll()) {
+                if (other.id != entity.id && other.tileSlot == entity.tileSlot) dao.update(other.copy(tileSlot = 0))
+            }
+        }
         dao.update(entity.copy(updatedAt = System.currentTimeMillis()))
         onChanged()
     }
@@ -72,7 +82,9 @@ class AutomationRepository(
     suspend fun duplicate(id: Long): Long? {
         val original = dao.getById(id) ?: return null
         // A copy of an unreviewed import waits for review too (needsReview is copied).
-        val copy = original.copy(id = 0, name = original.name + " (kopie)", updatedAt = System.currentTimeMillis())
+        val copy = original.copy(
+            id = 0, name = original.name + " (kopie)", updatedAt = System.currentTimeMillis(), tileSlot = 0
+        )
         val newId = dao.insert(copy)
         onChanged()
         return newId
@@ -87,7 +99,8 @@ class AutomationRepository(
             dao.insert(
                 AutomationEntity(
                     name = imported.name.ifBlank { "Importovaná automatizace" },
-                    icon = imported.icon.takeIf { it in AutomationIcons.ALL } ?: AutomationIcons.DEFAULT,
+                    // Any icon key is fine; one this version does not know is drawn as the default icon.
+                    icon = imported.icon.takeIf { Regex("[a-z0-9_]{1,40}").matches(it) } ?: AutomationIcons.DEFAULT,
                     blocksJson = BlockJson.encode(imported.blocks),
                     triggerProcessText = imported.triggerProcessText,
                     triggerShare = imported.triggerShare,
@@ -112,6 +125,7 @@ class AutomationRepository(
         cz.natsu.automation.trigger.EventAlarms.scheduleAll(context, all)
         cz.natsu.automation.trigger.NotificationEvents.sync(context, all)
         ShortcutPublisher.publish(context, all)
+        cz.natsu.automation.trigger.TileSlots.sync(context, all)
         try {
             TileService.requestListeningState(
                 context,

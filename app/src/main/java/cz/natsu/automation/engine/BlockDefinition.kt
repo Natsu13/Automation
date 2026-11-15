@@ -8,10 +8,19 @@ import cz.natsu.automation.data.richText
 import cz.natsu.automation.data.richVar
 
 enum class BlockKind {
-    Normal, IfStart, Else, End, WhileStart, TryStart;
+    Normal, IfStart, Else, End, WhileStart, TryStart,
 
-    /** Starts a group that ends with an "end" block (if, loop, try). */
-    val isGroupStart: Boolean get() = this == IfStart || this == WhileStart || this == TryStart
+    /** "Jinak pokud": another condition of an "if", tried when the ones before it failed. */
+    ElseIf,
+
+    /** "Souběžně": its branches run at the same time and the run goes on when all are done. */
+    ParallelStart,
+
+    /** Separator between two branches of "Souběžně". */
+    Branch;
+
+    /** Starts a group that ends with an "end" block (if, loop, try, parallel). */
+    val isGroupStart: Boolean get() = this == IfStart || this == WhileStart || this == TryStart || this == ParallelStart
 }
 
 enum class BlockCategory(val title: String) {
@@ -25,6 +34,7 @@ enum class BlockCategory(val title: String) {
     Variables("Proměnné"),
     Control("Podmínky a řízení"),
     Device("Zařízení"),
+    Apps("Aplikace"),
     Other("Ostatní"),
 }
 
@@ -73,6 +83,14 @@ sealed class ParamDef(val key: String, val label: String) {
         val defaultRef: VarRef? = null,
         val placeholder: String = "",
         val plain: Boolean = false,
+        /** Code: a tall field with a fixed-width font (the "Skript" block). */
+        val code: Boolean = false,
+        /** Offers a picker of installed apps that fills in the app's package name. */
+        val appPicker: Boolean = false,
+        /** Offers the screens, services and receivers of the app chosen in the block's "package" field. */
+        val componentPicker: Boolean = false,
+        /** Values offered as chips under the field. */
+        val suggestions: List<String> = emptyList(),
     ) : ParamDef(key, label) {
         override fun defaultValue(): ParamValue =
             if (defaultRef != null) richVar(defaultRef) else richText(default)
@@ -141,6 +159,13 @@ class BlockDef(
     val outputName: String? = null,
     val requirement: Requirement? = null,
     val showInLibrary: Boolean = true,
+    /**
+     * The block needs a window on screen (a dialog, reading the clipboard, opening
+     * another app), so a run started by an event in the background opens one.
+     */
+    val needsWindow: Boolean = false,
+    /** Like [needsWindow], for blocks where it depends on how the block is set up. */
+    val needsWindowWhen: ((Block) -> Boolean)? = null,
     /**
      * One-line description of a collapsed block; `{key}` is replaced by the
      * highlighted value of that parameter.

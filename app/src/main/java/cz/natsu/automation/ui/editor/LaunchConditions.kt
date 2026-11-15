@@ -1,5 +1,7 @@
 package cz.natsu.automation.ui.editor
 
+import cz.natsu.automation.i18n.tr
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -50,12 +52,12 @@ fun LaunchConditionsSection(
                 Icon(Icons.Rounded.FilterAlt, null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("Podmínky spuštění", style = MaterialTheme.typography.titleSmall)
+                    Text(tr("Podmínky spuštění"), style = MaterialTheme.typography.titleSmall)
                     Text(
                         if (viewModel.conditions.isEmpty()) {
-                            "Žádné – automatizace se nabídne vždy."
+                            tr("Žádné – automatizace se nabídne vždy.")
                         } else {
-                            "Nabídne se jen když platí. Vyhoví-li jediná automatizace, spustí se rovnou bez výběru."
+                            tr("Nabídne se jen když platí. Vyhoví-li jediná automatizace, spustí se rovnou bez výběru.")
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -69,12 +71,12 @@ fun LaunchConditionsSection(
                         selected = !viewModel.conditionsAny,
                         onClick = { viewModel.changeConditionsAny(false) },
                         shape = SegmentedButtonDefaults.itemShape(0, 2),
-                    ) { Text("Musí platit všechny") }
+                    ) { Text(tr("Musí platit všechny")) }
                     SegmentedButton(
                         selected = viewModel.conditionsAny,
                         onClick = { viewModel.changeConditionsAny(true) },
                         shape = SegmentedButtonDefaults.itemShape(1, 2),
-                    ) { Text("Stačí jedna") }
+                    ) { Text(tr("Stačí jedna")) }
                 }
             }
 
@@ -109,7 +111,7 @@ fun LaunchConditionsSection(
             TextButton(onClick = { viewModel.addCondition() }) {
                 Icon(Icons.Rounded.Add, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Přidat podmínku")
+                Text(tr("Přidat podmínku"))
             }
         }
     }

@@ -1,5 +1,7 @@
 package cz.natsu.automation.engine
 
+import cz.natsu.automation.i18n.tr
+
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -90,7 +92,7 @@ object HttpBlocks {
             outputName = "Odpověď API",
         ) { block ->
             val url = text(block, "url").trim()
-            if (url.isEmpty()) throw BlockException("adresa je prázdná")
+            if (url.isEmpty()) throw BlockException(tr("adresa je prázdná"))
             val method = choice(block, "method").ifEmpty { "GET" }
             val body: RequestBody? = if (method == "GET") null else when (choice(block, "body_type")) {
                 "json" -> {
@@ -118,7 +120,7 @@ object HttpBlocks {
             val response = request(context, method, url, headers, body, saveToFile = saveFile)
             if (bool(block, "fail") && response.code >= 400) {
                 val detail = response.text.trim().take(200)
-                throw BlockException("server vrátil chybu ${response.code}" + if (detail.isNotEmpty()) ": $detail" else "")
+                throw BlockException(tr("server vrátil chybu %s", response.code) + if (detail.isNotEmpty()) ": $detail" else "")
             }
             val result = when {
                 !onlyBody -> responseObject(response).toString()
@@ -130,6 +132,7 @@ object HttpBlocks {
 
         BlockDef(
             type = "pick_file",
+            needsWindow = true,
             summary = "Vybrat {kind}",
             title = "Vybrat soubor / obrázek",
             description = "Nechá vybrat obrázek nebo soubor. Výstup jde upravit blokem Upravit obrázek, " +
@@ -147,13 +150,14 @@ object HttpBlocks {
             ),
             outputName = "Vybraný soubor",
         ) { block ->
-            val ui = ui ?: throw BlockException("výběr souboru potřebuje okno (spusť akci ručně)")
+            val ui = ui ?: throw BlockException(tr("výběr souboru potřebuje okno (spusť akci ručně)"))
             val picked = ui.pickFile(choice(block, "kind").ifEmpty { "*/*" }) ?: throw RunCancelledException()
             BlockResult.Output(picked)
         },
 
         BlockDef(
             type = "show_images",
+            needsWindow = true,
             summary = "Ukázat obrázky {images}",
             title = "Ukázat obrázky",
             description = "Zobrazí obrázky z adres (JSON pole nebo jedna na řádek), vybraných nebo stažených souborů. " +
@@ -168,8 +172,8 @@ object HttpBlocks {
             outputName = "Vybraný obrázek",
         ) { block ->
             val images = JsonTools.toList(text(block, "images"))
-            if (images.isEmpty()) throw BlockException("žádné obrázky k zobrazení")
-            val ui = ui ?: throw BlockException("obrázky jde ukázat jen v okně")
+            if (images.isEmpty()) throw BlockException(tr("žádné obrázky k zobrazení"))
+            val ui = ui ?: throw BlockException(tr("obrázky jde ukázat jen v okně"))
             val picked = ui.showImages(text(block, "title"), images, bool(block, "pick"))
                 ?: throw RunCancelledException()
             BlockResult.Output(picked)
@@ -211,10 +215,10 @@ object HttpBlocks {
         val url = try {
             URL(if (address.contains("://")) address else "https://$address")
         } catch (e: Exception) {
-            throw BlockException("neplatná adresa")
+            throw BlockException(tr("neplatná adresa"))
         }
         if (isLocalHost(url.host) && !LocalNetwork.granted(context)) {
-            throw BlockException("Android nepustí aplikaci do místní sítě – povol přístup k místní síti", Requirement.LocalNetwork)
+            throw BlockException(tr("Android nepustí aplikaci do místní sítě – povol přístup k místní síti"), Requirement.LocalNetwork)
         }
         val conn = url.openConnection() as HttpURLConnection
         try {
@@ -267,16 +271,16 @@ object HttpBlocks {
         } catch (e: BlockException) {
             throw e
         } catch (e: java.net.UnknownHostException) {
-            throw BlockException("bez připojení nebo neznámý server")
+            throw BlockException(tr("bez připojení nebo neznámý server"))
         } catch (e: java.net.SocketTimeoutException) {
-            throw BlockException("server neodpovídá")
+            throw BlockException(tr("server neodpovídá"))
         } catch (e: java.net.ProtocolException) {
-            throw BlockException("požadavek nejde odeslat (${e.message})")
+            throw BlockException(tr("požadavek nejde odeslat (%s)", e.message))
         } catch (e: java.io.IOException) {
             if (e.message?.contains("CLEARTEXT", ignoreCase = true) == true) {
-                throw BlockException("nešifrované http:// Android blokuje – použij https://")
+                throw BlockException(tr("nešifrované http:// Android blokuje – použij https://"))
             }
-            throw BlockException("požadavek selhal (${e.message ?: e.javaClass.simpleName})")
+            throw BlockException(tr("požadavek selhal (%s)", e.message ?: e.javaClass.simpleName))
         } finally {
             conn.disconnect()
         }
@@ -301,7 +305,7 @@ object HttpBlocks {
             val read = stream.read(buffer)
             if (read < 0) break
             out.write(buffer, 0, read)
-            if (out.size() > MAX_RESPONSE) throw BlockException("odpověď je moc velká (víc než 20 MB) – ulož ji jako soubor")
+            if (out.size() > MAX_RESPONSE) throw BlockException(tr("odpověď je moc velká (víc než 20 MB) – ulož ji jako soubor"))
         }
         return out.toByteArray()
     }
@@ -334,7 +338,7 @@ object HttpBlocks {
 
     /** A file chosen with "Vybrat soubor" (content://), a saved download (file://) or a path. */
     fun openSource(context: Context, source: String): Source {
-        if (source.isBlank()) throw BlockException("soubor není zadaný")
+        if (source.isBlank()) throw BlockException(tr("soubor není zadaný"))
         val uri = if (source.startsWith("/")) Uri.fromFile(File(source)) else Uri.parse(source)
         return when (uri.scheme) {
             "content" -> {
@@ -347,18 +351,18 @@ object HttpBlocks {
                 val mime = resolver.getType(uri) ?: guessMime(name)
                 Source(name, mime) {
                     try {
-                        resolver.openInputStream(uri) ?: throw BlockException("soubor nejde otevřít")
+                        resolver.openInputStream(uri) ?: throw BlockException(tr("soubor nejde otevřít"))
                     } catch (e: SecurityException) {
-                        throw BlockException("k souboru už není přístup – vyber ho znovu ve stejném běhu akce")
+                        throw BlockException(tr("k souboru už není přístup – vyber ho znovu ve stejném běhu akce"))
                     }
                 }
             }
             "file" -> {
                 val file = File(uri.path ?: "")
-                if (!file.exists()) throw BlockException("soubor ${file.name} neexistuje")
+                if (!file.exists()) throw BlockException(tr("soubor %s neexistuje", file.name))
                 Source(file.name, guessMime(file.name)) { file.inputStream() }
             }
-            else -> throw BlockException("\"${source.take(60)}\" není soubor (čekám content:// nebo file://)")
+            else -> throw BlockException(tr("\"%s\" není soubor (čekám content:// nebo file://)", source.take(60)))
         }
     }
 
@@ -376,7 +380,7 @@ object HttpBlocks {
             ?: url.path.substringAfterLast('/').substringAfterLast('.', "").takeIf { it.length in 1..5 }
             ?: "bin"
         val file = File(dir, "${System.currentTimeMillis()}-${UUID.randomUUID().toString().take(6)}.$extension")
-        (stream ?: throw BlockException("odpověď je prázdná")).use { input ->
+        (stream ?: throw BlockException(tr("odpověď je prázdná"))).use { input ->
             file.outputStream().use { input.copyTo(it) }
         }
         return Uri.fromFile(file).toString()

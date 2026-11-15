@@ -1,5 +1,7 @@
 package cz.natsu.automation.ui.settings
 
+import cz.natsu.automation.i18n.tr
+
 import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -108,9 +110,9 @@ fun AppSettingsScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Nastavení") },
+                title = { Text(tr("Nastavení")) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Zpět") }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, tr("Zpět")) }
                 }
             )
         }
@@ -125,13 +127,14 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                 .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            LanguageSection()
             UsageSection(resumeCounter)
             RunHistorySection(resumeCounter)
             SecretsSection()
             StoredValuesSection()
 
             Text(
-                "Sledování schránky",
+                tr("Sledování schránky"),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(top = 8.dp)
             )
@@ -144,13 +147,13 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                         Icon(Icons.Rounded.ContentPaste, null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.width(16.dp))
                         Column(Modifier.weight(1f)) {
-                            Text("Sledovat schránku", style = MaterialTheme.typography.titleMedium)
+                            Text(tr("Sledovat schránku"), style = MaterialTheme.typography.titleMedium)
                             Text(
                                 when {
-                                    !logAccess || !overlay -> "Nejdřív dokonči kroky níže."
-                                    enabled && running -> "Běží – po zkopírování textu se spustí automatizace."
-                                    enabled -> "Zapnuto, ale neběží. Zkontroluj kroky níže."
-                                    else -> "Vypnuto"
+                                    !logAccess || !overlay -> tr("Nejdřív dokonči kroky níže.")
+                                    enabled && running -> tr("Běží – po zkopírování textu se spustí automatizace.")
+                                    enabled -> tr("Zapnuto, ale neběží. Zkontroluj kroky níže.")
+                                    else -> tr("Vypnuto")
                                 },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -167,23 +170,23 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                     }
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        "Automatizace, které mají ve Spouštění zapnuté „Při změně schránky“, se spustí " +
-                                "hned po zkopírování textu. Zkopírovaný text dostanou jako Vstup. " +
-                                "Teď je takových automatizací: $automationCount.",
+                        tr("Automatizace, které mají ve Spouštění zapnuté „Při změně schránky“, se spustí ") +
+                                tr("hned po zkopírování textu. Zkopírovaný text dostanou jako Vstup. ") +
+                                tr("Teď je takových automatizací: %s.", automationCount),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
             }
 
             Text(
-                "Jak to zprovoznit",
+                tr("Jak to zprovoznit"),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(top = 8.dp)
             )
             Text(
-                "Od Androidu 10 smí schránku číst jen aplikace, která je zrovna na obrazovce. " +
-                        "Když se schránka změní, systém si to zapíše do svého logu. Aplikace ten log " +
-                        "sleduje a na zlomek vteřiny otevře neviditelné okno, ve kterém schránku přečte.",
+                tr("Od Androidu 10 smí schránku číst jen aplikace, která je zrovna na obrazovce. ") +
+                        tr("Když se schránka změní, systém si to zapíše do svého logu. Aplikace ten log ") +
+                        tr("sleduje a na zlomek vteřiny otevře neviditelné okno, ve kterém schránku přečte."),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -191,16 +194,16 @@ fun AppSettingsScreen(onBack: () -> Unit) {
             Step(
                 number = 1,
                 done = logAccess,
-                title = "Přístup k systémovému logu (přes ADB)",
+                title = tr("Přístup k systémovému logu (přes ADB)"),
             ) {
                 Text(
-                    "Tohle oprávnění jde udělit jen z počítače. Na telefonu zapni Možnosti pro vývojáře → " +
-                            "Ladění přes USB (nebo Bezdrátové ladění), připoj ho k počítači s nástrojem adb a spusť:",
+                    tr("Tohle oprávnění jde udělit jen z počítače. Na telefonu zapni Možnosti pro vývojáře → ") +
+                            tr("Ladění přes USB (nebo Bezdrátové ladění), připoj ho k počítači s nástrojem adb a spusť:"),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Command("adb shell pm grant $packageName android.permission.READ_LOGS")
                 Text(
-                    "Android při tom aplikaci zavře – pak ji znovu otevři. Oprávnění vydrží i po restartu telefonu.",
+                    tr("Android při tom aplikaci zavře – pak ji znovu otevři. Oprávnění vydrží i po restartu telefonu."),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -209,10 +212,10 @@ fun AppSettingsScreen(onBack: () -> Unit) {
             Step(
                 number = 2,
                 done = overlay,
-                title = "Zobrazení přes ostatní aplikace",
+                title = tr("Zobrazení přes ostatní aplikace"),
             ) {
                 Text(
-                    "Aby se mohlo z pozadí otevřít neviditelné okno, které schránku přečte.",
+                    tr("Aby se mohlo z pozadí otevřít neviditelné okno, které schránku přečte."),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 if (!overlay) {
@@ -220,9 +223,9 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                         context.startActivity(
                             Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
                         )
-                    }) { Text("Povolit") }
+                    }) { Text(tr("Povolit")) }
                     Text(
-                        "Nebo taky přes ADB:",
+                        tr("Nebo taky přes ADB:"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -234,16 +237,16 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                 Step(
                     number = 3,
                     done = notifications,
-                    title = "Oznámení (nepovinné)",
+                    title = tr("Oznámení (nepovinné)"),
                 ) {
                     Text(
-                        "Dokud sledování běží, Android vyžaduje trvalé oznámení. Bez povolení ho jen neuvidíš.",
+                        tr("Dokud sledování běží, Android vyžaduje trvalé oznámení. Bez povolení ho jen neuvidíš."),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     if (!notifications) {
                         FilledTonalButton(onClick = {
                             notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        }) { Text("Povolit oznámení") }
+                        }) { Text(tr("Povolit oznámení")) }
                     }
                 }
             }
@@ -257,17 +260,17 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                     Spacer(Modifier.width(12.dp))
                     Text(
                         buildString {
-                            append("Všechny příkazy najednou:\n")
+                            append(tr("Všechny příkazy najednou:\n"))
                             append("adb shell pm grant $packageName android.permission.READ_LOGS\n")
                             append("adb shell appops set $packageName SYSTEM_ALERT_WINDOW allow")
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                 append(
-                                    "\n\nAndroid 13+: po zapnutí se systém zeptá na přístup k logům zařízení – " +
-                                            "zvol „Povolit jednorázový přístup“. Po restartu telefonu stačí aplikaci jednou otevřít."
+                                    tr("\n\nAndroid 13+: po zapnutí se systém zeptá na přístup k logům zařízení – ") +
+                                            tr("zvol „Povolit jednorázový přístup“. Po restartu telefonu stačí aplikaci jednou otevřít.")
                                 )
                             }
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                append("\n\nPo každém přečtení ukáže Android krátkou zprávu, že aplikace vložila obsah ze schránky. To je normální.")
+                                append(tr("\n\nPo každém přečtení ukáže Android krátkou zprávu, že aplikace vložila obsah ze schránky. To je normální."))
                             }
                         },
                         style = MaterialTheme.typography.bodyMedium,
@@ -289,7 +292,7 @@ private fun Step(number: Int, done: Boolean, title: String, content: @Composable
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     if (done) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
-                    contentDescription = if (done) "Hotovo" else "Chybí",
+                    contentDescription = if (done) tr("Hotovo") else tr("Chybí"),
                     tint = if (done) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                 )
                 Spacer(Modifier.width(12.dp))
@@ -316,9 +319,9 @@ private fun Command(command: String) {
                 context.getSystemService(ClipboardManager::class.java)
                     ?.setPrimaryClip(ClipData.newPlainText("adb", command))
                 ClipboardMonitor.markOwnWrite(command)
-                Toast.makeText(context, "Příkaz zkopírován", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, tr("Příkaz zkopírován"), Toast.LENGTH_SHORT).show()
             }) {
-                Icon(Icons.Rounded.ContentCopy, "Kopírovat příkaz", Modifier.size(20.dp))
+                Icon(Icons.Rounded.ContentCopy, tr("Kopírovat příkaz"), Modifier.size(20.dp))
             }
         }
     }
@@ -355,43 +358,43 @@ private fun UsageSection(resumeCounter: Int) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.BatteryStd, null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(16.dp))
-                Text("Běh na pozadí a spotřeba", style = MaterialTheme.typography.titleMedium)
+                Text(tr("Běh na pozadí a spotřeba"), style = MaterialTheme.typography.titleMedium)
             }
             Text(
                 when {
-                    !serviceRunning -> "Na pozadí teď nic neběží – žádná automatizace nepotřebuje hlídat události ani schránku."
-                    else -> "Běží: " + buildList {
-                        if (ClipboardMonitor.active(context)) add("schránka")
+                    !serviceRunning -> tr("Na pozadí teď nic neběží – žádná automatizace nepotřebuje hlídat události ani schránku.")
+                    else -> tr("Běží: ") + buildList {
+                        if (ClipboardMonitor.active(context)) add(tr("schránka"))
                         addAll(listening.map { it.title.replaceFirstChar(Char::lowercaseChar) })
                     }.joinToString(", ") + "."
                 },
                 style = MaterialTheme.typography.bodyMedium,
             )
-            UsageRow("Procesor na pozadí dnes", UsageMeter.formatCpu(summary.today.backgroundCpuMs))
-            UsageRow("Procesor na pozadí včera", UsageMeter.formatCpu(summary.yesterday.backgroundCpuMs))
-            UsageRow("V aplikaci dnes", UsageMeter.formatCpu(summary.today.foregroundCpuMs))
-            UsageRow("Události / spuštění dnes", "${summary.today.events} / ${summary.today.runs}")
+            UsageRow(tr("Procesor na pozadí dnes"), UsageMeter.formatCpu(summary.today.backgroundCpuMs))
+            UsageRow(tr("Procesor na pozadí včera"), UsageMeter.formatCpu(summary.yesterday.backgroundCpuMs))
+            UsageRow(tr("V aplikaci dnes"), UsageMeter.formatCpu(summary.today.foregroundCpuMs))
+            UsageRow(tr("Události / spuštění dnes"), "${summary.today.events} / ${summary.today.runs}")
             Text(
                 if (summary.high) {
-                    "Víc než obvykle. Zkus vypnout sledování schránky nebo časté události (displej, oznámení)."
+                    tr("Víc než obvykle. Zkus vypnout sledování schránky nebo časté události (displej, oznámení).")
                 } else {
-                    "Měří se čas procesoru, který aplikace zabrala, když nebyla na obrazovce. " +
-                            "Pod ${UsageMeter.formatCpu(UsageMeter.WARN_CPU_MS)} za den je to zanedbatelné; " +
-                            "víc ukáže upozornění nahoře v seznamu."
+                    tr("Měří se čas procesoru, který aplikace zabrala, když nebyla na obrazovce. ") +
+                            tr("Pod %s za den je to zanedbatelné; ", UsageMeter.formatCpu(UsageMeter.WARN_CPU_MS)) +
+                            tr("víc ukáže upozornění nahoře v seznamu.")
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             if (!ignoringOptimizations && serviceRunning) {
                 Text(
-                    "Optimalizace baterie je pro aplikaci zapnutá. Na některých telefonech (Xiaomi, Samsung…) " +
-                            "pak systém běh na pozadí ukončí – vypni ji, pokud události nechodí.",
+                    tr("Optimalizace baterie je pro aplikaci zapnutá. Na některých telefonech (Xiaomi, Samsung…) ") +
+                            tr("pak systém běh na pozadí ukončí – vypni ji, pokud události nechodí."),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 FilledTonalButton(onClick = {
                     context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
-                }) { Text("Nastavení optimalizace") }
+                }) { Text(tr("Nastavení optimalizace")) }
             }
         }
     }
@@ -430,9 +433,9 @@ private fun PreciseCard(resumeCounter: Int) {
                 Icon(Icons.Rounded.QueryStats, null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(16.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("Přesné měření baterie", style = MaterialTheme.typography.titleMedium)
+                    Text(tr("Přesné měření baterie"), style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "Spotřeba v mAh přímo ze statistik Androidu (od posledního nabití).",
+                        tr("Spotřeba v mAh přímo ze statistik Androidu (od posledního nabití)."),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -445,23 +448,23 @@ private fun PreciseCard(resumeCounter: Int) {
             if (enabled) {
                 if (!access) {
                     Text(
-                        "Statistiky baterie Android vydá jen s oprávněním, které jde udělit přes ADB " +
-                                "(stejně jako přístup k logu). Připoj telefon k počítači a spusť:",
+                        tr("Statistiky baterie Android vydá jen s oprávněním, které jde udělit přes ADB ") +
+                                tr("(stejně jako přístup k logu). Připoj telefon k počítači a spusť:"),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Command("adb shell pm grant $packageName android.permission.DUMP")
                     Command("adb shell pm grant $packageName android.permission.PACKAGE_USAGE_STATS")
                     Command("adb shell pm grant $packageName android.permission.BATTERY_STATS")
                     Text(
-                        "Android při tom aplikaci zavře – pak ji znovu otevři. Měří se jen když je tahle obrazovka " +
-                                "otevřená, na pozadí kvůli tomu nic navíc neběží.",
+                        tr("Android při tom aplikaci zavře – pak ji znovu otevři. Měří se jen když je tahle obrazovka ") +
+                                tr("otevřená, na pozadí kvůli tomu nic navíc neběží."),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 } else when (val r = result) {
-                    null -> Text("Načítám…", style = MaterialTheme.typography.bodyMedium)
+                    null -> Text(tr("Načítám…"), style = MaterialTheme.typography.bodyMedium)
                     is UsageMeter.PreciseResult.Failed -> Text(
-                        "Nepodařilo se načíst: ${r.message}",
+                        tr("Nepodařilo se načíst: %s", r.message),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error
                     )
@@ -469,15 +472,15 @@ private fun PreciseCard(resumeCounter: Int) {
                         val v = r.value
                         fun mah(x: Double) = String.format(czech, "%.2f mAh", x)
                         val percent = v.backgroundPercent?.let { String.format(czech, " (%.2f %% baterie)", it) } ?: ""
-                        UsageRow("Na pozadí", mah(v.backgroundMah) + percent)
-                        UsageRow("Displej při používání aplikace", mah(v.screenMah))
-                        UsageRow("Celkem", mah(v.totalMah))
+                        UsageRow(tr("Na pozadí"), mah(v.backgroundMah) + percent)
+                        UsageRow(tr("Displej při používání aplikace"), mah(v.screenMah))
+                        UsageRow(tr("Celkem"), mah(v.totalMah))
                         Text(
-                            "Od posledního odpojení nabíječky. „Na pozadí“ je to, co stojí sledování schránky a událostí.",
+                            tr("Od posledního odpojení nabíječky. „Na pozadí“ je to, co stojí sledování schránky a událostí."),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        TextButton(onClick = { refresh++ }) { Text("Načíst znovu") }
+                        TextButton(onClick = { refresh++ }) { Text(tr("Načíst znovu")) }
                     }
                 }
             }

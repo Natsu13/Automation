@@ -1,5 +1,7 @@
 package cz.natsu.automation.ui.editor
 
+import cz.natsu.automation.i18n.tr
+
 import android.app.NotificationManager
 import android.content.Intent
 import android.provider.Settings
@@ -100,6 +102,9 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
     var showReview by remember { mutableStateOf(false) }
     var lostAcknowledged by remember { mutableStateOf(false) }
     var variableTarget by remember { mutableStateOf<Pair<String, RichTextFieldController>?>(null) }
+    // Picking a variable by tapping the step that produces it (instead of from the list).
+    var pickTarget by remember { mutableStateOf<Pair<String, RichTextFieldController>?>(null) }
+    val pickLimit = pickTarget?.let { (id, _) -> viewModel.indexOf(id).takeIf { it >= 0 } ?: viewModel.blocks.size }
 
     // Re-check system permissions whenever the user comes back from settings.
     var resumeCounter by remember { mutableIntStateOf(0) }
@@ -149,7 +154,7 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
         { ref ->
             val label = viewModel.labelOf(ref)
             when {
-                label == null -> ChipStyle("chybí", missingAccent.container, missingAccent.content)
+                label == null -> ChipStyle(tr("chybí"), missingAccent.container, missingAccent.content)
                 ref == VarRef.Input -> ChipStyle(label, inputAccent.container, inputAccent.content)
                 ref == VarRef.Clipboard -> ChipStyle(label, clipboardAccent.container, clipboardAccent.content)
                 ref == VarRef.CurrentDate -> ChipStyle(label, dateAccent.container, dateAccent.content)
@@ -176,7 +181,7 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
     }
 
     fun reportMove(ok: Boolean) {
-        if (!ok) scope.launch { snackbar.showSnackbar("Takhle by se podmínky překřížily – přesun vrácen") }
+        if (!ok) scope.launch { snackbar.showSnackbar(tr("Takhle by se podmínky překřížily – přesun vrácen")) }
     }
 
     val topBarScroll = TopAppBarDefaults.pinnedScrollBehavior()
@@ -187,7 +192,7 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
             TopAppBar(
                 scrollBehavior = topBarScroll,
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Zpět") }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, tr("Zpět")) }
                 },
                 title = {
                     Row(
@@ -198,7 +203,7 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                         Spacer(Modifier.width(10.dp))
                         Text(viewModel.name, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                         Spacer(Modifier.width(4.dp))
-                        Icon(Icons.Rounded.Edit, "Přejmenovat", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(Icons.Rounded.Edit, tr("Přejmenovat"), Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
                 actions = {
@@ -206,15 +211,15 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                     IconButton(onClick = { viewModel.setAllExpanded(collapsed) }) {
                         Icon(
                             if (collapsed) Icons.Rounded.UnfoldMore else Icons.Rounded.UnfoldLess,
-                            if (collapsed) "Rozbalit vše" else "Sbalit vše"
+                            if (collapsed) tr("Rozbalit vše") else tr("Sbalit vše")
                         )
                     }
-                    IconButton(onClick = { showSettings = true }) { Icon(Icons.Rounded.Tune, "Nastavení") }
+                    IconButton(onClick = { showSettings = true }) { Icon(Icons.Rounded.Tune, tr("Nastavení")) }
                     FilledTonalIconButton(
                         onClick = { if (viewModel.needsReview) showReview = true else showRun = true },
                         modifier = Modifier.padding(end = 8.dp)
                     ) {
-                        Icon(Icons.Rounded.PlayArrow, "Spustit")
+                        Icon(Icons.Rounded.PlayArrow, tr("Spustit"))
                     }
                 }
             )
@@ -223,10 +228,10 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
             if (viewModel.stepMode) StepRunBar(viewModel)
         },
         floatingActionButton = {
-            if (!viewModel.stepMode) ExtendedFloatingActionButton(
+            if (!viewModel.stepMode && pickTarget == null) ExtendedFloatingActionButton(
                 onClick = { showLibrary = true },
                 icon = { Icon(Icons.Rounded.Add, null) },
-                text = { Text("Přidat akci") }
+                text = { Text(tr("Přidat akci")) }
             )
         },
         snackbarHost = { SnackbarHost(snackbar) },
@@ -265,7 +270,7 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                             Icon(Icons.Rounded.WarningAmber, null)
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                "Importovaná automatizace – zatím se nespouští. Projdi si kroky a klepnutím sem ji povol.",
+                                tr("Importovaná automatizace – zatím se nespouští. Projdi si kroky a klepnutím sem ji povol."),
                                 Modifier.weight(1f)
                             )
                         }
@@ -291,7 +296,7 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.WarningAmber, null)
                             Spacer(Modifier.width(8.dp))
-                            Text("Podmínky nejsou správně uzavřené. Zkontroluj pořadí bloků Pokud / Jinak / Konec.")
+                            Text(tr("Podmínky nejsou správně uzavřené. Zkontroluj pořadí bloků Pokud / Jinak / Konec."))
                         }
                     }
                 }
@@ -319,7 +324,13 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                         outputStyle = if (def.outputName != null) chipStyle(VarRef.BlockOutput(block.id)) else null,
                         foldedSteps = viewModel.foldedCount(block.id),
                         runEntry = if (viewModel.stepMode) viewModel.stepResults[block.id] else null,
-                        suggestions = if ((def.kind == BlockKind.IfStart || def.kind == BlockKind.WhileStart) && viewModel.isExpanded(block.id)) {
+                        onPickOutput = pickTarget?.takeIf { def.outputName != null && index < (pickLimit ?: 0) }?.let { (_, controller) ->
+                            {
+                                controller.insertVariable(VarRef.BlockOutput(block.id))
+                                pickTarget = null
+                            }
+                        },
+                        suggestions = if ((def.kind == BlockKind.IfStart || def.kind == BlockKind.WhileStart || def.kind == BlockKind.ElseIf) && viewModel.isExpanded(block.id)) {
                             viewModel.suggestionsFor(block)
                         } else null,
                         dragHandle = Modifier.draggableHandle(
@@ -341,19 +352,20 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                                     scope.launch {
                                         snackbar.currentSnackbarData?.dismiss()
                                         val what = when (def.kind) {
-                                            BlockKind.TryStart -> "Zkusit smazáno"
-                                            BlockKind.WhileStart -> "Opakování smazáno"
-                                            BlockKind.IfStart -> "Podmínka smazána"
-                                            else -> "Větev smazána"
+                                            BlockKind.TryStart -> tr("Zkusit smazáno")
+                                            BlockKind.WhileStart -> tr("Opakování smazáno")
+                                            BlockKind.IfStart -> tr("Podmínka smazána")
+                                            BlockKind.ParallelStart -> tr("Souběžné větve smazány")
+                                            else -> tr("Větev smazána")
                                         }
                                         val steps = when (removal.innerSteps) {
                                             0 -> ""
-                                            1 -> " i s 1 krokem"
-                                            else -> " i s ${removal.innerSteps} kroky"
+                                            1 -> tr(" i s 1 krokem")
+                                            else -> tr(" i s %s kroky", removal.innerSteps)
                                         }
                                         val result = snackbar.showSnackbar(
                                             message = what + steps,
-                                            actionLabel = "Vrátit",
+                                            actionLabel = tr("Vrátit"),
                                             duration = SnackbarDuration.Long,
                                         )
                                         if (result == SnackbarResult.ActionPerformed) viewModel.restore(removal.before)
@@ -366,9 +378,14 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                                 { viewModel.addElse(block) }
                             } else null,
                             onGrantRequirement = ::grant,
-                            onToggleDisabled = if (def.kind == BlockKind.Else || def.kind == BlockKind.End) null else {
+                            onToggleDisabled = if (def.kind == BlockKind.Else || def.kind == BlockKind.End || def.kind == BlockKind.ElseIf || def.kind == BlockKind.Branch) null else {
                                 { viewModel.toggleDisabled(block.id) }
                             },
+                            onAddElseIf = if (def.kind == BlockKind.IfStart || def.kind == BlockKind.ElseIf ||
+                                def.kind == BlockKind.ParallelStart || def.kind == BlockKind.Branch
+                            ) {
+                                { viewModel.addElseIf(block) }
+                            } else null,
                         ),
                         modifier = Modifier.padding(start = (depth * 20).dp),
                     )
@@ -376,6 +393,27 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                 }
             }
         }
+
+            if (pickTarget != null) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = MaterialTheme.shapes.large,
+                    shadowElevation = 4.dp,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(start = 12.dp, end = 12.dp, top = padding.calculateTopPadding() + 4.dp)
+                ) {
+                    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            cz.natsu.automation.i18n.tr("Klepni na „Vložit výstup“ u kroku, jehož hodnotu chceš použít."),
+                            Modifier.weight(1f).padding(vertical = 10.dp)
+                        )
+                        androidx.compose.material3.TextButton(onClick = { pickTarget = null }) {
+                            Text(cz.natsu.automation.i18n.tr("Zrušit"))
+                        }
+                    }
+                }
+            }
 
             // Undo / redo sit opposite the "add" button – the top bar has no room left.
             if (!viewModel.stepMode) HistoryButtons(
@@ -408,8 +446,15 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
     }
 
     variableTarget?.let { (blockId, controller) ->
+        val options = viewModel.variablesFor(blockId)
         VariablePickerSheet(
-            options = viewModel.variablesFor(blockId),
+            options = options,
+            onPickFromSteps = if (options.any { it.ref is VarRef.BlockOutput }) {
+                {
+                    pickTarget = blockId to controller
+                    variableTarget = null
+                }
+            } else null,
             chipStyle = chipStyle,
             onPick = { option ->
                 controller.insertVariable(option.ref)
@@ -469,23 +514,23 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
         val summary = remember { viewModel.reviewSummary() }
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showReview = false },
-            title = { Text("Povolit importovanou automatizaci?") },
+            title = { Text(tr("Povolit importovanou automatizaci?")) },
             text = {
                 Column(
                     Modifier.verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("Pochází ze souboru. Povol ji, jen když věříš tomu, kdo ji vytvořil, a víš, co dělá:")
+                    Text(tr("Pochází ze souboru. Povol ji, jen když věříš tomu, kdo ji vytvořil, a víš, co dělá:"))
                     for (line in summary) Text(line, style = MaterialTheme.typography.bodyMedium)
                 }
             },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = { viewModel.approve(); showReview = false }) {
-                    Text("Povolit")
+                    Text(tr("Povolit"))
                 }
             },
             dismissButton = {
-                androidx.compose.material3.TextButton(onClick = { showReview = false }) { Text("Zatím ne") }
+                androidx.compose.material3.TextButton(onClick = { showReview = false }) { Text(tr("Zatím ne")) }
             },
         )
     }
@@ -493,36 +538,36 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
     if (viewModel.unreadable) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = onBack,
-            title = { Text("Automatizaci nejde načíst") },
+            title = { Text(tr("Automatizaci nejde načíst")) },
             text = {
                 Text(
-                    "Uložené kroky jsou poškozené nebo z novější verze aplikace. Nic se nepřepíše – " +
-                            "data zůstávají uložená a po aktualizaci aplikace se můžou znovu načíst."
+                    tr("Uložené kroky jsou poškozené nebo z novější verze aplikace. Nic se nepřepíše – ") +
+                            tr("data zůstávají uložená a po aktualizaci aplikace se můžou znovu načíst.")
                 )
             },
-            confirmButton = { androidx.compose.material3.TextButton(onClick = onBack) { Text("Zpět") } },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = onBack) { Text(tr("Zpět")) } },
         )
     } else if (viewModel.lostParts > 0 && !lostAcknowledged) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = onBack,
-            title = { Text("Část automatizace nejde načíst") },
+            title = { Text(tr("Část automatizace nejde načíst")) },
             text = {
                 Text(
-                    "Nepodařilo se přečíst ${viewModel.lostParts} kroků nebo hodnot (nejspíš jsou z novější verze " +
-                            "aplikace). Dokud nic nezměníš, zůstávají uložené. Když automatizaci upravíš, " +
-                            "tyhle části se ztratí."
+                    tr("Nepodařilo se přečíst %s kroků nebo hodnot (nejspíš jsou z novější verze ", viewModel.lostParts) +
+                            tr("aplikace). Dokud nic nezměníš, zůstávají uložené. Když automatizaci upravíš, ") +
+                            tr("tyhle části se ztratí.")
                 )
             },
             confirmButton = {
-                androidx.compose.material3.TextButton(onClick = { lostAcknowledged = true }) { Text("Přesto upravit") }
+                androidx.compose.material3.TextButton(onClick = { lostAcknowledged = true }) { Text(tr("Přesto upravit")) }
             },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = onBack) { Text("Zpět") } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = onBack) { Text(tr("Zpět")) } },
         )
     }
 
     if (viewModel.missing) {
         androidx.compose.runtime.LaunchedEffect(Unit) {
-            Toast.makeText(context, "Automatizace už neexistuje", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, tr("Automatizace už neexistuje"), Toast.LENGTH_SHORT).show()
             onBack()
         }
     }
@@ -531,10 +576,10 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
 @Composable
 private fun TriggerSummary(viewModel: EditorViewModel, onClick: () -> Unit) {
     val active = buildList {
-        if (viewModel.triggerProcessText) add(Icons.Rounded.TextFields to "Výběr textu")
-        if (viewModel.triggerShare) add(Icons.Rounded.Share to "Sdílet")
-        if (viewModel.triggerTile) add(Icons.Rounded.Tune to "Dlaždice")
-        if (viewModel.triggerClipboard) add(Icons.Rounded.ContentPaste to "Změna schránky")
+        if (viewModel.triggerProcessText) add(Icons.Rounded.TextFields to tr("Výběr textu"))
+        if (viewModel.triggerShare) add(Icons.Rounded.Share to tr("Sdílet"))
+        if (viewModel.triggerTile) add(Icons.Rounded.Tune to tr("Dlaždice"))
+        if (viewModel.triggerClipboard) add(Icons.Rounded.ContentPaste to tr("Změna schránky"))
         for (event in viewModel.events) add(eventIcon(cz.natsu.automation.data.EventType.of(event.type)) to eventLabel(event))
     }
     Surface(
@@ -548,12 +593,12 @@ private fun TriggerSummary(viewModel: EditorViewModel, onClick: () -> Unit) {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    "Spouštění",
+                    tr("Spouštění"),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
                 Text(
-                    if (active.isEmpty()) "Jen ručně z aplikace – klepni a vyber, kde se má nabízet"
+                    if (active.isEmpty()) tr("Jen ručně z aplikace – klepni a vyber, kde se má nabízet")
                     else active.joinToString(" · ") { it.second },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -578,11 +623,11 @@ private fun EmptyEditor() {
             modifier = Modifier.size(48.dp)
         )
         Spacer(Modifier.height(12.dp))
-        Text("Zatím žádné kroky", style = MaterialTheme.typography.titleMedium)
+        Text(tr("Zatím žádné kroky"), style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(4.dp))
         Text(
-            "Přidej první akci tlačítkem dole. Kroky se provedou postupně shora dolů, " +
-                    "výsledky předchozích kroků vložíš do textu přes ikonu { }.",
+            tr("Přidej první akci tlačítkem dole. Kroky se provedou postupně shora dolů, ") +
+                    tr("výsledky předchozích kroků vložíš do textu přes ikonu { }."),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -618,10 +663,10 @@ private fun HistoryButtons(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onUndo, enabled = canUndo) {
-                    Icon(Icons.AutoMirrored.Rounded.Undo, "Zpět o krok")
+                    Icon(Icons.AutoMirrored.Rounded.Undo, tr("Zpět o krok"))
                 }
                 IconButton(onClick = onRedo, enabled = canRedo) {
-                    Icon(Icons.AutoMirrored.Rounded.Redo, "Znovu")
+                    Icon(Icons.AutoMirrored.Rounded.Redo, tr("Znovu"))
                 }
             }
         }

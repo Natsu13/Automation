@@ -5,7 +5,8 @@ package cz.natsu.automation.engine
  * with examples. Only blocks that need more than their one-line description.
  */
 object BlockHelp {
-    fun of(type: String): String? = texts[type]
+    fun of(type: String): String? =
+        (if (cz.natsu.automation.i18n.I18n.english) BlockHelpEn.texts[type] else null) ?: texts[type]
 
     private val texts = mapOf(
         "math" to """
@@ -146,5 +147,141 @@ object BlockHelp {
 
             Hodí se do podmínky Pokud: Pokud typ je rovno „seznam“…
         """.trimIndent(),
+
+        "script" to SCRIPT,
+        "if" to CONDITION,
+        "else_if" to CONDITION,
+        "while" to CONDITION,
+
+        "send_intent" to """
+            Intent je zpráva pro jinou aplikaci. Co přesně poslat, najdeš v dokumentaci
+            té aplikace (hledej „intent“, „Tasker“ nebo „automation“).
+
+            Co udělat
+            • Otevřít obrazovku – konkrétní okno aplikace (activity)
+            • Spustit službu – práce na pozadí (service); aplikace ji musí dovolit
+              spouštět zvenku (exported), jinak Android vrátí chybu
+            • Spustit službu na popředí – když Android obyčejné spuštění nepustí
+            • Poslat broadcast – zpráva, na kterou aplikace čeká
+
+            Pole
+            • Balíček – com.example.app (jde vybrat ze seznamu)
+            • Třída – celé jméno, nebo zkráceně .SyncService
+            • Akce – např. android.intent.action.VIEW
+            • Data – adresa: https://…, tel:123, spotify:track:…
+
+            Parametry (extras), jeden na řádek
+            • query=ahoj → text
+            • count=5 → celé číslo, enabled=true → ano/ne, ratio=1.5 → desetinné
+            • typ jde vynutit: id:long=5, name:string=123, x:float=1.5,
+              y:double=2.5, n:int=1, on:bool=true
+
+            Příklady
+            • Otevřít obrazovku, akce android.intent.action.VIEW,
+              data geo:0,0?q=Praha → mapa
+            • Poslat broadcast, balíček aplikace, akce z její dokumentace
+        """.trimIndent(),
     )
+
+    private val CONDITION get() = """
+        Jednoduchý zápis: hodnota, podmínka a s čím porovnat.
+
+        Výraz – podmínka zapsaná textem, když potřebuješ víc věcí najednou.
+        Proměnné vkládáš tlačítkem { } nebo píšeš jménem (ty z bloku
+        Nastavit proměnnou).
+
+        • porovnání: == != < <= > >=
+        • spojení: a zaroven b, a nebo b, not a (také and / or / && / ||)
+        • čísla se porovnávají jako čísla: "10" > 9 platí
+        • texty v uvozovkách: stav == "ok"
+        • funkce: contains(text, "x"), len(seznam) > 0, starts(url, "https")
+
+        Příklady
+        • baterie < 20 zaroven not nabiji
+        • stav == "vip" nebo cena > 500
+        • len(odpoved.body.items) == 0
+
+        Větve: v nabídce ⋮ přidáš Jinak pokud (další podmínka) a Jinak.
+        Celý jazyk popisuje nápověda bloku Skript.
+    """.trimIndent()
+
+    private val SCRIPT get() = """
+        Krátký program. Výsledek bloku je hodnota za vrat, nebo výsledek
+        posledního řádku. Proměnné jsou společné s blokem Nastavit proměnnou:
+        co skript nastaví, vidí další kroky, a naopak. Hodnoty z jiných kroků
+        vložíš tlačítkem { }, vstup automatizace je vstup.
+
+        Hodnoty
+        • čísla 12 a 1.5 (desetinná tečka), texty "ahoj" nebo 'ahoj'
+        • true / false, nic (prázdná hodnota)
+        • seznam [1, 2, 3], objekt {jmeno: "Jan", vek: 30}
+        • text s JSON (třeba odpověď API) se chová jako seznam / objekt
+
+        Operace
+        • + - * / % (zbytek) ^ (mocnina), závorky
+        • & spojí texty: "Ahoj " & jmeno
+        • == != < <= > >=
+        • zaroven, nebo, not (také and, or, &&, ||, !)
+
+        Příkazy (anglicky i česky)
+        • x = 5, x += 1, seznam[0] = "a", osoba.vek = 31
+        • pokud podmínka … jinak pokud … jinak … konec
+        • dokud podmínka … konec
+        • pro polozka v seznam … konec
+        • ukonci (konec opakování), pokracuj (další kolo)
+        • vrat hodnota
+        • # poznámka do konce řádku
+
+        Čtení z dat
+        • seznam[0] první, seznam[-1] poslední
+        • odpoved.body.items[0].title
+
+        Funkce – text
+        • len(x), upper(x), lower(x), trim(x)
+        • replace(text, co, cim), contains(text, co)
+        • ==, contains, starts a ends nerozlišují velká a malá písmena
+          (stejně jako blok Pokud); přesné porovnání je exact(a, b)
+        • starts(text, zacatek), ends(text, konec)
+        • split(text, oddelovac), join(seznam, oddelovac)
+        • substr(text, od, delka), find(text, co)
+        • match(text, regex), matches(text, regex)
+
+        Funkce – čísla
+        • round(x, mist), floor(x), ceil(x), abs(x), sqrt(x)
+        • min(…), max(…), sum(seznam), avg(seznam)
+        • num(text), int(x), random(od, do)
+        • calc("1 000 * 1,21") – kalkulačka bloku Vypočítat
+
+        Funkce – seznamy a ostatní
+        • range(5) → 1 až 5, range(2, 4)
+        • push(seznam, x), keys(objekt), values(objekt)
+        • json(text), tojson(hodnota), type(x)
+        • kdyz(podminka, a, b), date("d. M. yyyy"), now()
+        • var("název s mezerou") – proměnná, která nejde napsat jménem
+
+        Bloky jako funkce
+        Každý blok jde zavolat svým typem. Parametry napíšeš jménem v { },
+        nebo jeden po druhém v pořadí, v jakém jsou v bloku.
+        • odp = http_request({url: "https://api.example.com/items"})
+        • toast("Hotovo: " & len(odp.body.items))
+        • set_clipboard(vysledek), vibrate(300)
+        • ask_text({title: "Jméno?"}), open_app("Spotify")
+        • blok("replace", {source: t, find: "a", replacement: "b"}) – pro
+          bloky, které se jmenují stejně jako funkce (replace, text, random)
+        Nastavení automatizace → Zobrazit jako skript zapíše tvoje kroky
+        takhle, takže uvidíš typ a parametry každého bloku.
+
+        Vestavěné proměnné
+        • vstup (input), schranka (clipboard), spusteni (trigger)
+        • event("wifi_name"), secret("název")
+
+        Příklad
+        soucet = 0
+        pro p v odpoved.body.items
+            pokud p.price > 100
+                soucet += p.price
+            konec
+        konec
+        vrat "Celkem " & round(soucet, 2) & " Kč"
+    """.trimIndent()
 }

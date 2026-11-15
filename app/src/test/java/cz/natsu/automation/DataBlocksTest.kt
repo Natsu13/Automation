@@ -17,6 +17,11 @@ import org.junit.Test
 import java.util.UUID
 
 class DataBlocksTest {
+    init {
+        // The texts checked here are the Czech originals.
+        cz.natsu.automation.i18n.I18n.force(cz.natsu.automation.i18n.Language.Czech)
+    }
+
     private class FakeContext : ContextWrapper(null) {
         override fun getApplicationContext(): Context = this
     }

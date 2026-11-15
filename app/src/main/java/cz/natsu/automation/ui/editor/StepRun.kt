@@ -1,5 +1,7 @@
 package cz.natsu.automation.ui.editor
 
+import cz.natsu.automation.i18n.tr
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -80,19 +82,19 @@ fun StepRunBar(viewModel: EditorViewModel) {
                         Spacer(Modifier.width(8.dp))
                         Text(
                             when {
-                                result.cancelled -> "Krokování zastaveno"
-                                ok -> "Hotovo · provedeno kroků: ${viewModel.stepCount}"
-                                else -> "Chyba"
+                                result.cancelled -> tr("Krokování zastaveno")
+                                ok -> tr("Hotovo · provedeno kroků: %s", viewModel.stepCount)
+                                else -> tr("Chyba")
                             },
                             style = MaterialTheme.typography.titleSmall
                         )
                     }
                     result.error?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
                     result.output?.let { output ->
-                        Text("Výsledek:", style = MaterialTheme.typography.labelMedium)
+                        Text(tr("Výsledek:"), style = MaterialTheme.typography.labelMedium)
                         SelectionContainer {
                             Text(
-                                output.ifEmpty { "(prázdné)" },
+                                output.ifEmpty { tr("(prázdné)") },
                                 style = MaterialTheme.typography.bodyMedium,
                                 maxLines = 4,
                                 overflow = TextOverflow.Ellipsis
@@ -102,22 +104,22 @@ fun StepRunBar(viewModel: EditorViewModel) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         VariablesButton(viewModel) { showVariables = true }
                         Spacer(Modifier.weight(1f))
-                        Button(onClick = { viewModel.closeSteps() }) { Text("Zavřít") }
+                        Button(onClick = { viewModel.closeSteps() }) { Text(tr("Zavřít")) }
                     }
                 }
 
                 // Waiting for "next".
                 paused != null -> {
                     Text(
-                        "Krok ${viewModel.stepCount}: ${paused.title}",
+                        tr("Krok %s: %s", viewModel.stepCount, tr(paused.title)),
                         style = MaterialTheme.typography.titleSmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         when {
-                            paused.error != null -> "Chyba: ${paused.error}"
-                            paused.output == null -> "Provedeno – výsledek je u kroku."
+                            paused.error != null -> tr("Chyba: %s", paused.error)
+                            paused.output == null -> tr("Provedeno – výsledek je u kroku.")
                             else -> "→ " + paused.output.ifEmpty { "(prázdné)" }.take(300).replace('\n', ' ')
                         },
                         style = MaterialTheme.typography.bodySmall,
@@ -126,16 +128,16 @@ fun StepRunBar(viewModel: EditorViewModel) {
                         overflow = TextOverflow.Ellipsis
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = { viewModel.stopRun() }) { Text("Stop") }
+                        TextButton(onClick = { viewModel.stopRun() }) { Text(tr("Stop")) }
                         VariablesButton(viewModel) { showVariables = true }
                         Spacer(Modifier.weight(1f))
                         androidx.compose.material3.OutlinedIconButton(onClick = { viewModel.runToEnd() }) {
-                            Icon(Icons.Rounded.FastForward, "Dokončit bez zastavování")
+                            Icon(Icons.Rounded.FastForward, tr("Dokončit bez zastavování"))
                         }
                         Button(onClick = { viewModel.nextStep() }) {
                             Icon(Icons.Rounded.SkipNext, null, Modifier.size(18.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("Další", maxLines = 1)
+                            Text(tr("Další"), maxLines = 1)
                         }
                     }
                 }
@@ -143,8 +145,8 @@ fun StepRunBar(viewModel: EditorViewModel) {
                 // A step is executing (or waits for a dialog).
                 else -> {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Běží…", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                        TextButton(onClick = { viewModel.stopRun() }) { Text("Stop") }
+                        Text(tr("Běží…"), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                        TextButton(onClick = { viewModel.stopRun() }) { Text(tr("Stop")) }
                     }
                     LinearProgressIndicator(Modifier.fillMaxWidth())
                 }
@@ -161,7 +163,7 @@ fun StepRunBar(viewModel: EditorViewModel) {
 private fun VariablesButton(viewModel: EditorViewModel, onClick: () -> Unit) {
     TextButton(onClick = onClick) {
         Text(
-            if (viewModel.stepVariables.isEmpty()) "Proměnné" else "Proměnné (${viewModel.stepVariables.size})"
+            if (viewModel.stepVariables.isEmpty()) tr("Proměnné") else tr("Proměnné (%s)", viewModel.stepVariables.size)
         )
     }
 }
@@ -176,7 +178,7 @@ private fun VariablesDialog(viewModel: EditorViewModel, onDismiss: () -> Unit) {
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Hodnoty po kroku ${viewModel.stepCount}") },
+        title = { Text(tr("Hodnoty po kroku %s", viewModel.stepCount)) },
         text = {
             Column(
                 Modifier
@@ -185,20 +187,20 @@ private fun VariablesDialog(viewModel: EditorViewModel, onDismiss: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 if (viewModel.stepVariables.isEmpty() && outputs.isEmpty()) {
-                    Text("Zatím žádné hodnoty.")
+                    Text(tr("Zatím žádné hodnoty."))
                 }
                 if (viewModel.stepVariables.isNotEmpty()) {
-                    Text("Proměnné", style = MaterialTheme.typography.titleSmall)
+                    Text(tr("Proměnné"), style = MaterialTheme.typography.titleSmall)
                     for ((name, value) in viewModel.stepVariables) ValueRow(name, value)
                 }
                 if (outputs.isNotEmpty()) {
                     if (viewModel.stepVariables.isNotEmpty()) HorizontalDivider()
-                    Text("Výstupy kroků", style = MaterialTheme.typography.titleSmall)
+                    Text(tr("Výstupy kroků"), style = MaterialTheme.typography.titleSmall)
                     for ((label, value) in outputs) ValueRow(label, value)
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Zavřít") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(tr("Zavřít")) } },
     )
 }
 
@@ -209,7 +211,7 @@ private fun ValueRow(name: String, value: String) {
         SelectionContainer {
             // Named variables are not shortened by the runner; huge texts would freeze the dialog.
             Text(
-                cz.natsu.automation.engine.logPreview(value)!!.ifEmpty { "(prázdné)" },
+                cz.natsu.automation.engine.logPreview(value)!!.ifEmpty { tr("(prázdné)") },
                 style = MaterialTheme.typography.bodyMedium
             )
         }

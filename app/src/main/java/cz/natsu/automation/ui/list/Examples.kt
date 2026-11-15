@@ -9,6 +9,7 @@ import cz.natsu.automation.data.VarRef
 import cz.natsu.automation.data.richText
 import cz.natsu.automation.data.richVar
 import cz.natsu.automation.engine.Blocks
+import cz.natsu.automation.i18n.tr
 import java.util.UUID
 
 /** Ready-made automations that show what the app can do. */
@@ -46,6 +47,12 @@ object Examples {
         "Odeslat data (POST JSON)" to "API: zeptá se na text, sestaví z něj JSON, pošle ho POSTem a ukáže odpověď serveru.",
         "Hlídat novinky v API" to "Zkusit + Uložit hodnotu: zjistí nejnovější příspěvek z API a ohlásí ho, " +
             "jen když je jiný než minule. Při chybě sítě neskončí chybou. Hodí se s událostí Čas / interval.",
+        "Skript: součet košíku" to "Skript: seznam, smyčka, podmínka a výpočet v pár řádcích kódu místo deseti bloků.",
+        "Vyber podle: denní doba" to "Vyber podle: zeptá se na denní dobu a podle odpovědi spustí jednu z větví.",
+        "Souběžně: dvě API najednou" to "Souběžně: pošle dva požadavky najednou a skriptem z nich složí jednu větu.",
+        "Podmínka výrazem: baterie" to "Pokud / Jinak pokud zapsané výrazem s „and / or“ nad baterií a typem připojení.",
+        "Najít místo na mapě (intent)" to "Poslat intent: zeptá se na místo a otevře ho v mapách (akce VIEW, data geo:).",
+        "Počkat na Wi-Fi" to "Počkat dokud + Zkusit: čeká až 30 s na Wi-Fi, jinak ohlásí, že se nedočkal.",
         "Nahrát obrázek (multipart)" to "API: vybereš obrázek, zmenší se a pošle se i s popiskem jako formulář (multipart).",
     )
 
@@ -60,7 +67,7 @@ object Examples {
     suspend fun create(repository: AutomationRepository, chosen: List<Example>): Int {
         for (example in chosen) {
             val built = example.build()
-            val id = repository.create(example.name, built.blocks)
+            val id = repository.create(tr(example.name), built.blocks)
             repository.get(id)?.let { repository.save(built.triggers(it.copy(icon = example.icon))) }
         }
         return chosen.size
@@ -416,6 +423,160 @@ object Examples {
                             )
                         ),
                     ),
+                )
+            )
+        },
+
+        // ---------- the newer blocks ----------
+
+        // Script: a few lines of code instead of a row of blocks
+        example("Skript: součet košíku", "code") {
+            val script = block(
+                "script", null,
+                "code" to richText(
+                    "# " + tr("Seznam objektů, smyčka, výpočet a složení textu") + "\n" +
+                        "items = [{name: \"" + tr("Chleba") + "\", price: 42}, {name: \"" + tr("Sýr") + "\", price: 89.9}, " +
+                        "{name: \"" + tr("Víno") + "\", price: 219}]\n" +
+                        "total = 0\n" +
+                        "for item in items\n" +
+                        "    total += item.price\n" +
+                        "end\n" +
+                        "if total > 300\n" +
+                        "    total = total * 0.9   # " + tr("sleva 10 %") + "\n" +
+                        "end\n" +
+                        "return \"" + tr("Položek") + ": \" & len(items) & \", " + tr("celkem") + " \" & round(total, 2)"
+                ),
+            )
+            Built(
+                listOf(
+                    block("comment", null, "text" to richText(tr("Celý výpočet je v jednom bloku Skript. Otevři ho a uprav čísla."))),
+                    script,
+                    block("show_text", null, "title" to richText(tr("Košík")), "text" to richVar(VarRef.BlockOutput(script.id))),
+                )
+            )
+        },
+
+        // Choose by: one value, several branches
+        example("Vyber podle: denní doba", "light") {
+            val group = UUID.randomUUID().toString()
+            val morning = tr("Ráno")
+            val noon = tr("Poledne")
+            val afternoon = tr("Odpoledne")
+            val evening = tr("Večer")
+            val picked = block(
+                "choose", null,
+                "title" to richText(tr("Jaká je denní doba?")),
+                "options" to richText(listOf(morning, noon, afternoon, evening).joinToString("\n")),
+            )
+            Built(
+                listOf(
+                    picked,
+                    block("switch", group, "value" to richVar(VarRef.BlockOutput(picked.id))),
+                    block("case", group, "value" to richText(morning)),
+                    block("toast", null, "text" to richText(tr("Dobré ráno ☕"))),
+                    block("case", group, "value" to richText("$noon\n$afternoon")),
+                    block("toast", null, "text" to richText(tr("Hezký den ☀️"))),
+                    block("else", group),
+                    block("toast", null, "text" to richText(tr("Dobrý večer 🌙"))),
+                    block("end_switch", group),
+                )
+            )
+        },
+
+        // In parallel: two requests at once, then a script that joins them
+        example("Souběžně: dvě API najednou", "sync") {
+            val group = UUID.randomUUID().toString()
+            val post = block(
+                "http_request", null,
+                "url" to richText("https://jsonplaceholder.typicode.com/posts/1"),
+                "only_body" to ParamValue.Bool(true),
+            )
+            val user = block(
+                "http_request", null,
+                "url" to richText("https://jsonplaceholder.typicode.com/users/1"),
+                "only_body" to ParamValue.Bool(true),
+            )
+            val joined = block(
+                "script", null,
+                "code" to ParamValue.Rich(
+                    listOf(
+                        Segment.Text("post = "), Segment.Var(VarRef.BlockOutput(post.id)),
+                        Segment.Text("\nuser = "), Segment.Var(VarRef.BlockOutput(user.id)),
+                        Segment.Text("\nreturn user.name & \": \" & post.title"),
+                    )
+                ),
+            )
+            Built(
+                listOf(
+                    block("parallel", group),
+                    post,
+                    block("parallel_branch", group),
+                    user,
+                    block("end_parallel", group),
+                    joined,
+                    block("show_text", null, "title" to richText(tr("Obě odpovědi")), "text" to richVar(VarRef.BlockOutput(joined.id))),
+                )
+            )
+        },
+
+        // A condition written as an expression, with "otherwise if"
+        example("Podmínka výrazem: baterie", "battery") {
+            val group = UUID.randomUUID().toString()
+            val level = block("battery", null, "info" to ParamValue.Choice("level"))
+            val net = block("network", null, "info" to ParamValue.Choice("type"))
+            fun expression(vararg parts: Any) = ParamValue.Rich(parts.map {
+                if (it is Block) Segment.Var(VarRef.BlockOutput(it.id)) else Segment.Text(it.toString())
+            })
+            Built(
+                listOf(
+                    level,
+                    net,
+                    block("if", group, "mode" to ParamValue.Choice("expert"), "expression" to expression(level, " < 30 and ", net, " != \"wifi\"")),
+                    block("toast", null, "text" to richText(tr("Málo baterie a jsi na datech – šetři."))),
+                    block("else_if", group, "mode" to ParamValue.Choice("expert"), "expression" to expression(level, " < 30 or ", level, " > 95")),
+                    block("toast", null, "text" to expression(tr("Baterie je na kraji: "), level, " %")),
+                    block("else", group),
+                    block("toast", null, "text" to expression(tr("Baterie v pohodě: "), level, " %")),
+                    block("end_if", group),
+                )
+            )
+        },
+
+        // Another app: an intent with an action and data
+        example("Najít místo na mapě (intent)", "map") {
+            val place = block("ask_text", null, "title" to richText(tr("Jaké místo hledáš?")), "initial" to richText("Praha"))
+            Built(
+                listOf(
+                    place,
+                    block(
+                        "send_intent", null,
+                        "target" to ParamValue.Choice("activity"),
+                        "action" to richText("android.intent.action.VIEW"),
+                        "data" to ParamValue.Rich(listOf(Segment.Text("geo:0,0?q="), Segment.Var(VarRef.BlockOutput(place.id)))),
+                    ),
+                )
+            )
+        },
+
+        // Wait until + try: wait for Wi-Fi, give up with an error that is caught
+        example("Počkat na Wi-Fi", "wifi") {
+            val group = UUID.randomUUID().toString()
+            val attempt = block("try", group)
+            Built(
+                listOf(
+                    attempt,
+                    block(
+                        "wait_until", null,
+                        "left" to richVar(VarRef.Event("network")),
+                        "op" to ParamValue.Choice("equals"),
+                        "right" to richText("wifi"),
+                        "timeout" to ParamValue.Number(30f),
+                        "fail" to ParamValue.Bool(true),
+                    ),
+                    block("toast", null, "text" to richText(tr("Wi-Fi je připojená ✔"))),
+                    block("catch", group),
+                    block("toast", null, "text" to richText(tr("Do 30 s se Wi-Fi nepřipojila."))),
+                    block("end_try", group),
                 )
             )
         },

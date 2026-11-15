@@ -12,6 +12,11 @@ import org.junit.Test
 
 /** Reading stored blocks must never silently turn an automation into an empty one. */
 class BlockJsonTest {
+    init {
+        // The texts checked here are the Czech originals.
+        cz.natsu.automation.i18n.I18n.force(cz.natsu.automation.i18n.Language.Czech)
+    }
+
     private val blocks = listOf(
         Block(
             id = "a", type = "text",
