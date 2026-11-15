@@ -183,6 +183,8 @@ fun RichTextField(
     placeholder: String = "",
     allowVariables: Boolean = true,
     onRequestVariable: ((RichTextFieldController) -> Unit)? = null,
+    /** Code: fixed-width font, several lines tall, no auto-correct or capital letters. */
+    code: Boolean = false,
 ) {
     val codec = remember { ChipCodec() }
     var value by remember { mutableStateOf(TextFieldValue(codec.encode(segments))) }
@@ -219,7 +221,9 @@ fun RichTextField(
         }
     }
 
-    val textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface)
+    val textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface).let {
+        if (code) it.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = it.fontSize * 0.9f) else it
+    }
     val chipRadius = with(androidx.compose.ui.platform.LocalDensity.current) { 6.dp.toPx() }
     val chipInset = with(androidx.compose.ui.platform.LocalDensity.current) { 1.dp.toPx() }
 
@@ -235,6 +239,11 @@ fun RichTextField(
             .bringIntoViewRequester(bringIntoView)
             .onFocusChanged { focused = it.isFocused },
         textStyle = textStyle,
+        minLines = if (code) 6 else 1,
+        keyboardOptions = if (code) androidx.compose.foundation.text.KeyboardOptions(
+            capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.None,
+            autoCorrectEnabled = false,
+        ) else androidx.compose.foundation.text.KeyboardOptions.Default,
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
         visualTransformation = if (allowVariables) transformation else VisualTransformation.None,
         onTextLayout = { layout = it },

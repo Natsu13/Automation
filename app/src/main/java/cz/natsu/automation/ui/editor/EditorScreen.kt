@@ -319,7 +319,7 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                         outputStyle = if (def.outputName != null) chipStyle(VarRef.BlockOutput(block.id)) else null,
                         foldedSteps = viewModel.foldedCount(block.id),
                         runEntry = if (viewModel.stepMode) viewModel.stepResults[block.id] else null,
-                        suggestions = if ((def.kind == BlockKind.IfStart || def.kind == BlockKind.WhileStart) && viewModel.isExpanded(block.id)) {
+                        suggestions = if ((def.kind == BlockKind.IfStart || def.kind == BlockKind.WhileStart || def.kind == BlockKind.ElseIf) && viewModel.isExpanded(block.id)) {
                             viewModel.suggestionsFor(block)
                         } else null,
                         dragHandle = Modifier.draggableHandle(
@@ -366,9 +366,12 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                                 { viewModel.addElse(block) }
                             } else null,
                             onGrantRequirement = ::grant,
-                            onToggleDisabled = if (def.kind == BlockKind.Else || def.kind == BlockKind.End) null else {
+                            onToggleDisabled = if (def.kind == BlockKind.Else || def.kind == BlockKind.End || def.kind == BlockKind.ElseIf) null else {
                                 { viewModel.toggleDisabled(block.id) }
                             },
+                            onAddElseIf = if (def.kind == BlockKind.IfStart || def.kind == BlockKind.ElseIf) {
+                                { viewModel.addElseIf(block) }
+                            } else null,
                         ),
                         modifier = Modifier.padding(start = (depth * 20).dp),
                     )

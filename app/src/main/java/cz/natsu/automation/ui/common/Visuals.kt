@@ -38,6 +38,7 @@ val BlockCategory.hue: AccentHue
         BlockCategory.Variables -> AccentHue.Purple
         BlockCategory.Control -> AccentHue.Orange
         BlockCategory.Device -> AccentHue.Green
+        BlockCategory.Apps -> AccentHue.Green
         BlockCategory.Other -> AccentHue.Pink
     }
 

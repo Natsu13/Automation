@@ -4,7 +4,7 @@ Android aplikace na skládání vlastních automatizací z bloků – něco jako
 Automatizaci poskládáš z kroků (text, schránka, podmínky, zařízení, dialogy…) a spustíš ji
 ručně, z výběru textu, přes Sdílet, dlaždicí, změnou schránky nebo systémovou událostí.
 
-Minimální verze: **Android 9** (API 28), cílová: Android 15 (API 35).
+Minimální verze: **Android 9** (API 28), cílová: Android 17 (API 37).
 
 ## Co umí
 
@@ -19,21 +19,52 @@ Minimální verze: **Android 9** (API 28), cílová: Android 15 (API 35).
   s nabídkou možných hodnot
 
 **Bloky**
-- Text: text, nahradit (i regex), velikost písmen, vyčistit, spočítat, vypočítat, najít v textu, převést
+- Text: text, nahradit (i regex), velikost písmen, vyčistit, spočítat, najít v textu, převést
   (diakritika, URL, Base64…)
+- Čísla: vypočítat (dvě čísla nebo celý výraz), náhodné číslo
 - Schránka: získat, nastavit
-- Podmínky a řízení: Pokud / Jinak / Konec, proměnné, počkat, vrátit výsledek
+- Podmínky a řízení: Pokud / Jinak pokud / Jinak (i jako výraz s „a / nebo“), opakování (dokud,
+  několikrát, pro každou položku), Zkusit / Když selže, počkat, počkat dokud, spustit jinou
+  automatizaci, zastavit s chybou, poznámka, vrátit výsledek
+- **Skript** – pár řádků kódu místo mnoha bloků (viz níže)
+- API, JSON a seznamy: HTTP požadavek, získat / vytvořit / upravit JSON, práce se seznamem
+- Obrázky a soubory: vybrat, upravit, ukázat, sdílet, uložit
+- Proměnné: nastavit proměnnou, uložené hodnoty (přežijí běh), tajné hodnoty (API klíče)
 - Dialogy: zeptat se na text, vybrat z nabídky, ukázat text
 - Sdílení a web: sdílet, otevřít odkaz, načíst webovou stránku
 - Zařízení: hlasitost, režim zvonění, vibrace, svítilna, síť, baterie, orientace, údaje z události
-- Ostatní: zpráva, datum a čas, náhodné číslo, **oznámení s tlačítky** (kopírovat, spustit jinou
-  automatizaci, otevřít odkaz, sdílet)
+- Aplikace: otevřít aplikaci, poslat intent / spustit službu jiné aplikace s parametry (extras)
+- Ostatní: zpráva, datum a čas, **oznámení s tlačítky** (kopírovat, spustit jinou automatizaci,
+  otevřít odkaz, sdílet)
+
+**Skript**
+
+Blok s víceřádkovým polem pro krátký program. Proměnné sdílí s ostatními kroky, hodnoty z jiných
+bloků se vkládají jako štítky a výsledek je výstup bloku. Stejný jazyk jde použít v podmínce
+(Pokud → Zápis: Výraz).
+
+```
+soucet = 0
+pro p v odpoved.body.items
+    pokud p.price > 100 zaroven not p.sold
+        soucet += p.price
+    konec
+konec
+vrat "Celkem " & round(soucet, 2) & " Kč"
+```
+
+Čísla, texty, seznamy `[1, 2]`, objekty `{a: 1}`, čtení z JSON (`odpoved.body.items[0].title`),
+`pokud / jinak pokud / jinak / konec`, `dokud`, `pro x v seznam`, `vrat`, funkce pro texty, čísla
+a seznamy (`len`, `replace`, `split`, `round`, `sum`, `match`, `calc`…). Klíčová slova fungují
+česky i anglicky. Úplný přehled je v aplikaci pod **?** u bloku Skript.
 
 **Editor**
 - přetahování kroků, sbalené kroky jako čitelná věta, proměnné jako barevné štítky
 - zpět / znovu, vypínání jednotlivých kroků
 - krokování – po každém kroku vidíš jeho výsledek a hodnoty proměnných
-- export / import a sdílení automatizací
+- export / import a sdílení automatizací; importovaná automatizace se nespustí, dokud ji
+  neprojdeš a nepovolíš
+- historie běhů v nastavení – i spuštění na pozadí a jejich chyby
 - přehled spotřeby baterie a varování, když aplikace na pozadí bere moc
 
 ## Sestavení

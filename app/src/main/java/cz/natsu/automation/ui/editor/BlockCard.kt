@@ -82,6 +82,8 @@ data class BlockCardActions(
     val onGrantRequirement: (Requirement) -> Unit,
     /** Switch the step off / on; null where it makes no sense (otherwise / end). */
     val onToggleDisabled: (() -> Unit)? = null,
+    /** Add another condition ("Jinak pokud") to an "if"; null elsewhere. */
+    val onAddElseIf: (() -> Unit)? = null,
 )
 
 @Composable
@@ -220,6 +222,11 @@ fun BlockCard(
                             onChange = { actions.onParamChange(param.key, it) },
                             onRequestVariable = actions.onRequestVariable,
                         )
+                        if (param is ParamDef.Text && param.appPicker) {
+                            SuggestionsRow(
+                                ValueSuggestions(emptyList(), hint = "Nainstalované aplikace:", app = AppValue.Package)
+                            ) { value -> actions.onParamChange(param.key, cz.natsu.automation.data.richText(value)) }
+                        }
                         if (param.key == "right" && suggestions != null) {
                             SuggestionsRow(suggestions) { value ->
                                 actions.onParamChange("right", cz.natsu.automation.data.richText(value))
@@ -273,6 +280,13 @@ private fun BlockMenu(def: BlockDef, actions: BlockCardActions, disabled: Boolea
                     onClick = { open = false; actions.onAddElse.invoke() }
                 )
             }
+            if (actions.onAddElseIf != null) {
+                DropdownMenuItem(
+                    text = { Text("Přidat větev Jinak pokud") },
+                    leadingIcon = { Icon(Icons.Rounded.AltRoute, null) },
+                    onClick = { open = false; actions.onAddElseIf.invoke() }
+                )
+            }
             actions.onMoveUp?.let { moveUp ->
                 DropdownMenuItem(
                     text = { Text("Posunout nahoru") },
@@ -287,7 +301,7 @@ private fun BlockMenu(def: BlockDef, actions: BlockCardActions, disabled: Boolea
                     onClick = { open = false; moveDown() }
                 )
             }
-            if (def.kind != BlockKind.Else) {
+            if (def.kind != BlockKind.Else && def.kind != BlockKind.ElseIf) {
                 DropdownMenuItem(
                     text = { Text("Duplikovat") },
                     leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) },
@@ -369,6 +383,7 @@ private fun ParamEditor(
                 placeholder = param.placeholder,
                 allowVariables = !param.plain,
                 onRequestVariable = onRequestVariable,
+                code = param.code,
             )
         }
 

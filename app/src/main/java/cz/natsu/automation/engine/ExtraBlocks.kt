@@ -132,6 +132,7 @@ object ExtraBlocks {
         // ---------- Files ----------
         BlockDef(
             type = "share_file",
+            needsWindow = true,
             summary = "Sdílet soubor {file}",
             title = "Sdílet soubor",
             description = "Otevře okno Sdílet se souborem nebo obrázkem – třeba upraveným nebo staženým.",

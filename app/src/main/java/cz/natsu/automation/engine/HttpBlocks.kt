@@ -130,6 +130,7 @@ object HttpBlocks {
 
         BlockDef(
             type = "pick_file",
+            needsWindow = true,
             summary = "Vybrat {kind}",
             title = "Vybrat soubor / obrázek",
             description = "Nechá vybrat obrázek nebo soubor. Výstup jde upravit blokem Upravit obrázek, " +
@@ -154,6 +155,7 @@ object HttpBlocks {
 
         BlockDef(
             type = "show_images",
+            needsWindow = true,
             summary = "Ukázat obrázky {images}",
             title = "Ukázat obrázky",
             description = "Zobrazí obrázky z adres (JSON pole nebo jedna na řádek), vybraných nebo stažených souborů. " +

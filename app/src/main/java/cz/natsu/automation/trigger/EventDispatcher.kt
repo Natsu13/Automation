@@ -15,6 +15,8 @@ import cz.natsu.automation.data.Segment
 import cz.natsu.automation.data.VarRef
 import cz.natsu.automation.engine.AudioHardening
 import cz.natsu.automation.engine.AutomationRunner
+import cz.natsu.automation.engine.Blocks
+import cz.natsu.automation.engine.ControlBlocks
 import cz.natsu.automation.engine.EventInfo
 import cz.natsu.automation.engine.RunTrigger
 import cz.natsu.automation.data.RunHistory
@@ -33,9 +35,6 @@ import kotlinx.coroutines.supervisorScope
  */
 object EventDispatcher {
     private const val TAG = "EventDispatcher"
-
-    /** Blocks that need a window: dialogs, reading the clipboard, opening other apps. */
-    private val windowBlocks = setOf("ask_text", "choose", "show_text", "get_clipboard", "share", "web", "open_url", "pick_file", "show_images", "share_file")
 
     /**
      * Android 17+ silently ignores volume and ringer changes from an app in the
@@ -101,7 +100,7 @@ object EventDispatcher {
 
     private suspend fun run(context: Context, automation: AutomationEntity, input: String, event: EventInfo) {
         val blocks = automation.blocks
-        if (needsWindow(blocks) && ClipboardMonitor.canOverlay(context)) {
+        if (needsWindowDeep(context, blocks) && ClipboardMonitor.canOverlay(context)) {
             Handler(Looper.getMainLooper()).post {
                 try {
                     context.startActivity(TriggerActivity.eventIntent(context, automation.id, input, event))
@@ -134,11 +133,28 @@ object EventDispatcher {
         else -> null
     } ?: ""
 
+    /**
+     * Whether some step needs a window: dialogs, reading the clipboard, opening other
+     * apps ([cz.natsu.automation.engine.BlockDef.needsWindow]).
+     */
     fun needsWindow(blocks: List<Block>): Boolean = blocks.any { block ->
-        !block.disabled && (block.type in windowBlocks ||
+        val def = Blocks.get(block.type)
+        !block.disabled && (def?.needsWindow == true || def?.needsWindowWhen?.invoke(block) == true ||
                 (block.type in audioBlocks && AudioHardening.active) ||
                 block.params.values.any { value ->
             value is ParamValue.Rich && value.segments.any { (it as? Segment.Var)?.ref == VarRef.Clipboard }
         })
+    }
+
+    /** [needsWindow] including the automations called by "Spustit automatizaci". */
+    private suspend fun needsWindowDeep(context: Context, blocks: List<Block>, depth: Int = 0): Boolean {
+        if (needsWindow(blocks)) return true
+        if (depth >= 4) return false
+        val repository = (context.applicationContext as AutomationApplication).repository
+        return blocks.filter { !it.disabled && it.type == ControlBlocks.RUN_AUTOMATION }.any { block ->
+            val called = (block.params["automation"] as? ParamValue.Choice)?.value?.toLongOrNull()
+                ?.let { repository.get(it) }
+            called != null && needsWindowDeep(context, called.blocks, depth + 1)
+        }
     }
 }

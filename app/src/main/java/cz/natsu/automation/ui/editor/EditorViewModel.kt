@@ -329,6 +329,11 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         }.distinct()
         if (addresses.isNotEmpty()) add("Posílá data na internet:\n" + addresses.joinToString("\n") { "• ${it.take(120)}" })
         if (blocks.any { it.type in setOf("share", "share_file", "save_file") }) add("Sdílí nebo ukládá soubory a text")
+        if (blocks.any { it.type in setOf("open_app", "send_intent") }) {
+            add("Otevírá jiné aplikace nebo jim posílá příkazy (intent, spuštění služby)")
+        }
+        if (blocks.any { it.type == "run_automation" }) add("Spouští jiné tvoje automatizace")
+        if (blocks.any { it.type == "script" }) add("Obsahuje skript – přečti si ho")
         if (isEmpty()) add("Nespouští se sama, nepoužívá tajné hodnoty a nic neposílá na internet.")
     }
 
@@ -562,6 +567,23 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         changed()
     }
 
+    /**
+     * Adds "Jinak pokud" to the condition [block] belongs to: after the branch of
+     * [block] (an "if" or another "Jinak pokud"), so before the next branch or the end.
+     */
+    fun addElseIf(block: Block) {
+        val index = indexOf(block.id)
+        if (index < 0) return
+        val branchKinds = setOf(BlockKind.ElseIf, BlockKind.Else, BlockKind.End)
+        val next = (index + 1 until blocks.size).firstOrNull {
+            blocks[it].groupId == block.groupId && Blocks.get(blocks[it].type)?.kind in branchKinds
+        } ?: return
+        val added = Blocks.get(Blocks.ELSE_IF)!!.newBlock(block.groupId)
+        blocks.add(next, added)
+        expandedIds[added.id] = true
+        changed()
+    }
+
     // ---------- launch conditions ----------
 
     fun isCondition(blockId: String) = conditions.any { it.id == blockId }
@@ -647,6 +669,14 @@ class EditorViewModel(application: Application, private val automationId: Long) 
                 val end = blocks.indexOfFirst { it.groupId == block.groupId && Blocks.get(it.type)?.kind == BlockKind.End }
                 if (end > index) index until end else index..index
             }
+            // "Jinak pokud" goes with the steps of its branch: up to the next branch or the end.
+            BlockKind.ElseIf -> {
+                val next = (index + 1 until blocks.size).firstOrNull {
+                    blocks[it].groupId == block.groupId &&
+                            Blocks.get(blocks[it].type)?.kind in setOf(BlockKind.ElseIf, BlockKind.Else, BlockKind.End)
+                }
+                if (next != null) index until next else index..index
+            }
             BlockKind.End -> return null
             else -> index..index
         }
@@ -656,7 +686,8 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         changed()
         // Steps that were inside (control blocks of the removed condition itself don't count).
         val inner = if (removed.size == 1) 0 else removed.count {
-            it.groupId != block.groupId && Blocks.get(it.type)?.kind.let { k -> k != BlockKind.Else && k != BlockKind.End }
+            it.groupId != block.groupId &&
+                    Blocks.get(it.type)?.kind.let { k -> k != BlockKind.Else && k != BlockKind.End && k != BlockKind.ElseIf }
         }
         return Removal(before, inner)
     }

@@ -69,6 +69,8 @@ class RunContext(
     val event: EventInfo? = null,
     /** Automation being run (stored values belong to it); null for a run without one. */
     val automationId: Long? = null,
+    /** How deep this run is in "Spustit automatizaci" calls (0 = started directly). */
+    val depth: Int = 0,
 ) {
     val variables = mutableMapOf<String, String>()
     val outputs = mutableMapOf<String, String>()
@@ -121,6 +123,42 @@ class RunContext(
         is ParamValue.Choice -> value.value
         is ParamValue.Number -> formatNumber(value.value.toDouble())
         is ParamValue.Bool -> value.value.toString()
+    }
+
+    /**
+     * Runs the parameter [key] of [block] as a script ([Script]) and returns its value.
+     * Variable chips in the code are passed as values, never pasted into the code, and
+     * the script reads and writes the variables of this run.
+     */
+    suspend fun script(block: Block, key: String): Any? {
+        val chips = mutableListOf<String>()
+        val code = buildString {
+            when (val value = paramOf(block, key)) {
+                is ParamValue.Rich -> for (segment in value.segments) when (segment) {
+                    is Segment.Text -> append(segment.text.filter { it != Script.CHIP_START && it != Script.CHIP_END })
+                    is Segment.Var -> {
+                        chips += resolve(segment.ref)
+                        append(Script.CHIP_START).append(chips.size - 1).append(Script.CHIP_END)
+                    }
+                }
+                else -> append(resolve(value))
+            }
+        }
+        val job = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
+        return Script.run(code, object : Script.Host {
+            override fun get(name: String): Any? = when {
+                name in variables -> variables[name]
+                name == "vstup" || name == "input" -> input ?: ""
+                else -> Script.MISSING
+            }
+
+            override fun set(name: String, value: Any?) {
+                variables[name] = Script.text(value)
+            }
+
+            override fun chip(index: Int): String = chips[index]
+            override fun active(): Boolean = job?.isActive ?: true
+        })
     }
 
     suspend fun resolve(ref: VarRef): String = when (ref) {
@@ -176,8 +214,10 @@ object AutomationRunner {
         afterStep: (suspend (LogEntry, RunContext) -> Unit)? = null,
         /** The automation the blocks belong to; its stored values are separate from other automations'. */
         automationId: Long? = null,
+        /** Nesting of "Spustit automatizaci" calls. */
+        depth: Int = 0,
     ): RunResult = withContext(Dispatchers.Default) {
-        val ctx = RunContext(context.applicationContext, input, ui, trigger, event, automationId)
+        val ctx = RunContext(context.applicationContext, input, ui, trigger, event, automationId, depth)
         val log = mutableListOf<LogEntry>()
         val structure = Structure.analyze(blocks)
         val tries = ArrayDeque<TryFrame>()
@@ -214,6 +254,8 @@ object AutomationRunner {
 
         var pc = 0
         var steps = 0
+        /** Index of the "Jinak pokud" that is to be evaluated next (the condition before it failed). */
+        var pendingBranch = -1
         while (pc < blocks.size) {
             if (++steps > MAX_STEPS) {
                 return@withContext RunResult(null, log, "Akce udělala přes milion kroků (nekonečné opakování?) a byla zastavena.")
@@ -229,12 +271,22 @@ object AutomationRunner {
             ctx.currentLoop = structure.loopOf[pc]?.let { blocks[it].id }
 
             // Switched-off step: skip it (an "if" / loop / "try" with everything up to its end).
-            if (block.disabled && def.kind != BlockKind.Else && def.kind != BlockKind.End) {
+            if (block.disabled && def.kind != BlockKind.Else && def.kind != BlockKind.End && def.kind != BlockKind.ElseIf) {
                 val entry = LogEntry(block.id, def.title, output = "vypnuto – přeskočeno", skipped = true)
                 log += entry
                 afterStep?.invoke(entry, ctx)
                 pc = if (def.kind.isGroupStart) (structure.endOf[pc] ?: pc) + 1 else pc + 1
                 continue
+            }
+
+            // "Jinak pokud" is evaluated only when the condition before it has just failed;
+            // reached from the steps above it, that branch is done and the "if" ends.
+            if (def.kind == BlockKind.ElseIf) {
+                if (pendingBranch != pc) {
+                    pc = (structure.endOf[pc] ?: blocks.size - 1) + 1
+                    continue
+                }
+                pendingBranch = -1
             }
 
             onStep(block.id)
@@ -294,8 +346,12 @@ object AutomationRunner {
                     BlockResult.None -> pc++
                     is BlockResult.Output -> pc++
                     is BlockResult.Condition -> {
+                        val nextBranch = structure.nextBranch[pc]
                         pc = if (result.passed) {
                             pc + 1
+                        } else if (nextBranch != null) {
+                            pendingBranch = nextBranch
+                            nextBranch
                         } else {
                             val target = structure.elseOf[pc] ?: structure.endOf[pc] ?: (blocks.size - 1)
                             target + 1

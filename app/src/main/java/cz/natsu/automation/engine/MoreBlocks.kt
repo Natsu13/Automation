@@ -49,6 +49,7 @@ object MoreBlocks {
         // ---------- Sharing & web ----------
         BlockDef(
             type = "share",
+            needsWindow = true,
             summary = "Sdílet {text}",
             title = "Sdílet",
             description = "Otevře systémové okno Sdílet s textem – vybereš aplikaci, kam ho poslat.",
@@ -77,6 +78,7 @@ object MoreBlocks {
 
         BlockDef(
             type = "web",
+            needsWindow = true,
             summary = "Načíst {what} z {url}",
             title = "Načíst webovou stránku",
             description = "Stáhne stránku z internetu. Umí i rozbalit zkrácený odkaz (bit.ly, t.co…) na cílovou adresu.",
@@ -104,6 +106,7 @@ object MoreBlocks {
         // ---------- Dialogs ----------
         BlockDef(
             type = "ask_text",
+            needsWindow = true,
             summary = "Zeptat se {title}",
             title = "Zeptat se na text",
             description = "Zobrazí okno s textovým polem. Zrušení dialogu akci ukončí.",
@@ -125,6 +128,7 @@ object MoreBlocks {
 
         BlockDef(
             type = "choose",
+            needsWindow = true,
             summary = "Vybrat z {options}",
             title = "Vybrat z nabídky",
             description = "Nabídne možnosti (každá na samostatném řádku, nebo JSON pole) a vrátí tu vybranou.",
@@ -158,6 +162,7 @@ object MoreBlocks {
 
         BlockDef(
             type = "show_text",
+            needsWindow = true,
             summary = "Ukázat {text}",
             title = "Ukázat text",
             description = "Zobrazí text v okně, odkud ho jde zkopírovat. Akce pokračuje po zavření.",
