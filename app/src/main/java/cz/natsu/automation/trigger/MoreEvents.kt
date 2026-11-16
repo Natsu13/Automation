@@ -41,21 +41,57 @@ object MoreEvents {
     fun granted(context: Context, permission: String): Boolean =
         ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 
+    /**
+     * Android 17: an app built for it gets tags only through a screen guarded by the
+     * DISPATCH_NFC_MESSAGE permission; older Androids may not let the NFC open such a screen.
+     * So the manifest has one entry of each kind and only the fitting one is switched on.
+     */
+    private const val NFC_GUARDED_FROM = 37
+
+    private fun nfcEntry(guarded: Boolean) = ComponentName(
+        AutomationApplication.instance, "cz.natsu.automation.trigger." + if (guarded) "NfcTagGuarded" else "NfcTag"
+    )
+
     /** Called whenever the automations change (and after a reboot, [afterBoot]). */
     fun sync(context: Context, all: List<AutomationEntity>, afterBoot: Boolean = false) {
         val used = all.flatMap { it.activeEvents }.mapNotNull { EventType.of(it.type) }.toSet()
-        // Tags open the app only while some automation waits for one; otherwise other apps keep them.
+        syncNfc(context, EventType.NfcTag in used)
+        PlaceEvents.sync(context, all, afterBoot)
+    }
+
+    /**
+     * Tags open the app only while some automation waits for one ([used]); otherwise other apps keep them.
+     *
+     * [renew] (when the app's process starts): the phone's NFC keeps its own list of apps that take
+     * tags and renews it only when a package changes. After the app was force-stopped (also by an
+     * install from the IDE) the list still says "stopped" and tags go elsewhere; switching the
+     * entry off and on again is such a change.
+     */
+    fun syncNfc(context: Context, used: Boolean, renew: Boolean = false) {
         try {
-            context.packageManager.setComponentEnabledSetting(
+            val pm = context.packageManager
+            // The screen itself is always there (older versions of the app switched it).
+            pm.setComponentEnabledSetting(
                 ComponentName(context, NfcActivity::class.java),
-                if (EventType.NfcTag in used) PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-                else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                PackageManager.DONT_KILL_APP,
+                PackageManager.COMPONENT_ENABLED_STATE_DEFAULT, PackageManager.DONT_KILL_APP,
             )
+            for (guarded in listOf(false, true)) {
+                val entry = nfcEntry(guarded)
+                val on = used && guarded == (Build.VERSION.SDK_INT >= NFC_GUARDED_FROM)
+                val isOn = pm.getComponentEnabledSetting(entry) == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                if (on == isOn && !(on && renew)) continue
+                if (on && isOn) {
+                    pm.setComponentEnabledSetting(entry, PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP)
+                }
+                pm.setComponentEnabledSetting(
+                    entry,
+                    if (on) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                    PackageManager.DONT_KILL_APP,
+                )
+            }
         } catch (e: Exception) {
             Log.w(TAG, "Cannot switch the NFC screen", e)
         }
-        PlaceEvents.sync(context, all, afterBoot)
     }
 
     /** Lets a broadcast receiver wait for the automations of [type] (Android gives it about 10 s). */
@@ -181,6 +217,8 @@ class NfcActivity : Activity() {
             val charset = if (status and 0x80 == 0) Charsets.UTF_8 else Charsets.UTF_16
             return if (payload.size > language) String(payload, 1 + language, payload.size - 1 - language, charset) else null
         }
+        // The app mark ("Přidat značku této aplikace") and other technical records are not content.
+        if (record.tnf == NdefRecord.TNF_EXTERNAL_TYPE) return null
         record.toUri()?.let { return it.toString() }
         return if (record.tnf == NdefRecord.TNF_MIME_MEDIA) String(payload, Charsets.UTF_8) else null
     }

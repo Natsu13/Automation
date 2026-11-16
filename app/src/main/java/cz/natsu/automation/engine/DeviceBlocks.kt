@@ -22,6 +22,7 @@ import androidx.compose.material.icons.rounded.DoNotDisturbOn
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MyLocation
+import androidx.compose.material.icons.rounded.Nfc
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
@@ -285,6 +286,26 @@ object DeviceBlocks {
         ) {
             val ui = ui ?: throw BlockException(tr("focení potřebuje okno (spusť akci ručně)"))
             BlockResult.Output(ui.takePhoto() ?: throw RunCancelledException())
+        },
+
+        BlockDef(
+            type = "nfc_write",
+            needsWindow = true,
+            summary = "Zapsat {content} na NFC štítek",
+            title = "Zapsat na NFC štítek",
+            description = "Počká, až přiložíš štítek, a zapíše na něj text nebo odkaz. Se značkou aplikace ho telefon " +
+                    "při přiložení pošle rovnou události Přiložení NFC štítku, bez dotazu a bez prohlížeče.",
+            category = BlockCategory.Device,
+            icon = Icons.Rounded.Nfc,
+            params = listOf(
+                ParamDef.Text("content", "Text nebo odkaz", placeholder = "může zůstat prázdné"),
+                ParamDef.Toggle("open_here", "Přidat značku této aplikace", default = true),
+            ),
+            outputName = "ID štítku",
+        ) { block ->
+            val ui = ui ?: throw BlockException(tr("zápis na štítek potřebuje okno (spusť akci ručně)"))
+            val message = NfcTags.message(text(block, "content").trim(), bool(block, "open_here"), context.packageName)
+            BlockResult.Output(ui.writeTag(message) ?: throw RunCancelledException())
         },
 
         BlockDef(

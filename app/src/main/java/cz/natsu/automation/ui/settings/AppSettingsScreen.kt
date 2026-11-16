@@ -130,6 +130,7 @@ fun AppSettingsScreen(onBack: () -> Unit) {
             LanguageSection()
             UsageSection(resumeCounter)
             RunHistorySection(resumeCounter)
+            EventLogSection(resumeCounter)
             SecretsSection()
             StoredValuesSection()
 

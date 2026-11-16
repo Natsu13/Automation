@@ -2889,5 +2889,55 @@ object English {
             "Change variable: five requests at once and every round adds its number to a shared sum without the rounds overwriting it.",
         "Součet" to
             "Sum",
+        "Zapsat {content} na NFC štítek" to
+            "Write {content} to an NFC tag",
+        "Zapsat na NFC štítek" to
+            "Write to NFC tag",
+        "Počká, až přiložíš štítek, a zapíše na něj text nebo odkaz. Se značkou aplikace ho telefon při přiložení pošle rovnou události Přiložení NFC štítku, bez dotazu a bez prohlížeče." to
+            "Waits for you to hold a tag to the phone and writes a text or a link on it. With the app mark the phone hands the tag straight to the NFC tag scanned event, without asking and without a browser.",
+        "Text nebo odkaz" to
+            "Text or link",
+        "může zůstat prázdné" to
+            "may stay empty",
+        "Přidat značku této aplikace" to
+            "Add this app's mark",
+        "ID štítku" to
+            "Tag ID",
+        "zápis na štítek potřebuje okno (spusť akci ručně)" to
+            "writing a tag needs a window (run the action by hand)",
+        "Zápis na NFC štítek" to
+            "Writing an NFC tag",
+        "NFC je vypnuté – zapni ho v nastavení telefonu." to
+            "NFC is off – turn it on in the phone's settings.",
+        "Přilož štítek k zadní straně telefonu a chvíli ho tam drž." to
+            "Hold the tag to the back of the phone and keep it there for a moment.",
+        "Nepovedlo se: %s. Zkus štítek přiložit znovu." to
+            "It did not work: %s. Try holding the tag again.",
+        "štítek je jen pro čtení" to
+            "the tag is read-only",
+        "na štítek se to nevejde (%s z %s bajtů)" to
+            "it does not fit on the tag (%s of %s bytes)",
+        "na tenhle druh štítku zapsat nejde" to
+            "this kind of tag cannot be written",
+        "zápis selhal" to
+            "writing failed",
+        "štítek se vzdálil dřív, než se zápis dokončil" to
+            "the tag moved away before the writing finished",
+        "Ladicí záznam událostí" to
+            "Event debug log",
+        "Zapisuje každou událost, která do aplikace dorazila, co přinesla a které automatizace kvůli ní běžely." to
+            "Records every event that reached the app, what it brought and which automations ran because of it.",
+        "Záznam zůstává jen v telefonu, ale jsou v něm i texty zpráv a oznámení. Vypnutím se smaže." to
+            "The log stays in the phone, but it holds texts of messages and notifications too. Switching it off deletes it.",
+        "Zatím nic nedorazilo. Vyvolej událost a vrať se sem." to
+            "Nothing has come yet. Cause an event and come back.",
+        "Obnovit" to
+            "Refresh",
+        "čeká na ni automatizací: %s" to
+            "automations waiting for it: %s",
+        "spuštěno: %s" to
+            "started: %s",
+        "podmínky spuštění nesplněny: %s" to
+            "launch conditions not met: %s",
     )
 }
