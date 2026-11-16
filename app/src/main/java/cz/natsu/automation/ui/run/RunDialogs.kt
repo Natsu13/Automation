@@ -84,6 +84,9 @@ class DialogRunUi : RunUi {
             override val title: String get() = tr("Vyfotit")
         }
 
+        data class Web(override val title: String, val url: String, val script: String,
+                       val answer: CompletableDeferred<String?>) : Request
+
         data class Tag(val message: android.nfc.NdefMessage, val answer: CompletableDeferred<String?>) : Request {
             override val title: String get() = tr("Zápis na NFC štítek")
         }
@@ -136,9 +139,132 @@ class DialogRunUi : RunUi {
         return show(Request.Photo(answer), answer)
     }
 
+    override suspend fun showWeb(title: String, url: String, script: String): String? {
+        val answer = CompletableDeferred<String?>()
+        return show(Request.Web(title, url, script, answer), answer)
+    }
+
     override suspend fun writeTag(message: android.nfc.NdefMessage): String? {
         val answer = CompletableDeferred<String?>()
         return show(Request.Tag(message, answer), answer)
+    }
+}
+
+private const val WEB_BRIDGE = "AutomationWindow"
+
+/**
+ * The user's script wrapped so it has done(value): a text goes as it is, anything else as JSON.
+ * An error in the script only shows in the page's console.
+ */
+private fun webScript(script: String): String = """
+    (function () {
+        function done(value) {
+            $WEB_BRIDGE.done(typeof value === 'string' ? value : value === undefined ? '' : JSON.stringify(value));
+        }
+        try {
+            $script
+        } catch (e) { console.error(e); }
+    })();
+""".trimIndent()
+
+/**
+ * A web page in a nearly full-screen dialog. Closing it (the button, or Back on the first page)
+ * answers with the address the page was on; Back inside the page goes one page back.
+ */
+@Composable
+private fun WebDialog(request: DialogRunUi.Request.Web) {
+    var address by remember(request) { mutableStateOf(request.url) }
+    var pageTitle by remember(request) { mutableStateOf("") }
+    var loading by remember(request) { mutableStateOf(true) }
+    var view by remember(request) { mutableStateOf<android.webkit.WebView?>(null) }
+    fun close() {
+        request.answer.complete(address)
+    }
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = { if (view?.canGoBack() == true) view?.goBack() else close() },
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false),
+    ) {
+        androidx.compose.material3.Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 32.dp),
+        ) {
+            Column {
+                androidx.compose.foundation.layout.Row(
+                    Modifier.padding(start = 20.dp, end = 8.dp, top = 8.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            request.title.ifBlank { pageTitle.ifBlank { tr("Web") } },
+                            style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            android.net.Uri.parse(address).host ?: address,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    if (loading) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    TextButton(onClick = { close() }) { Text(tr("Zavřít")) }
+                }
+                androidx.compose.ui.viewinterop.AndroidView(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    factory = { context ->
+                        android.webkit.WebView(context).apply {
+                            settings.javaScriptEnabled = true
+                            settings.domStorageEnabled = true
+                            // Only the web: no files of the phone or of the app.
+                            settings.allowFileAccess = false
+                            settings.allowContentAccess = false
+                            if (request.script.isNotBlank()) {
+                                // The only thing a page can do with the app: hand over a text and close the window.
+                                addJavascriptInterface(object {
+                                    @android.webkit.JavascriptInterface
+                                    fun done(result: String?) {
+                                        request.answer.complete(result.orEmpty())
+                                    }
+                                }, WEB_BRIDGE)
+                            }
+                            webViewClient = object : android.webkit.WebViewClient() {
+                                override fun shouldOverrideUrlLoading(
+                                    view: android.webkit.WebView, load: android.webkit.WebResourceRequest
+                                ): Boolean {
+                                    val scheme = load.url.scheme?.lowercase()
+                                    if (scheme == "http" || scheme == "https") return false
+                                    // An address for another app (a redirect after signing in, tel:, …)
+                                    // is where the page ends: it is the answer.
+                                    address = load.url.toString()
+                                    close()
+                                    return true
+                                }
+
+                                override fun onPageStarted(view: android.webkit.WebView, url: String, favicon: android.graphics.Bitmap?) {
+                                    address = url
+                                    loading = true
+                                }
+
+                                override fun onPageFinished(view: android.webkit.WebView, url: String) {
+                                    address = url
+                                    pageTitle = view.title.orEmpty()
+                                    loading = false
+                                    if (request.script.isNotBlank()) view.evaluateJavascript(webScript(request.script), null)
+                                }
+
+                                override fun doUpdateVisitedHistory(view: android.webkit.WebView, url: String, isReload: Boolean) {
+                                    address = url
+                                }
+                            }
+                            loadUrl(request.url)
+                            view = this
+                        }
+                    },
+                    onRelease = { it.stopLoading(); it.destroy() },
+                )
+            }
+        }
     }
 }
 
@@ -221,6 +347,7 @@ fun RunDialogs(ui: DialogRunUi) {
         is DialogRunUi.Request.Dictate -> Dictate(request)
         is DialogRunUi.Request.Photo -> TakePhoto(request)
         is DialogRunUi.Request.Tag -> WriteTag(request)
+        is DialogRunUi.Request.Web -> WebDialog(request)
     }
 }
 

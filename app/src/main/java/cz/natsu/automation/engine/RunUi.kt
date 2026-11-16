@@ -17,6 +17,12 @@ interface RunUi {
     suspend fun dictate(prompt: String, language: String): String? = null
     /** Opens the camera; returns the file:// address of the photo taken. */
     suspend fun takePhoto(): String? = null
+    /**
+     * Shows the web page at [url] in a dialog; returns the address it was on when the user closed it.
+     * [script] (JavaScript) runs in every page once it loads; its call done(value) closes the
+     * dialog and [value] is returned instead.
+     */
+    suspend fun showWeb(title: String, url: String, script: String = ""): String? = null
     /** Waits for an NFC tag held to the phone and writes [message] on it; returns the tag's ID. */
     suspend fun writeTag(message: android.nfc.NdefMessage): String? = null
 }

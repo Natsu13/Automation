@@ -9,6 +9,7 @@ import android.webkit.MimeTypeMap
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AttachFile
 import androidx.compose.material.icons.rounded.Collections
+import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Http
 import cz.natsu.automation.data.ParamValue
 import cz.natsu.automation.data.VarRef
@@ -178,6 +179,36 @@ object HttpBlocks {
             val picked = ui.showImages(text(block, "title"), images, bool(block, "pick"))
                 ?: throw RunCancelledException()
             BlockResult.Output(picked)
+        },
+
+        BlockDef(
+            type = "show_web",
+            needsWindow = true,
+            summary = "Ukázat web {url}",
+            title = "Ukázat web v okně",
+            description = "Otevře webovou stránku v okně přímo v aplikaci a počká, až ji zavřeš. " +
+                    "Výstupem je adresa, na které jsi skončil – hodí se třeba po přihlášení, které tě přesměruje. " +
+                    "Skript se pustí v každé načtené stránce; zavolá-li done(hodnota), okno se zavře a výstupem je ta hodnota.",
+            category = BlockCategory.Dialogs,
+            icon = Icons.Rounded.Language,
+            params = listOf(
+                ParamDef.Text("url", "Adresa stránky", defaultRef = VarRef.Input, placeholder = "https://…"),
+                ParamDef.Text("title", "Nadpis", placeholder = "nepovinný").apply { hiddenInSummaryWhen = { true } },
+                ParamDef.Text(
+                    "script", "JavaScript po načtení stránky", code = true,
+                    placeholder = "if (location.pathname == '/hotovo') done(document.title)",
+                ).apply { hiddenInSummaryWhen = { true } },
+            ),
+            outputName = "Výsledek nebo adresa",
+        ) { block ->
+            var url = text(block, "url").trim()
+            if (url.isEmpty()) throw BlockException(tr("chybí adresa stránky"))
+            if (!url.contains("://")) url = "https://$url"
+            if (!url.startsWith("https://", true) && !url.startsWith("http://", true)) {
+                throw BlockException(tr("v okně jde otevřít jen adresa http:// nebo https://"))
+            }
+            val ui = ui ?: throw BlockException(tr("web jde ukázat jen v okně"))
+            BlockResult.Output(ui.showWeb(text(block, "title"), url, text(block, "script")) ?: throw RunCancelledException())
         },
     )
 
