@@ -2975,6 +2975,96 @@ object English {
             "a web page can be shown only in a window",
         "Web" to
             "Web",
+        "Soubor pro zápis" to
+            "File to write to",
+        "CSV (tabulka)" to
+            "CSV (table)",
+        "Název nového souboru" to
+            "Name of the new file",
+        "Zapsat do souboru" to
+            "Write to file",
+        "{mode}: {content} do {file}" to
+            "{mode}: {content} to {file}",
+        "Zapíše text do souboru: připíše ho jako nový řádek, připíše na konec, nebo jím soubor přepíše. Soubor dodá blok Soubor pro zápis." to
+            "Writes a text into a file: adds it as a new line, adds it to the end, or replaces the file with it. The file comes from the block File to write to.",
+        "výstup bloku Soubor pro zápis" to
+            "output of the block File to write to",
+        "Jak" to
+            "How",
+        "Připsat jako nový řádek" to
+            "Add as a new line",
+        "Nový řádek" to
+            "New line",
+        "Připsat na konec" to
+            "Add to the end",
+        "Na konec" to
+            "To the end",
+        "Přepsat celý soubor" to
+            "Replace the whole file",
+        "Přepsat" to
+            "Replace",
+        "Přidat záznam do {file}" to
+            "Add a record to {file}",
+        "Přidat záznam do souboru" to
+            "Add record to file",
+        "Hodnoty" to
+            "Values",
+        "cas=…\ntext=…" to
+            "time=…\ntext=…",
+        "Oddělovač v CSV" to
+            "CSV separator",
+        "Středník ; (český Excel)" to
+            "Semicolon ; (Czech Excel)",
+        "Čárka ," to
+            "Comma ,",
+        "Tabulátor" to
+            "Tab",
+        "záznam nemá žádné hodnoty" to
+            "the record has no values",
+        "soubor není seznam JSON [ … ]" to
+            "the file is not a JSON list [ … ]",
+        "k souboru už není přístup – vyber ho znovu" to
+            "the file is no longer accessible – pick it again",
+        "do souboru nejde zapsat (%s)" to
+            "cannot write to the file (%s)",
+        "Nový soubor: %s" to
+            "New file: %s",
+        "Vybrat existující soubor" to
+            "Pick an existing file",
+        "Oznámení do souboru" to
+            "Notifications to a file",
+        "Soubor je vybraný, oznámení se do něj budou zapisovat" to
+            "The file is chosen, notifications will be written into it",
+        "Každé příchozí oznámení zapíše jako řádek do CSV nebo položku do JSON. Poprvé ji spusť ručně: zeptá se na soubor (nový nebo existující) a uloží si ho blokem Uložit hodnotu." to
+            "Writes every incoming notification as a row of a CSV or an item of a JSON. Run it by hand the first time: it asks for the file (new or existing) and keeps it with the Store value block.",
+        "Soubor pro zápis {format}" to
+            "File to write to {format}",
+        "Zeptá se, kam zapisovat: vytvořit nový soubor (CSV, JSON nebo text), nebo vybrat existující. Formát nového souboru jde určit předem (csv, json, txt – i proměnnou), jinak se na něj zeptá. Do vybraného souboru smí aplikace zapisovat i příště – ulož si výstup blokem Uložit hodnotu, příště ho vezmi blokem Načíst hodnotu a ptát se už nemusíš. Výstup patří do bloků Zapsat do souboru a Přidat záznam do souboru." to
+            "Asks where to write: create a new file (CSV, JSON or text) or pick an existing one. The format of a new file can be set in advance (csv, json, txt – a variable works too), otherwise it asks. The app may write into the chosen file later as well – keep the output with the Store value block, take it with Load value next time and there is no need to ask again. The output goes into the blocks Write to file and Add record to file.",
+        "Formát nového souboru" to
+            "Format of the new file",
+        "zeptat se" to
+            "ask",
+        "podle přípony souboru" to
+            "by the file's extension",
+        "neznámý formát „%s“ (csv, json nebo txt)" to
+            "unknown format “%s” (csv, json or txt)",
+        "neznámý formát „%s“ (csv nebo json)" to
+            "unknown format “%s” (csv or json)",
+        "Přidá do souboru jeden záznam z hodnot název=hodnota (jedna na řádek). Do CSV připíše řádek a v prázdném souboru nejdřív udělá hlavičku z názvů; do souboru .json přidá objekt na konec seznamu. Formát pozná podle přípony souboru, pokud ho nezadáš (csv nebo json – i proměnnou)." to
+            "Adds one record made of name=value pairs (one per line) to a file. A CSV gets a new row, and an empty file gets a header made of the names first; a .json file gets an object at the end of its list. The format is told from the file's extension unless you set it (csv or json – a variable works too).",
+        "{what} souboru {file}" to
+            "{what} of the file {file}",
+        "Údaj o souboru" to
+            "File detail",
+        "Vrátí o souboru jednu věc: příponu (csv, json, txt… – hodí se do pole Formát nebo do podmínky), název, nebo velikost v bajtech." to
+            "Returns one thing about a file: its extension (csv, json, txt… – handy for the Format field or a condition), its name, or its size in bytes.",
+        "Přípona (formát)" to
+            "Extension (format)",
+        "Přípona" to
+            "Extension",
+        "Velikost v bajtech" to
+            "Size in bytes",
         "Časovač s pauzou" to
             "Timer with pause",
         "Oznámení s odpočtem a tlačítky Pauza, Pokračovat a Zrušit. Tlačítka pouští tuhle automatizaci znovu a ta podle Vstupu pozná, co má udělat." to
