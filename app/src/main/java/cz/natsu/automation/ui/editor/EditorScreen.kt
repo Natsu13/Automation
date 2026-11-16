@@ -126,6 +126,8 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
         Requirement.PostNotifications -> if (notificationsAllowed) null else requirement
         Requirement.Overlay -> if (Settings.canDrawOverlays(context)) null else requirement
         Requirement.LocalNetwork -> if (cz.natsu.automation.engine.LocalNetwork.granted(context)) null else requirement
+        Requirement.WriteSettings -> if (Settings.System.canWrite(context)) null else requirement
+        Requirement.Location -> if (cz.natsu.automation.engine.DeviceState.hasLocation(context)) null else requirement
         null -> null
     }
     fun grant(requirement: Requirement) {
@@ -138,6 +140,10 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                     .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
             )
             Requirement.LocalNetwork -> localNetworkLauncher.launch(cz.natsu.automation.engine.LocalNetwork.PERMISSION)
+            Requirement.WriteSettings -> context.startActivity(
+                Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, android.net.Uri.parse("package:${context.packageName}"))
+            )
+            Requirement.Location -> localNetworkLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
             Requirement.Overlay -> context.startActivity(
                 Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:${context.packageName}"))
             )
@@ -356,6 +362,7 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                                             BlockKind.WhileStart -> tr("Opakování smazáno")
                                             BlockKind.IfStart -> tr("Podmínka smazána")
                                             BlockKind.ParallelStart -> tr("Souběžné větve smazány")
+                                            BlockKind.Scope -> tr("Skupina smazána")
                                             else -> tr("Větev smazána")
                                         }
                                         val steps = when (removal.innerSteps) {

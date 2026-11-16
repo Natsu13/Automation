@@ -472,6 +472,8 @@ class EditorViewModel(application: Application, private val automationId: Long) 
             "bt_device" -> ValueSuggestions(pairedBluetoothNames(context), hint = tr("Spárovaná zařízení."))
             "notif_app" -> ValueSuggestions(emptyList(), app = AppValue.Label)
             "notif_package" -> ValueSuggestions(emptyList(), app = AppValue.Package)
+            "app_name" -> ValueSuggestions(emptyList(), app = AppValue.Label)
+            "app_package" -> ValueSuggestions(emptyList(), app = AppValue.Package)
             else -> null
         }
     }
@@ -690,7 +692,7 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         val block = blocks[index]
         val before = snapshot()
         val range = when (Blocks.get(block.type)?.kind) {
-            BlockKind.IfStart, BlockKind.WhileStart, BlockKind.TryStart, BlockKind.ParallelStart -> groupRange(index)
+            BlockKind.IfStart, BlockKind.WhileStart, BlockKind.TryStart, BlockKind.ParallelStart, BlockKind.Scope -> groupRange(index)
             BlockKind.Else -> {
                 val end = blocks.indexOfFirst { it.groupId == block.groupId && Blocks.get(it.type)?.kind == BlockKind.End }
                 if (end > index) index until end else index..index
@@ -831,8 +833,12 @@ class EditorViewModel(application: Application, private val automationId: Long) 
                     tr("Výstup kroku") + " ${i + 1}: " + tr(def.title)
                 )
             }
-            if (block.type == Blocks.SET_VARIABLE) {
+            if (block.type == Blocks.SET_VARIABLE || block.type == cz.natsu.automation.engine.ControlBlocks.CHANGE_VARIABLE) {
                 plainText(block.params["name"])?.takeIf { it.isNotBlank() }?.let { names += it.trim() }
+            }
+            // A parallel loop saves the results of its rounds to a variable.
+            if ((block.params["parallel"] as? ParamValue.Bool)?.value == true) {
+                plainText(block.params["collect"])?.takeIf { it.isNotBlank() }?.let { names += it.trim() }
             }
         }
         for (variable in names) {

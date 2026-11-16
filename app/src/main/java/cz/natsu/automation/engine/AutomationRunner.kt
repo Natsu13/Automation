@@ -19,6 +19,16 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
+import kotlin.coroutines.AbstractCoroutineContextElement
+import kotlin.coroutines.CoroutineContext
 import java.util.Date
 import java.util.Locale
 
@@ -67,6 +77,11 @@ enum class RunTrigger(val label: String) {
     Event("Událost"),
 }
 
+/** Names of the "Jeden po druhém" locks the running steps are inside of. */
+private class HeldLocks(val names: Set<String>) : AbstractCoroutineContextElement(Key) {
+    companion object Key : CoroutineContext.Key<HeldLocks>
+}
+
 /** State of one automation run, available to blocks while they execute. */
 class RunContext(
     val context: Context,
@@ -82,8 +97,30 @@ class RunContext(
     val depth: Int = 0,
 ) {
     // Branches of "Souběžně" run at the same time, so the state of a run is thread-safe.
-    val variables: MutableMap<String, String> = ConcurrentHashMap()
+    var variables: MutableMap<String, String> = ConcurrentHashMap()
+        private set
     val outputs: MutableMap<String, String> = ConcurrentHashMap()
+
+    /** Output of the step that ran last here; the result of a round of a parallel loop. */
+    @Volatile
+    var lastOutput: String? = null
+
+    /**
+     * The state for one round of a loop whose rounds run at the same time. Named variables
+     * and secrets are shared with the run; step outputs and loop positions are a copy, so
+     * every round has its own item and position and the rounds do not overwrite each other.
+     */
+    fun fork(): RunContext = RunContext(context, input, ui, trigger, event, automationId, depth).also {
+        it.variables = variables
+        it.secretValues = secretValues
+        it.locks = locks
+        it.outputs.putAll(outputs)
+        it.loopAgain.addAll(loopAgain)
+        it.loopState.putAll(loopState)
+        it.loopRound.putAll(loopRound)
+        it.loopOf = loopOf
+        it.switchValues.putAll(switchValues)
+    }
 
     /** Loops whose "end" just jumped back to them (next round, not a fresh start). */
     val loopAgain: MutableSet<String> = ConcurrentHashMap.newKeySet()
@@ -98,8 +135,24 @@ class RunContext(
     /** Value a "Vyber podle" is choosing by, by the group id it shares with its branches. */
     val switchValues: MutableMap<String, String> = ConcurrentHashMap()
 
+    /** Locks of "Jeden po druhém" by name; shared by all rounds and branches of the run. */
+    private var locks: ConcurrentHashMap<String, Mutex> = ConcurrentHashMap()
+
+    /**
+     * Runs [body] while nothing else in this run is inside a lock called [name]: rounds and
+     * branches that run at the same time take turns here. Steps already inside the same
+     * lock go straight on, so a lock inside itself does not wait for itself forever.
+     */
+    suspend fun <T> locked(name: String, body: suspend () -> T): T {
+        val held = currentCoroutineContext()[HeldLocks]?.names.orEmpty()
+        if (name in held) return body()
+        return locks.getOrPut(name) { Mutex() }.withLock {
+            withContext(HeldLocks(held + name)) { body() }
+        }
+    }
+
     /** Secret values used in this run; they are masked in the log. */
-    private val secretValues: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    private var secretValues: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     /** [text] with every secret value used so far replaced by dots. */
     fun mask(text: String?): String? {
@@ -297,6 +350,11 @@ object AutomationRunner {
         class Stop(val output: String?) : Outcome
         class Failed(val message: String, val requirement: Requirement? = null) : Outcome
         data object Cancelled : Outcome
+        /**
+         * "Ukončit / přeskočit kolo" of the loop at index [loop], which started before the
+         * range: the range ends here and whoever ran it does the jump.
+         */
+        class Jump(val loop: Int, val exit: Boolean) : Outcome
     }
 
     suspend fun run(
@@ -331,10 +389,11 @@ object AutomationRunner {
             is Outcome.Stop -> RunResult(outcome.output, log)
             is Outcome.Failed -> RunResult(null, log, ctx.mask(outcome.message), outcome.requirement)
             Outcome.Cancelled -> RunResult(null, log, cancelled = true)
+            is Outcome.Jump -> RunResult(null, log, tr("krok není uvnitř opakování"))
         }
     }
 
-    /** One run of an automation; [execute] runs a range of its steps (the whole list, or one parallel branch). */
+    /** One run of an automation; [execute] runs a range of its steps (the whole list, one parallel branch or round, the inside of a group). */
     private class Run(
         val blocks: List<Block>,
         val ctx: RunContext,
@@ -348,13 +407,13 @@ object AutomationRunner {
         private fun shown(value: String?) = logPreview(ctx.mask(value))
         private fun kindAt(index: Int) = Blocks.get(blocks[index].type)?.kind
 
-        private suspend fun record(entry: LogEntry) {
+        private suspend fun record(entry: LogEntry, ctx: RunContext) {
             log += entry
             afterStep?.invoke(entry, ctx)
         }
 
-        /** Runs the steps [from] until [until] (exclusive). */
-        suspend fun execute(from: Int, until: Int): Outcome {
+        /** Runs the steps [from] until [until] (exclusive); [ctx] = the state they work with (a round of a parallel loop has its own). */
+        suspend fun execute(from: Int, until: Int, ctx: RunContext = this.ctx): Outcome {
             val tries = ArrayDeque<TryFrame>()
             /** Index of the "Jinak pokud" that is to be evaluated next (the condition before it failed). */
             var pendingBranch = -1
@@ -370,17 +429,39 @@ object AutomationRunner {
                 val attempts = ctx.number(tryBlock, "attempts").toInt().coerceAtLeast(1)
                 if (frame.attempt < attempts) {
                     frame.attempt++
-                    val wait = (ctx.number(tryBlock, "delay") * 1000).toLong()
+                    var wait = (ctx.number(tryBlock, "delay") * 1000).toLong()
+                    // "Prodlužovat pauzu": 2 s, 4 s, 8 s … so a server that is down gets time to recover.
+                    if (ctx.bool(tryBlock, "backoff")) wait = wait shl (frame.attempt - 2).coerceIn(0, 10)
                     if (wait > 0) kotlinx.coroutines.delay(wait)
                     return frame.start + 1
                 }
                 tries.removeLast()
                 ctx.outputs[tryBlock.id] = message
-                record(LogEntry(tryBlock.id, Blocks.get(tryBlock.type)?.title ?: "", output = shown(tr("zachyceno: %s", message))))
+                record(LogEntry(tryBlock.id, Blocks.get(tryBlock.type)?.title ?: "", output = shown(tr("zachyceno: %s", message))), ctx)
                 return (structure.elseOf[frame.start] ?: structure.endOf[frame.start] ?: (blocks.size - 1)) + 1
             }
 
             var pc = from
+
+            /**
+             * A step asks for the next round ([exit] = the end) of the loop at index [loop].
+             * A loop that started before this range is not ours to jump in: the range ends
+             * with the returned outcome and whoever ran it goes on from there.
+             */
+            fun jumpTo(loop: Int, exit: Boolean): Outcome? {
+                if (loop < from) return Outcome.Jump(loop, exit)
+                val end = structure.endOf[loop] ?: (blocks.size - 1)
+                // Leaving the loop's body also leaves any "Zkusit" inside it.
+                tries.removeAll { it.start > loop }
+                if (exit) {
+                    ctx.loopState.remove(blocks[loop].id)
+                    pc = end + 1
+                } else {
+                    pc = end
+                }
+                return null
+            }
+
             while (pc < until) {
                 val count = steps.incrementAndGet()
                 if (count > MAX_STEPS) {
@@ -399,7 +480,7 @@ object AutomationRunner {
 
                 // Switched-off step: skip it (an "if" / loop / "try" with everything up to its end).
                 if (block.disabled && !fixed) {
-                    record(LogEntry(block.id, def.title, output = tr("vypnuto – přeskočeno"), skipped = true))
+                    record(LogEntry(block.id, def.title, output = tr("vypnuto – přeskočeno"), skipped = true), ctx)
                     pc = if (def.kind.isGroupStart) (structure.endOf[pc] ?: pc) + 1 else pc + 1
                     continue
                 }
@@ -458,27 +539,142 @@ object AutomationRunner {
                     val end = structure.endOf[pc] ?: (blocks.size - 1)
                     val bounds = listOf(pc) + structure.branchesOf[pc].orEmpty() + end
                     val ranges = bounds.zipWithNext { a, b -> (a + 1) to b }
-                    record(LogEntry(block.id, def.title, output = tr("větví: %s", ranges.size)))
+                    record(LogEntry(block.id, def.title, output = tr("větví: %s", ranges.size)), ctx)
                     val outcomes: List<Outcome> = if (afterStep != null) {
                         // Step-by-step: one branch after another, so each step can be looked at.
                         buildList {
                             for ((a, b) in ranges) {
-                                val outcome = execute(a, b)
+                                val outcome = execute(a, b, ctx)
                                 add(outcome)
                                 if (outcome != Outcome.Done) break
                             }
                         }
                     } else {
-                        coroutineScope { ranges.map { (a, b) -> async { execute(a, b) } }.awaitAll() }
+                        coroutineScope { ranges.map { (a, b) -> async { execute(a, b, ctx) } }.awaitAll() }
                     }
                     outcomes.firstOrNull { it is Outcome.Stop }?.let { return it }
                     outcomes.firstOrNull { it == Outcome.Cancelled }?.let { return it }
                     val failed = outcomes.firstNotNullOfOrNull { it as? Outcome.Failed }
-                    if (failed == null) {
+                    if (failed != null) {
+                        failure = Triple(failed.message, failed.requirement, true)
+                    } else if (outcomes.any { it is Outcome.Jump }) {
+                        failure = Triple(tr("opakování, které začalo mimo souběžnou větev, z ní nejde ukončit"), null, false)
+                    } else {
                         pc = end + 1
                         continue
                     }
-                    failure = Triple(failed.message, failed.requirement, true)
+                } else if (def.kind == BlockKind.WhileStart && DataBlocks.isParallel(ctx, block)) {
+                    // A loop with "Souběžně" on: all rounds run at the same time, each with its own
+                    // copy of the step outputs (its item, its position), so the rounds do not mix.
+                    val end = structure.endOf[pc] ?: (blocks.size - 1)
+                    val body = pc + 1
+                    val items = try {
+                        DataBlocks.parallelItems(ctx, block)
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        failure = Triple(e.message ?: e.javaClass.simpleName, (e as? BlockException)?.requirement, false)
+                        null
+                    }
+                    if (items != null) {
+                        record(LogEntry(block.id, def.title, output = tr("souběžně, kol: %s", items.size)), ctx)
+                        val rounds = items.mapIndexed { index, item ->
+                            ctx.fork().also {
+                                it.outputs[block.id] = item
+                                it.loopRound[block.id] = index + 1
+                            }
+                        }
+                        val loopAt = pc
+                        /** A round that does not just finish (or skip to its end) ends the loop for all rounds. */
+                        fun endsLoop(outcome: Outcome) =
+                            outcome != Outcome.Done && !(outcome is Outcome.Jump && outcome.loop == loopAt && !outcome.exit)
+
+                        val results = java.util.concurrent.atomic.AtomicReferenceArray<Outcome?>(rounds.size)
+                        /** Index of the round that ended the loop: an error, "Ukončit", "Vrátit výsledek". */
+                        val ender = AtomicInteger(-1)
+                        if (afterStep != null) {
+                            // Step-by-step: one round after another, so each step can be looked at.
+                            for ((index, round) in rounds.withIndex()) {
+                                val outcome = execute(body, end, round)
+                                results.set(index, outcome)
+                                if (endsLoop(outcome)) {
+                                    ender.set(index)
+                                    break
+                                }
+                            }
+                        } else {
+                            val gate = Semaphore(ctx.number(block, "limit").toInt().coerceAtLeast(1))
+                            val gap = (ctx.number(block, "gap") * 1000).toLong()
+                            coroutineScope {
+                                val jobs = java.util.concurrent.CopyOnWriteArrayList<Job>()
+                                rounds.forEachIndexed { index, round ->
+                                    // Undispatched: the rounds queue up for their turn in the order of the items.
+                                    jobs += launch(start = CoroutineStart.UNDISPATCHED) {
+                                        if (gap > 0) kotlinx.coroutines.delay(gap * index)
+                                        gate.withPermit {
+                                            // On to a thread of its own, so the rounds really run side by side.
+                                            kotlinx.coroutines.yield()
+                                            // The loop has ended while this round waited for its turn.
+                                            if (ender.get() >= 0) return@withPermit
+                                            val outcome = execute(body, end, round)
+                                            results.set(index, outcome)
+                                            // The rest has nothing to finish for: stop it instead of waiting for it.
+                                            if (endsLoop(outcome) && ender.compareAndSet(-1, index)) {
+                                                for (job in jobs) job.cancel()
+                                            }
+                                        }
+                                    }
+                                }
+                                // Rounds started after the loop was ended were not there to be stopped.
+                                if (ender.get() >= 0) for (job in jobs) job.cancel()
+                            }
+                        }
+
+                        val endedBy = ender.get()
+                        val ending = if (endedBy >= 0) results.get(endedBy) else null
+                        if (ending is Outcome.Stop || ending == Outcome.Cancelled) return ending!!
+                        if (ending is Outcome.Failed) {
+                            failure = Triple(ending.message, ending.requirement, true)
+                        } else {
+                            // After the loop its steps keep the values of the last round, as in a loop one
+                            // by one – or of the round that ended it ("the first one that found it").
+                            (if (endedBy >= 0) rounds[endedBy] else rounds.lastOrNull())?.let { last ->
+                                for (i in body until end) last.outputs[blocks[i].id]?.let { ctx.outputs[blocks[i].id] = it }
+                            }
+                            val into = ctx.text(block, "collect").trim()
+                            if (into.isNotEmpty()) {
+                                // A round stopped before its end has no result: its place stays empty.
+                                ctx.variables[into] = JsonTools.fromList(
+                                    rounds.mapIndexed { index, round -> if (results.get(index) == null) "" else round.lastOutput ?: "" }
+                                )
+                            }
+                            // "Ukončit" inside a round ended this loop; a jump further out is passed on.
+                            if (ending is Outcome.Jump && ending.loop != loopAt) {
+                                jumpTo(ending.loop, ending.exit)?.let { return it }
+                            } else {
+                                pc = end + 1
+                            }
+                            continue
+                        }
+                    }
+                } else if (def.kind == BlockKind.Scope) {
+                    // "Jeden po druhém", "Časový limit": the steps inside run as a range of their own, under the block's rule.
+                    val end = structure.endOf[pc] ?: (blocks.size - 1)
+                    val inside = pc + 1
+                    try {
+                        record(LogEntry(block.id, def.title), ctx)
+                        when (val outcome = ControlBlocks.scoped(ctx, block, stepping = afterStep != null) { execute(inside, end, ctx) }) {
+                            Outcome.Done -> pc = end + 1
+                            is Outcome.Stop, Outcome.Cancelled -> return outcome
+                            is Outcome.Jump -> jumpTo(outcome.loop, outcome.exit)?.let { return it }
+                            is Outcome.Failed -> failure = Triple(outcome.message, outcome.requirement, true)
+                        }
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        failure = Triple(e.message ?: e.javaClass.simpleName, (e as? BlockException)?.requirement, false)
+                    }
+                    if (failure == null) continue
                 } else {
                     try {
                         val result = def.execute(ctx, block)
@@ -498,11 +694,14 @@ object AutomationRunner {
                                 block.id, def.title, output = if (result.exit) tr("konec opakování") else tr("další kolo")
                             )
                         }
-                        if (result is BlockResult.Output) ctx.outputs[block.id] = result.value
+                        if (result is BlockResult.Output) {
+                            ctx.outputs[block.id] = result.value
+                            ctx.lastOutput = result.value
+                        }
                         if (result is BlockResult.Condition && result.passed && result.output != null) {
                             ctx.outputs[block.id] = result.output
                         }
-                        record(entry)
+                        record(entry, ctx)
 
                         when (result) {
                             BlockResult.None -> pc++
@@ -524,18 +723,8 @@ object AutomationRunner {
                                 val loop = structure.loopOf[pc]
                                 if (loop == null) {
                                     failure = Triple(tr("krok není uvnitř opakování"), null, false)
-                                } else if (loop < from) {
-                                    failure = Triple(tr("opakování, které začalo mimo souběžnou větev, z ní nejde ukončit"), null, false)
                                 } else {
-                                    val end = structure.endOf[loop] ?: (blocks.size - 1)
-                                    // Leaving the loop's body also leaves any "Zkusit" inside it.
-                                    tries.removeAll { it.start > loop }
-                                    if (result.exit) {
-                                        ctx.loopState.remove(blocks[loop].id)
-                                        pc = end + 1
-                                    } else {
-                                        pc = end
-                                    }
+                                    jumpTo(loop, result.exit)?.let { return it }
                                 }
                             }
                         }

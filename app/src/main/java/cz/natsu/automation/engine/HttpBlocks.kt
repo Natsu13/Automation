@@ -13,6 +13,7 @@ import androidx.compose.material.icons.rounded.Http
 import cz.natsu.automation.data.ParamValue
 import cz.natsu.automation.data.VarRef
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -211,7 +212,27 @@ object HttpBlocks {
         headers: List<Pair<String, String>>,
         body: RequestBody?,
         saveToFile: Boolean = false,
-    ): Response = withContext(Dispatchers.IO) {
+    ): Response = kotlinx.coroutines.coroutineScope {
+        val open = java.util.concurrent.atomic.AtomicReference<HttpURLConnection?>()
+        val work = async(Dispatchers.IO) { requestBlocking(context, method, address, headers, body, saveToFile, open) }
+        try {
+            work.await()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Stopped (the Stop button, a time limit, another round ended the loop): do not wait for the server.
+            open.get()?.disconnect()
+            throw e
+        }
+    }
+
+    private fun requestBlocking(
+        context: Context,
+        method: String,
+        address: String,
+        headers: List<Pair<String, String>>,
+        body: RequestBody?,
+        saveToFile: Boolean,
+        open: java.util.concurrent.atomic.AtomicReference<HttpURLConnection?>,
+    ): Response {
         val url = try {
             URL(if (address.contains("://")) address else "https://$address")
         } catch (e: Exception) {
@@ -221,7 +242,8 @@ object HttpBlocks {
             throw BlockException(tr("Android nepustí aplikaci do místní sítě – povol přístup k místní síti"), Requirement.LocalNetwork)
         }
         val conn = url.openConnection() as HttpURLConnection
-        try {
+        open.set(conn)
+        return try {
             conn.requestMethod = method
             conn.connectTimeout = 15_000
             conn.readTimeout = 30_000
@@ -261,7 +283,7 @@ object HttpBlocks {
             val stream = if (code >= 400) conn.errorStream else conn.inputStream
             if (saveToFile && code < 400) {
                 val file = saveResponse(context, stream, conn.contentType, url)
-                return@withContext Response(code, responseHeaders, "", file)
+                return Response(code, responseHeaders, "", file)
             }
             val bytes = stream?.use { readLimited(it) } ?: ByteArray(0)
             val charset = Regex("charset=([\\w-]+)", RegexOption.IGNORE_CASE)

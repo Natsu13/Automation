@@ -6,15 +6,20 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Notes
 import androidx.compose.material.icons.rounded.CallSplit
 import androidx.compose.material.icons.rounded.Code
+import androidx.compose.material.icons.rounded.AvTimer
+import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.HourglassTop
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material.icons.rounded.Report
 import cz.natsu.automation.AutomationApplication
 import cz.natsu.automation.data.ParamValue
 import cz.natsu.automation.data.VarRef
+import cz.natsu.automation.data.Block
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 
-/** Script, calling another automation, waiting for a condition, failing on purpose, notes. */
+/** Script, calling another automation, waiting for a condition, groups with a rule, failing on purpose, notes. */
 object ControlBlocks {
     const val SCRIPT = "script"
     const val RUN_AUTOMATION = "run_automation"
@@ -24,11 +29,32 @@ object ControlBlocks {
     const val PARALLEL = "parallel"
     const val BRANCH = "parallel_branch"
     const val END_PARALLEL = "end_parallel"
+    const val LOCK = "lock"
+    const val END_LOCK = "end_lock"
+    const val TIME_LIMIT = "time_limit"
+    const val END_TIME_LIMIT = "end_time_limit"
+    const val CHANGE_VARIABLE = "change_variable"
 
     /** The "end" block type that closes the group started by [def]. */
     fun endTypeFor(def: BlockDef): String = when (def.type) {
         SWITCH -> END_SWITCH
+        LOCK -> END_LOCK
+        TIME_LIMIT -> END_TIME_LIMIT
         else -> Blocks.endTypeFor(def.kind)
+    }
+
+    /**
+     * Runs the steps inside a plain group ([BlockKind.Scope]) under the rule of its block.
+     * [stepping] = a step-by-step run, where the user decides how long a step takes.
+     */
+    suspend fun <T : Any> scoped(ctx: RunContext, block: Block, stepping: Boolean, body: suspend () -> T): T = when (block.type) {
+        LOCK -> ctx.locked(ctx.text(block, "name").trim(), body)
+        TIME_LIMIT -> {
+            val seconds = ctx.number(block, "seconds")
+            if (stepping) body() else withTimeoutOrNull((seconds * 1000).toLong()) { body() }
+                ?: throw BlockException(tr("kroky se nestihly do %s s", formatNumber(seconds.toDouble())))
+        }
+        else -> body()
     }
 
     /** The block type of another branch in the group started by a block of [startType]; null = no branches. */
@@ -228,6 +254,98 @@ object ControlBlocks {
             kind = BlockKind.End,
             showInLibrary = false,
         ),
+
+        // ---------- groups with a rule ----------
+        BlockDef(
+            type = LOCK,
+            summary = "Jeden po druhém {name}",
+            title = "Jeden po druhém",
+            description = "Kroky uvnitř dělá vždy jen jedno kolo nebo větev – ostatní počkají, až na ně přijde řada. " +
+                    "Dej sem „přečti proměnnou, spočítej, ulož“, když běží víc kol souběžně, jinak si ji kola přepíšou.",
+            category = BlockCategory.Control,
+            icon = Icons.Rounded.Lock,
+            kind = BlockKind.Scope,
+            params = listOf(
+                ParamDef.Text("name", "Název zámku", placeholder = "prázdné = společný zámek", plain = true).apply {
+                    hiddenInSummaryWhen = { values -> (values["name"] as? ParamValue.Rich)?.segments.isNullOrEmpty() }
+                },
+            ),
+        ),
+
+        BlockDef(
+            type = END_LOCK,
+            summary = "Konec Jeden po druhém",
+            title = "Konec Jeden po druhém",
+            description = "",
+            category = BlockCategory.Control,
+            icon = Icons.Rounded.Lock,
+            kind = BlockKind.End,
+            showInLibrary = false,
+        ),
+
+        BlockDef(
+            type = TIME_LIMIT,
+            summary = "Nejdéle {seconds}",
+            title = "Časový limit",
+            description = "Kroky uvnitř musí doběhnout do zadané doby, jinak skončí chybou. Tu jde zachytit blokem " +
+                    "Zkusit – třeba „zkus to nejdéle 10 s, jinak udělej něco jiného“.",
+            category = BlockCategory.Control,
+            icon = Icons.Rounded.AvTimer,
+            kind = BlockKind.Scope,
+            params = listOf(ParamDef.Number("seconds", "Nejdéle", 1f, 300f, 10f, unit = "s")),
+        ),
+
+        BlockDef(
+            type = END_TIME_LIMIT,
+            summary = "Konec časového limitu",
+            title = "Konec časového limitu",
+            description = "",
+            category = BlockCategory.Control,
+            icon = Icons.Rounded.AvTimer,
+            kind = BlockKind.End,
+            showInLibrary = false,
+        ),
+
+        BlockDef(
+            type = CHANGE_VARIABLE,
+            summary = "{name}: {op} {value}",
+            title = "Změnit proměnnou",
+            description = "Přičte číslo, připojí text nebo přidá položku do seznamu v proměnné – jedním krokem, takže " +
+                    "se nic neztratí, ani když to dělá víc souběžných kol najednou. Výstup je nová hodnota.",
+            category = BlockCategory.Variables,
+            icon = Icons.Rounded.EditNote,
+            params = listOf(
+                ParamDef.Text("name", "Název", default = "soucet", plain = true),
+                ParamDef.Choice(
+                    "op", "Co udělat", listOf(
+                        ChoiceOption("add", "Přičíst číslo", "přičíst"),
+                        ChoiceOption("append", "Připojit text na konec", "připojit"),
+                        ChoiceOption("push", "Přidat položku do seznamu", "přidat do seznamu"),
+                    )
+                ),
+                ParamDef.Text("value", "Hodnota", defaultRef = VarRef.Input),
+            ),
+            outputName = "Nová hodnota",
+        ) { block ->
+            val name = text(block, "name").trim()
+            if (name.isEmpty()) throw BlockException(tr("proměnná nemá název"))
+            val value = text(block, "value")
+            val op = choice(block, "op")
+            // One step for the map: nothing can change the variable between reading and writing it.
+            val result = variables.compute(name) { _, old ->
+                when (op) {
+                    "append" -> old.orEmpty() + value
+                    "push" -> JsonTools.fromList(JsonTools.toList(old.orEmpty()) + value)
+                    else -> {
+                        val before = if (old.isNullOrBlank()) 0.0 else parseNumber(old)
+                            ?: throw BlockException(tr("v proměnné \"%s\" není číslo", name))
+                        val added = parseNumber(value) ?: throw BlockException(tr("\"%s\" není číslo", value))
+                        formatNumber(before + added)
+                    }
+                }
+            }
+            BlockResult.Output(result ?: "")
+        },
 
         BlockDef(
             type = "fail",

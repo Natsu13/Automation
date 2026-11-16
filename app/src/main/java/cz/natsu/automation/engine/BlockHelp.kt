@@ -98,10 +98,93 @@ object BlockHelp {
 
             • Pokusů celkem – kolikrát kroky zkusit, než se to vzdá
             • Pauza – kolik sekund počkat před dalším pokusem
+            • Pauzu pokaždé zdvojnásobit – 2 s, 4 s, 8 s…, ať má server čas se vzpamatovat
             • Když selže – kroky, které se spustí po posledním neúspěšném pokusu
             • výstup bloku Zkusit je text chyby (prázdný, když vše prošlo)
 
-            Zkusit jde vnořovat i dávat do opakování.
+            Zkusit jde vnořovat i dávat do opakování. Dohromady s blokem Časový
+            limit uvnitř dá „zkus to nejdéle 10 s, jinak udělej něco jiného“.
+        """.trimIndent(),
+
+        "lock" to """
+            Kroky uvnitř dělá vždy jen jedno kolo nebo větev. Ostatní, které k
+            bloku dojdou, počkají, až ten před nimi skončí.
+
+            K čemu to je: souběžná kola sdílejí proměnné. Když dvě kola najednou
+            přečtou součet 10, obě přičtou svoje a uloží, jedno přičtení se
+            ztratí. Uvnitř Jeden po druhém se to stát nemůže.
+
+            Příklad – součet z několika API najednou
+            • Pro každou položku (souběžně)
+            •     HTTP požadavek, Získat z JSON → cena
+            •     Jeden po druhém
+            •         Vypočítat soucet + cena
+            •         Nastavit proměnnou soucet
+            •     Konec Jeden po druhém
+            • Konec opakování
+
+            Pomalé kroky (HTTP požadavek) nech venku – uvnitř by na sebe kola
+            čekala a souběh by byl k ničemu. Dovnitř patří jen to krátké, co
+            pracuje se společnou proměnnou.
+
+            Název zámku: bloky se stejným názvem se střídají spolu, bloky s
+            různými názvy na sebe nečekají. Prázdný název je jeden společný zámek.
+
+            Na jedno přičtení, připojení textu nebo přidání do seznamu stačí blok
+            Změnit proměnnou – ten zámek nepotřebuje.
+        """.trimIndent(),
+
+        "change_variable" to """
+            Změní proměnnou podle toho, co v ní je – jedním krokem.
+
+            • Přičíst číslo – prázdná proměnná se bere jako 0; odečteš záporným číslem
+            • Připojit text na konec
+            • Přidat položku do seznamu – z proměnné se stane JSON pole
+
+            Na rozdíl od dvojice „Vypočítat + Nastavit proměnnou“ se mezi přečtení
+            a uložení nic nevejde, takže se dá použít i v souběžném opakování:
+            deset kol může najednou přičítat do jednoho součtu a nic se neztratí.
+
+            Když potřebuješ s proměnnou udělat víc kroků naráz (přečíst, rozhodnout
+            se, uložit), zavři je do bloku Jeden po druhém.
+        """.trimIndent(),
+
+        "time_limit" to """
+            Kroky uvnitř musí doběhnout do zadané doby. Když to nestihnou,
+            zastaví se a blok skončí chybou „kroky se nestihly“.
+
+            Chybu zachytíš blokem Zkusit kolem – a ve větvi Když selže uděláš
+            něco jiného (zkusíš záložní server, ohlásíš to…).
+
+            Při krokování v editoru se limit nepočítá, ať si můžeš kroky v klidu
+            prohlédnout.
+        """.trimIndent(),
+
+        "location" to """
+            Zjistí, kde telefon právě je (Wi-Fi, vysílače, GPS – co je zrovna po
+            ruce). Když se nová poloha do 15 s nenajde, vrátí poslední známou.
+
+            • šířka,délka – třeba 50.075500,14.437800; vlož rovnou do odkazu
+              https://maps.google.com/?q=… nebo do geo:
+            • JSON – {"lat":…, "lon":…, "accuracy":…}; přesnost je v metrech,
+              hodnoty vytáhneš blokem Získat z JSON
+
+            Adresu ze souřadnic udělá blok Adresa z polohy.
+
+            Z událostí na pozadí potřebuje polohu povolenou „Vždy“.
+        """.trimIndent(),
+
+        "qr_read" to """
+            Najde v obrázku QR kód nebo čárový kód (EAN, Code 128…) a vrátí,
+            co v něm je.
+
+            Obrázek dodá jiný blok:
+            • Vyfotit – namíříš na kód a vyfotíš
+            • Vybrat soubor / obrázek – snímek obrazovky nebo fotka z galerie
+            • adresa https://… obrázku na webu
+
+            Výstup je text kódu: odkaz otevřeš blokem Otevřít odkaz, číslo
+            zboží pošleš do API…
         """.trimIndent(),
 
         "for_each" to """
@@ -112,6 +195,46 @@ object BlockHelp {
 
             Kolikáté kolo běží, zjistíš blokem Pořadí v opakování. Opakování
             ukončíš nebo přeskočíš blokem Ukončit / přeskočit kolo.
+
+            Souběžně: všechna kola běží najednou (nejvýš tolik, kolik nastavíš) –
+            třeba deset API volání místo čekání na jedno po druhém. Každé kolo má
+            svou položku, své Pořadí v opakování a své výstupy kroků, takže se
+            kola nepletou. Proměnné (Nastavit proměnnou) jsou ale společné a kola
+            si je přepisují. Sčítej proto blokem Změnit proměnnou, nebo kroky
+            „přečti, spočítej, ulož“ zavři do bloku Jeden po druhém.
+
+            Výsledky dostaneš přes „Výsledky kol uložit do proměnné“: po konci je
+            v ní seznam s výstupem posledního kroku každého kola, v pořadí
+            položek.
+
+            Ukončit opakování v jednom kole ho ukončí celé: ostatní kola se
+            zastaví a kroky po opakování mají hodnoty toho kola – „kdo první
+            najde, vyhrává“. Stejně tak chyba v jednom kole zastaví ostatní a je
+            chybou celého opakování; má-li ji kolo přežít, dej jeho kroky do
+            Zkusit. Pauza mezi starty kol rozloží požadavky v čase, když API
+            omezuje, kolik jich smí přijít za sekundu.
+        """.trimIndent(),
+
+        "repeat" to """
+            Výstup bloku je číslo kola (od 1).
+
+            Souběžně: všechna kola běží najednou (nejvýš tolik, kolik nastavíš) –
+            třeba deset API volání místo čekání na jedno po druhém. Každé kolo má
+            svou položku, své Pořadí v opakování a své výstupy kroků, takže se
+            kola nepletou. Proměnné (Nastavit proměnnou) jsou ale společné a kola
+            si je přepisují. Sčítej proto blokem Změnit proměnnou, nebo kroky
+            „přečti, spočítej, ulož“ zavři do bloku Jeden po druhém.
+
+            Výsledky dostaneš přes „Výsledky kol uložit do proměnné“: po konci je
+            v ní seznam s výstupem posledního kroku každého kola, v pořadí
+            položek.
+
+            Ukončit opakování v jednom kole ho ukončí celé: ostatní kola se
+            zastaví a kroky po opakování mají hodnoty toho kola – „kdo první
+            najde, vyhrává“. Stejně tak chyba v jednom kole zastaví ostatní a je
+            chybou celého opakování; má-li ji kolo přežít, dej jeho kroky do
+            Zkusit. Pauza mezi starty kol rozloží požadavky v čase, když API
+            omezuje, kolik jich smí přijít za sekundu.
         """.trimIndent(),
 
         "list" to """

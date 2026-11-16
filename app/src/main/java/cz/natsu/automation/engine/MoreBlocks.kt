@@ -302,7 +302,7 @@ object MoreBlocks {
             summary = "Zjistit {value}",
             title = "Údaje z události",
             description = "Co přinesla událost, která automatizaci spustila: jméno Bluetooth zařízení, " +
-                    "aplikace a text oznámení, název Wi-Fi… Mimo událost vrátí aktuální stav, kde to jde.",
+                    "aplikace a text oznámení, odesílatel SMS, ID štítku… Mimo událost vrátí aktuální stav, kde to jde.",
             category = BlockCategory.Device,
             icon = Icons.Rounded.Sensors,
             params = listOf(
@@ -315,6 +315,13 @@ object MoreBlocks {
                         ChoiceOption("notif_text", "Oznámení – text", "text oznámení"),
                         ChoiceOption("notif_package", "Oznámení – balíček aplikace", "balíček oznámení"),
                         ChoiceOption("dnd", "Režim Nerušit (zapnuto / vypnuto)", "stav Nerušit"),
+                        ChoiceOption("sms_sender", "SMS – odesílatel", "odesílatele SMS"),
+                        ChoiceOption("sms_text", "SMS – text", "text SMS"),
+                        ChoiceOption("call_number", "Hovor – číslo", "číslo volajícího"),
+                        ChoiceOption("nfc_id", "NFC štítek – ID", "ID štítku"),
+                        ChoiceOption("nfc_text", "NFC štítek – text", "text štítku"),
+                        ChoiceOption("app_package", "Aplikace – balíček", "balíček aplikace"),
+                        ChoiceOption("app_name", "Aplikace – název", "název aplikace"),
                     )
                 ),
             ),

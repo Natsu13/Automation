@@ -319,6 +319,188 @@ class ScriptTest {
     }
 
     @Test
+    fun parallelLoopKeepsOrderAndPosition() {
+        val g = UUID.randomUUID().toString()
+        val each = block(
+            "for_each", g, "list" to richText("a\nb\nc\nd"),
+            "parallel" to ParamValue.Bool(true), "collect" to richText("vysledky"),
+        )
+        val position = block("loop_index")
+        val line = block("text", null, "text" to rich(VarRef.BlockOutput(position.id), ":", VarRef.BlockOutput(each.id)))
+        val blocks = listOf(
+            each,
+            block("wait", null, "seconds" to ParamValue.Number(1f)),
+            position,
+            line,
+            block("end_while", g),
+            ret(VarRef.Named("vysledky"), " ", VarRef.BlockOutput(line.id)),
+        )
+        val started = System.currentTimeMillis()
+        // Every round had its own item and position; after the loop the steps hold the last round.
+        assertEquals("[\"1:a\",\"2:b\",\"3:c\",\"4:d\"] 4:d", run(blocks).output)
+        // One after another it would take 4 s.
+        assertTrue(System.currentTimeMillis() - started < 3000)
+    }
+
+    @Test
+    fun parallelLoopSkipErrorAndLimit() {
+        val g = UUID.randomUUID().toString()
+        fun repeat(vararg body: Block) = listOf(
+            block(
+                "repeat", g, "count" to richText("3"), "parallel" to ParamValue.Bool(true),
+                "limit" to ParamValue.Number(1f), "collect" to richText("v"),
+            ),
+            *body,
+            block("end_while", g),
+            ret(VarRef.Named("v")),
+        )
+        // "Next round" ends just that round; the steps after it do not run.
+        val skipped = repeat(
+            block("text", null, "text" to richText("x")),
+            block("loop_control", null, "action" to ParamValue.Choice("continue")),
+            block("fail", null, "message" to richText("nemá nastat")),
+        )
+        assertEquals("[\"x\",\"x\",\"x\"]", run(skipped).output)
+
+        // "End the loop" in one round ends it for all: the rounds that did not finish have no result.
+        val ended = repeat(
+            block("text", null, "text" to richText("x")),
+            block("loop_control", null, "action" to ParamValue.Choice("break")),
+        )
+        assertEquals("[\"x\",\"\",\"\"]", run(ended).output)
+
+        val failing = run(repeat(block("fail", null, "message" to richText("kolo spadlo"))))
+        assertTrue(failing.error!!.contains("kolo spadlo"))
+
+        // Without the switch the same loop runs one round after another, as before.
+        val h = UUID.randomUUID().toString()
+        val plain = block("repeat", h, "count" to richText("3"))
+        assertEquals(
+            "3", run(listOf(plain, set("n", "x"), block("end_while", h), ret(VarRef.BlockOutput(plain.id)))).output
+        )
+    }
+
+    @Test
+    fun parallelLoopFirstRoundWins() {
+        val g = UUID.randomUUID().toString()
+        val h = UUID.randomUUID().toString()
+        val each = block("for_each", g, "list" to richText("pomalý\nrychlý\npomalý"), "parallel" to ParamValue.Bool(true))
+        val found = block("text", null, "text" to rich("vyhrál ", VarRef.BlockOutput(each.id)))
+        val blocks = listOf(
+            each,
+            block("if", h, "left" to rich(VarRef.BlockOutput(each.id)), "right" to richText("pomalý")),
+            block("wait", null, "seconds" to ParamValue.Number(5f)),
+            block("end_if", h),
+            found,
+            block("loop_control", null, "action" to ParamValue.Choice("break")),
+            block("end_while", g),
+            ret(VarRef.BlockOutput(found.id)),
+        )
+        val started = System.currentTimeMillis()
+        // After the loop its steps hold the round that ended it, and the slow rounds were not waited for.
+        assertEquals("vyhrál rychlý", run(blocks).output)
+        assertTrue(System.currentTimeMillis() - started < 3000)
+
+        // An error in one round stops the others as well.
+        val failing = listOf(
+            each,
+            block("if", h, "left" to rich(VarRef.BlockOutput(each.id)), "right" to richText("pomalý")),
+            block("wait", null, "seconds" to ParamValue.Number(5f)),
+            block("end_if", h),
+            block("fail", null, "message" to richText("kolo spadlo")),
+            block("end_while", g),
+        )
+        val again = System.currentTimeMillis()
+        assertTrue(run(failing).error!!.contains("kolo spadlo"))
+        assertTrue(System.currentTimeMillis() - again < 3000)
+    }
+
+    @Test
+    fun parallelRoundsTakeTurnsInLock() {
+        val g = UUID.randomUUID().toString()
+        val l = UUID.randomUUID().toString()
+        val read = block("text", null, "text" to rich(VarRef.Named("soucet")))
+        val sum = block("math", null, "a" to rich(VarRef.BlockOutput(read.id)), "b" to richText("1"))
+        // Read, wait, write: without the lock every round would read 0 and the sum would be 1.
+        fun counting(locked: Boolean) = listOf(
+            set("soucet", "0"),
+            block("repeat", g, "count" to richText("20"), "parallel" to ParamValue.Bool(true), "limit" to ParamValue.Number(20f)),
+        ) + (if (locked) listOf(block("lock", l, "name" to richText("soucet"))) else emptyList()) + listOf(
+            read,
+            block("wait", null, "seconds" to ParamValue.Number(0.02f)),
+            sum,
+            block("set_variable", null, "name" to richText("soucet"), "value" to rich(VarRef.BlockOutput(sum.id))),
+        ) + (if (locked) listOf(block("end_lock", l)) else emptyList()) + listOf(
+            block("end_while", g),
+            ret(VarRef.Named("soucet")),
+        )
+        assertEquals("20", run(counting(locked = true)).output)
+        assertTrue(run(counting(locked = false)).output != "20")
+
+        // "Změnit proměnnou" does the same in one step, without a lock.
+        val atomic = listOf(
+            block("repeat", g, "count" to richText("200"), "parallel" to ParamValue.Bool(true), "limit" to ParamValue.Number(50f)),
+            block("change_variable", null, "name" to richText("soucet"), "value" to richText("2")),
+            block("end_while", g),
+            ret(VarRef.Named("soucet")),
+        )
+        assertEquals("400", run(atomic).output)
+    }
+
+    @Test
+    fun lockPassesJumpsAndNests() {
+        val g = UUID.randomUUID().toString()
+        val l = UUID.randomUUID().toString()
+        val inner = UUID.randomUUID().toString()
+        val loop = block("repeat", g, "count" to richText("5"))
+        // "End the loop" inside a lock ends the loop around it; a lock inside the same lock does not wait for itself.
+        val blocks = listOf(
+            loop,
+            block("lock", l),
+            block("lock", inner),
+            block("change_variable", null, "name" to richText("n"), "value" to richText("1")),
+            block("if", "i", "left" to rich(VarRef.Named("n")), "right" to richText("3")),
+            block("loop_control", null, "action" to ParamValue.Choice("break")),
+            block("end_if", "i"),
+            block("end_lock", inner),
+            block("end_lock", l),
+            block("end_while", g),
+            ret(VarRef.Named("n")),
+        )
+        assertEquals("3", run(blocks).output)
+
+        val list = listOf(
+            block("change_variable", null, "name" to richText("s"), "op" to ParamValue.Choice("push"), "value" to richText("a")),
+            block("change_variable", null, "name" to richText("s"), "op" to ParamValue.Choice("push"), "value" to richText("b")),
+            block("change_variable", null, "name" to richText("t"), "op" to ParamValue.Choice("append"), "value" to richText("x")),
+            block("change_variable", null, "name" to richText("t"), "op" to ParamValue.Choice("append"), "value" to richText("y")),
+            ret(VarRef.Named("s"), VarRef.Named("t")),
+        )
+        assertEquals("[\"a\",\"b\"]xy", run(list).output)
+    }
+
+    @Test
+    fun timeLimitFailsSlowSteps() {
+        val g = UUID.randomUUID().toString()
+        val t = UUID.randomUUID().toString()
+        val attempt = block("try", t)
+        fun limited(seconds: Float) = listOf(
+            attempt,
+            block("time_limit", g, "seconds" to ParamValue.Number(1f)),
+            block("wait", null, "seconds" to ParamValue.Number(seconds)),
+            block("end_time_limit", g),
+            ret("stihlo se"),
+            block("catch", t),
+            ret(VarRef.BlockOutput(attempt.id)),
+            block("end_try", t),
+        )
+        assertEquals("stihlo se", run(limited(0.1f)).output)
+        val started = System.currentTimeMillis()
+        assertTrue(run(limited(10f)).output!!.contains("nestihly do 1 s"))
+        assertTrue(System.currentTimeMillis() - started < 4000)
+    }
+
+    @Test
     fun parallelErrorAndReturn() {
         val g = UUID.randomUUID().toString()
         val t = UUID.randomUUID().toString()

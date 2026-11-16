@@ -85,6 +85,9 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.13.0")
 
+    // QR and bar codes ("Vytvořit QR kód", "Přečíst kód z obrázku"); plain Java, no Google services.
+    implementation("com.google.zxing:core:3.5.3")
+
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test:runner:1.7.0")

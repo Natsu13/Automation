@@ -853,8 +853,6 @@ object English {
             "Turn on",
         "Vypnout" to
             "Turn off",
-        "Pro každou položku z {list}" to
-            "For each item of {list}",
         "Pro každou položku" to
             "For each item",
         "Zopakuje kroky pro každou položku seznamu (JSON pole nebo jedna položka na řádek). Aktuální položka je výstup tohoto kroku." to
@@ -863,8 +861,6 @@ object English {
             "List",
         "Položka" to
             "Item",
-        "Opakovat {count}×" to
-            "Repeat {count}×",
         "Opakovat několikrát" to
             "Repeat several times",
         "Zopakuje kroky zadaný početkrát. Výstup je číslo aktuálního kola (od 1)." to
@@ -2487,5 +2483,411 @@ object English {
             "Shared",
         "Automatizace %s" to
             "Automation %s",
+        "Pro každou položku z {list}{parallel}" to
+            "For each item of {list}{parallel}",
+        "Opakovat {count}×{parallel}" to
+            "Repeat {count}×{parallel}",
+        " souběžně" to
+            " in parallel",
+        "souběžně" to
+            "in parallel",
+        "Souběžně (všechna kola najednou)" to
+            "In parallel (all rounds at once)",
+        "Nejvýš kol najednou" to
+            "Rounds at once, at most",
+        "Výsledky kol uložit do proměnné" to
+            "Save the rounds' results to variable",
+        "název (nepovinné)" to
+            "name (optional)",
+        "souběžně, kol: %s" to
+            "in parallel, rounds: %s",
+        "souběžné opakování nejde ukončit – kola běží najednou" to
+            "a parallel loop cannot be ended – its rounds run at once",
+        "souběžně jde nejvýš %s kol" to
+            "at most %s rounds can run in parallel",
+        "Souběžné opakování: pět API najednou" to
+            "Parallel loop: five APIs at once",
+        "Pro každou položku souběžně: stáhne pět příspěvků najednou a složí je do seznamu ve správném pořadí." to
+            "For each item in parallel: downloads five posts at once and puts them into a list in the right order.",
+        "Nadpisy příspěvků" to
+            "Post titles",
+        "kroky se nestihly do %s s" to
+            "the steps did not finish within %s s",
+        "v proměnné \"%s\" není číslo" to
+            "the variable \"%s\" does not hold a number",
+        "Skupina smazána" to
+            "Group deleted",
+        "Změna nastavení systému" to
+            "Changing system settings",
+        "Bez něj aplikace nesmí měnit jas displeje." to
+            "Without it the app may not change the display brightness.",
+        "Přístup k poloze" to
+            "Location access",
+        "Bez něj nejde zjistit, kde telefon je." to
+            "Without it the app cannot find where the phone is.",
+        "Pauza mezi starty kol" to
+            "Pause between the starts of rounds",
+        "Pauzu pokaždé zdvojnásobit" to
+            "Double the pause every time",
+        "Jeden po druhém {name}" to
+            "One at a time {name}",
+        "Jeden po druhém" to
+            "One at a time",
+        "Kroky uvnitř dělá vždy jen jedno kolo nebo větev – ostatní počkají, až na ně přijde řada. Dej sem „přečti proměnnou, spočítej, ulož“, když běží víc kol souběžně, jinak si ji kola přepíšou." to
+            "The steps inside are done by one round or branch at a time – the others wait for their turn. Put \"read the variable, compute, save\" here when rounds run in parallel, otherwise they overwrite it.",
+        "Název zámku" to
+            "Lock name",
+        "prázdné = společný zámek" to
+            "empty = the shared lock",
+        "Konec Jeden po druhém" to
+            "End of One at a time",
+        "Nejdéle {seconds}" to
+            "At most {seconds}",
+        "Časový limit" to
+            "Time limit",
+        "Kroky uvnitř musí doběhnout do zadané doby, jinak skončí chybou. Tu jde zachytit blokem Zkusit – třeba „zkus to nejdéle 10 s, jinak udělej něco jiného“." to
+            "The steps inside have to finish within the given time, otherwise they fail. A Try block can catch that – e.g. \"try this for 10 s at most, otherwise do something else\".",
+        "Nejdéle" to
+            "At most",
+        "Konec časového limitu" to
+            "End of time limit",
+        "Změnit proměnnou" to
+            "Change variable",
+        "Přičte číslo, připojí text nebo přidá položku do seznamu v proměnné – jedním krokem, takže se nic neztratí, ani když to dělá víc souběžných kol najednou. Výstup je nová hodnota." to
+            "Adds a number, appends a text or adds an item to a list in a variable – in one step, so nothing gets lost even when several parallel rounds do it at once. The output is the new value.",
+        "Přičíst číslo" to
+            "Add a number",
+        "přičíst" to
+            "add",
+        "Připojit text na konec" to
+            "Append text to the end",
+        "připojit" to
+            "append",
+        "Přidat položku do seznamu" to
+            "Add an item to a list",
+        "přidat do seznamu" to
+            "add to list",
+        "Přečíst nahlas {text}" to
+            "Read aloud {text}",
+        "Přečíst nahlas" to
+            "Read aloud",
+        "Přečte text hlasem telefonu. Jazyk se bere z telefonu, nebo ho zadej zkratkou (cs, en, de…)." to
+            "Reads the text with the phone's voice. The language is the phone's, or give its code (cs, en, de…).",
+        "podle telefonu (cs, en, de…)" to
+            "the phone's (cs, en, de…)",
+        "Počkat, až dočte" to
+            "Wait until it has been read",
+        "Nadiktovat text {prompt}" to
+            "Dictate text {prompt}",
+        "Nadiktovat text" to
+            "Dictate text",
+        "Otevře rozpoznávání řeči a vrátí, co jsi řekl. Hodí se místo psaní: nadiktuj a pošli dál." to
+            "Opens speech recognition and returns what you said. Handy instead of typing: dictate and pass it on.",
+        "Výzva" to
+            "Prompt",
+        "co se má říct (nepovinné)" to
+            "what to say (optional)",
+        "Nadiktovaný text" to
+            "Dictated text",
+        "diktování potřebuje okno (spusť akci ručně)" to
+            "dictation needs a window (run the action by hand)",
+        "Zjistit polohu ({format})" to
+            "Get location ({format})",
+        "Zjistit polohu" to
+            "Get location",
+        "Kde telefon právě je. Jako text „šířka,délka“ (jde rovnou do odkazu na mapu), nebo jako JSON s šířkou, délkou a přesností, ze kterého si hodnoty vytáhneš blokem Získat z JSON." to
+            "Where the phone is right now. As the text \"latitude,longitude\" (goes straight into a map link), or as JSON with latitude, longitude and accuracy to take the values from with the Get from JSON block.",
+        "Výstup" to
+            "Output",
+        "šířka,délka" to
+            "latitude,longitude",
+        "JSON (lat, lon, accuracy)" to
+            "JSON (lat, lon, accuracy)",
+        "Poloha" to
+            "Location",
+        "Adresa místa {coords}" to
+            "Address of {coords}",
+        "Adresa z polohy" to
+            "Address from location",
+        "Ze souřadnic (výstup bloku Zjistit polohu, nebo „50.08,14.42“) udělá adresu. Potřebuje internet." to
+            "Turns coordinates (the output of Get location, or \"50.08,14.42\") into an address. Needs the internet.",
+        "Souřadnice" to
+            "Coordinates",
+        "souřadnice čekám jako \"šířka,délka\"" to
+            "coordinates are expected as \"latitude,longitude\"",
+        "adresu nejde zjistit (%s)" to
+            "the address cannot be found (%s)",
+        "bez připojení" to
+            "no connection",
+        "k místu není známá žádná adresa" to
+            "no address is known for the place",
+        "Přehrávání: {action}" to
+            "Playback: {action}",
+        "Ovládat přehrávání" to
+            "Control playback",
+        "Pošle přehrávači (hudba, podcast, video) totéž co tlačítka na sluchátkách: přehrát, pozastavit, další." to
+            "Sends the player (music, podcast, video) what the buttons on headphones do: play, pause, next.",
+        "Přehrát / pozastavit" to
+            "Play / pause",
+        "přehrát / pozastavit" to
+            "play / pause",
+        "Přehrát" to
+            "Play",
+        "přehrát" to
+            "play",
+        "Pozastavit" to
+            "Pause",
+        "pozastavit" to
+            "pause",
+        "Další skladba" to
+            "Next track",
+        "další" to
+            "next",
+        "Předchozí skladba" to
+            "Previous track",
+        "předchozí" to
+            "previous",
+        "Zastavit" to
+            "Stop",
+        "zastavit" to
+            "stop",
+        "Jas displeje {mode} {level}" to
+            "Display brightness {mode} {level}",
+        "Nastavit jas" to
+            "Set brightness",
+        "Nastaví jas displeje na zvolenou úroveň, nebo ho vrátí na automatický." to
+            "Sets the display brightness to the chosen level, or puts it back to automatic.",
+        "Jas" to
+            "Brightness",
+        "Nastavit úroveň" to
+            "Set a level",
+        "na" to
+            "to",
+        "Automatický" to
+            "Automatic",
+        "automaticky" to
+            "automatic",
+        "Úroveň" to
+            "Level",
+        "chybí povolení měnit nastavení systému" to
+            "the permission to change system settings is missing",
+        "Nerušit: {mode}" to
+            "Do not disturb: {mode}",
+        "Zapne nebo vypne Nerušit. Co přesně projde v režimu „jen prioritní“, určuje nastavení telefonu." to
+            "Turns Do not disturb on or off. What gets through in \"priority only\" is set in the phone's settings.",
+        "Vypnout (vše projde)" to
+            "Off (everything gets through)",
+        "Jen prioritní" to
+            "Priority only",
+        "jen prioritní" to
+            "priority only",
+        "Jen budíky" to
+            "Alarms only",
+        "jen budíky" to
+            "alarms only",
+        "Úplné ticho" to
+            "Total silence",
+        "úplné ticho" to
+            "total silence",
+        "Vyfotit" to
+            "Take a photo",
+        "Otevře fotoaparát a vrátí pořízenou fotku. Dál ji jde upravit, poslat přes HTTP, uložit nebo z ní blokem Přečíst kód z obrázku dostat QR kód." to
+            "Opens the camera and returns the photo taken. It can then be edited, sent over HTTP, saved, or read for a QR code with the Read code from image block.",
+        "Fotka" to
+            "Photo",
+        "focení potřebuje okno (spusť akci ručně)" to
+            "taking a photo needs a window (run the action by hand)",
+        "QR kód z {text}" to
+            "QR code of {text}",
+        "Vytvořit QR kód" to
+            "Create QR code",
+        "Udělá z textu nebo odkazu obrázek s QR kódem. Zobraz ho blokem Ukázat obrázky, sdílej nebo ulož." to
+            "Makes a picture with a QR code from a text or a link. Show it with the Show images block, share it or save it.",
+        "Text nebo odkaz" to
+            "Text or link",
+        "Velikost" to
+            "Size",
+        "QR kód" to
+            "QR code",
+        "není z čeho udělat QR kód" to
+            "there is nothing to make a QR code from",
+        "text je na QR kód moc dlouhý" to
+            "the text is too long for a QR code",
+        "Přečíst kód z {image}" to
+            "Read code from {image}",
+        "Přečíst kód z obrázku" to
+            "Read code from image",
+        "Najde v obrázku QR nebo čárový kód a vrátí jeho obsah. Obrázek dodá Vyfotit, Vybrat soubor / obrázek nebo odkaz https://." to
+            "Finds a QR or bar code in a picture and returns what it holds. The picture comes from Take a photo, Pick file / image or an https:// link.",
+        "výstup Vyfotit / Vybrat obrázek" to
+            "output of Take a photo / Pick image",
+        "Obsah kódu" to
+            "Code content",
+        "v obrázku není žádný čitelný kód" to
+            "there is no readable code in the picture",
+        "Přečíst {file} jako {format}" to
+            "Read {file} as {format}",
+        "Přečíst soubor" to
+            "Read file",
+        "Vrátí obsah souboru: jako text (poznámky, CSV, JSON), nebo zakódovaný do Base64 pro API, která chtějí soubor v těle požadavku." to
+            "Returns the content of a file: as text (notes, CSV, JSON), or encoded as Base64 for APIs that want the file in the request body.",
+        "výstup Vybrat soubor, file://… nebo https://…" to
+            "output of Pick file, file://… or https://…",
+        "Jako" to
+            "As",
+        "Obsah souboru" to
+            "File content",
+        "soubor je moc velký (nejvýš %s MB)" to
+            "the file is too big (%s MB at most)",
+        "v telefonu není hlas pro čtení (chybí syntéza řeči)" to
+            "the phone has no voice to read with (speech synthesis is missing)",
+        "hlas pro jazyk \"%s\" v telefonu není" to
+            "the phone has no voice for the language \"%s\"",
+        "text nejde přečíst" to
+            "the text cannot be read",
+        "chybí přístup k poloze" to
+            "location access is missing",
+        "poloha není dostupná" to
+            "location is not available",
+        "poloha je v telefonu vypnutá" to
+            "location is turned off in the phone",
+        "polohu se nepodařilo zjistit (zkus to venku nebo zapni Wi-Fi)" to
+            "the location could not be found (try outside or turn Wi-Fi on)",
+        "chybí přístup k poloze (na pozadí povol polohu „Vždy“)" to
+            "location access is missing (for the background allow location \"All the time\")",
+        "Zprávy a hovory" to
+            "Messages and calls",
+        "Místo" to
+            "Place",
+        "Přiložení NFC štítku" to
+            "NFC tag scanned",
+        "Když k telefonu přiložíš NFC štítek (displej musí svítit). Vstup = text na štítku, nebo jeho ID, když je prázdný." to
+            "When you hold an NFC tag to the phone (the display has to be on). Input = the text on the tag, or its ID when it is empty.",
+        "text štítku nebo ID" to
+            "tag text or ID",
+        "Příchozí SMS" to
+            "Incoming SMS",
+        "Když přijde textová zpráva. Vstup = text; odesílatele vrátí blok Údaje z události." to
+            "When a text message arrives. Input = the text; the Event values block returns the sender.",
+        "text zprávy" to
+            "message text",
+        "Příchozí hovor" to
+            "Incoming call",
+        "Když telefon začne zvonit. Vstup = číslo volajícího (prázdné u skrytého čísla)." to
+            "When the phone starts ringing. Input = the caller's number (empty for a hidden number).",
+        "číslo volajícího" to
+            "caller's number",
+        "Příchod na místo" to
+            "Arriving at a place",
+        "Když telefon dorazí do okruhu kolem zvoleného místa. Android si toho všimne obvykle do pár minut." to
+            "When the phone gets within the circle around the chosen place. Android usually notices within a few minutes.",
+        "Odchod z místa" to
+            "Leaving a place",
+        "Když telefon opustí okruh kolem zvoleného místa." to
+            "When the phone leaves the circle around the chosen place.",
+        "Východ slunce" to
+            "Sunrise",
+        "Každý den při východu slunce na zvoleném místě. Posun (třeba půl hodiny potom) udělá blok Počkat." to
+            "Every day at sunrise at the chosen place. A shift (say half an hour later) is done with the Wait block.",
+        "Západ slunce" to
+            "Sunset",
+        "Každý den při západu slunce na zvoleném místě." to
+            "Every day at sunset at the chosen place.",
+        "Otevření aplikace" to
+            "App opened",
+        "Když se na displeji objeví jiná aplikace. Vstup = její balíček (třeba com.spotify.music); kterou aplikaci chceš, nastav v Podmínkách spuštění." to
+            "When another app comes to the screen. Input = its package (e.g. com.spotify.music); choose the app you want in Launch conditions.",
+        "balíček aplikace" to
+            "app package",
+        "NFC štítek – ID" to
+            "NFC tag – ID",
+        "Číslo štítku, třeba 04:A2:1B:…; má ho i prázdný štítek." to
+            "The number of the tag, e.g. 04:A2:1B:…; an empty tag has one too.",
+        "NFC štítek – text" to
+            "NFC tag – text",
+        "Text nebo odkaz uložený na štítku." to
+            "The text or link stored on the tag.",
+        "SMS – odesílatel" to
+            "SMS – sender",
+        "Číslo nebo jméno odesílatele zprávy." to
+            "The number or name of the sender of the message.",
+        "SMS – text" to
+            "SMS – text",
+        "Text zprávy." to
+            "The text of the message.",
+        "Hovor – číslo" to
+            "Call – number",
+        "Číslo volajícího (potřebuje přístup k historii hovorů)." to
+            "The caller's number (needs access to the call log).",
+        "Aplikace – balíček" to
+            "App – package",
+        "Balíček otevřené aplikace, třeba com.spotify.music." to
+            "The package of the opened app, e.g. com.spotify.music.",
+        "Aplikace – název" to
+            "App – name",
+        "Název otevřené aplikace." to
+            "The name of the opened app.",
+        "odesílatele SMS" to
+            "SMS sender",
+        "text SMS" to
+            "SMS text",
+        "ID štítku" to
+            "tag ID",
+        "text štítku" to
+            "tag text",
+        "název aplikace" to
+            "app name",
+        "Odesílatel SMS" to
+            "SMS sender",
+        "Text SMS" to
+            "SMS text",
+        "Číslo volajícího" to
+            "Caller's number",
+        "Text štítku" to
+            "Tag text",
+        "Balíček aplikace" to
+            "App package",
+        "Název aplikace" to
+            "App name",
+        "Co přinesla událost, která automatizaci spustila: jméno Bluetooth zařízení, aplikace a text oznámení, odesílatel SMS, ID štítku… Mimo událost vrátí aktuální stav, kde to jde." to
+            "What the event that started the automation brought: the name of the Bluetooth device, the app and text of a notification, the sender of an SMS, the ID of a tag… Outside an event it returns the current state where possible.",
+        "Okruh: %s m" to
+            "Radius: %s m",
+        "Zadej místo, pro které se má čas počítat." to
+            "Enter the place the time is computed for.",
+        "Na tomhle místě teď slunce nevychází ani nezapadá." to
+            "At this place the sun does not rise or set now.",
+        "Příště: " to
+            "Next: ",
+        "Místo (šířka,délka)" to
+            "Place (latitude,longitude)",
+        "Zjišťuji polohu…" to
+            "Finding the location…",
+        "Použít místo, kde teď jsem" to
+            "Use the place where I am now",
+        "Bez přístupu k poloze se o příchodu ani odchodu nedozví." to
+            "Without location access it cannot learn about arriving or leaving.",
+        "Povolit polohu" to
+            "Allow location",
+        "Místo se hlídá, i když aplikace neběží – povol polohu „Vždy“." to
+            "The place is watched while the app is not running – allow location \"All the time\".",
+        "Tenhle telefon NFC nemá." to
+            "This phone has no NFC.",
+        "NFC je v telefonu vypnuté." to
+            "NFC is turned off in the phone.",
+        "Potřebuje oprávnění SMS, jinak se o zprávě nedozví." to
+            "Needs the SMS permission, otherwise it does not learn about the message.",
+        "Potřebuje oprávnění Telefon, jinak se o hovoru nedozví." to
+            "Needs the Phone permission, otherwise it does not learn about the call.",
+        "Aby šlo zjistit číslo volajícího, povol i Seznam hovorů (událost funguje i bez něj)." to
+            "To get the caller's number allow Call logs as well (the event works without it).",
+        "V nastavení Usnadnění zapni službu „Automation – opened apps“. Dozví se jen to, která aplikace je na displeji – obsah nečte." to
+            "Turn on the \"Automation – opened apps\" service in Accessibility settings. It only learns which app is on the screen – it does not read the content.",
+        "Souběžný součet z API" to
+            "Parallel sum from an API",
+        "Změnit proměnnou: pět požadavků najednou a každé kolo přičte své číslo do společného součtu, aniž by si ho kola přepsala." to
+            "Change variable: five requests at once and every round adds its number to a shared sum without the rounds overwriting it.",
+        "Součet" to
+            "Sum",
     )
 }

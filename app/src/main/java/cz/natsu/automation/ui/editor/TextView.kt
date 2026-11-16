@@ -109,8 +109,8 @@ class ScriptWriter(private val blocks: List<Block>) {
         Blocks.ELSE -> "else"
         Blocks.WHILE -> "while " + condition(block, def)
         Blocks.END_IF, Blocks.END_WHILE, ControlBlocks.END_SWITCH -> "end"
-        DataBlocks.FOR_EACH -> "for ${outputNames[block.id]} in ${expr(block, def, "list")}"
-        DataBlocks.REPEAT -> "for ${outputNames[block.id]} in range(${expr(block, def, "count")})"
+        DataBlocks.FOR_EACH -> "for ${outputNames[block.id]} in ${expr(block, def, "list")}" + parallelNote(block)
+        DataBlocks.REPEAT -> "for ${outputNames[block.id]} in range(${expr(block, def, "count")})" + parallelNote(block)
         DataBlocks.LOOP_CONTROL -> if (choice(block, def, "action") == "continue") "continue" else "break"
         "return" -> "return " + expr(block, def, "text")
         "comment" -> "# " + plain(block.params["text"]).orEmpty().replace("\n", "\n# ")
@@ -131,10 +131,15 @@ class ScriptWriter(private val blocks: List<Block>) {
             val options = plainOrExpr(block, def, "value")
             (if (first) "if " else "else if ") + options.joinToString(" or ") { "$value == $it" }
         }
-        Blocks.TRY, Blocks.CATCH, Blocks.END_TRY, ControlBlocks.PARALLEL, ControlBlocks.BRANCH, ControlBlocks.END_PARALLEL ->
+        Blocks.TRY, Blocks.CATCH, Blocks.END_TRY, ControlBlocks.PARALLEL, ControlBlocks.BRANCH, ControlBlocks.END_PARALLEL,
+        ControlBlocks.LOCK, ControlBlocks.END_LOCK, ControlBlocks.TIME_LIMIT, ControlBlocks.END_TIME_LIMIT ->
             "# " + tr(def.title) + "  (" + tr("ve skriptu jen jako bloky") + ")"
         else -> if (def.kind == BlockKind.Normal) assign(block, call(block, def)) else "# " + tr(def.title)
     }
+
+    /** A loop whose rounds run at the same time is a plain loop in a script; the note says what the blocks do. */
+    private fun parallelNote(block: Block): String =
+        if ((block.params["parallel"] as? cz.natsu.automation.data.ParamValue.Bool)?.value == true) "  # " + tr("souběžně") else ""
 
     /** `name = value` when a later step uses the output, otherwise just the value / call. */
     private fun assign(block: Block, value: String): String {

@@ -18,7 +18,10 @@ class EventBootReceiver : BroadcastReceiver() {
                 repository.appScope.launch {
                     try {
                         BackgroundService.sync(app)
-                        EventAlarms.scheduleAll(app, repository.getAll())
+                        val all = repository.getAll()
+                        EventAlarms.scheduleAll(app, all)
+                        // The system forgets watched places with a reboot.
+                        MoreEvents.sync(app, all, afterBoot = intent.action == Intent.ACTION_BOOT_COMPLETED)
                         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
                             EventDispatcher.fire(app, EventType.Boot).join()
                         }

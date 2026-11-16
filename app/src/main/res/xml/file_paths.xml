@@ -3,5 +3,6 @@
     <!-- Export files shared from the app (AutomationTransfer.share). -->
     <cache-path name="export" path="export/" />
     <!-- Files shared by the "Sdílet soubor" block. -->
+    <!-- Also the photos taken by the "Vyfotit" block (shared/photos). -->
     <cache-path name="shared" path="shared/" />
 </paths>
