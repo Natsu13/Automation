@@ -8,4 +8,6 @@
     <string name="tile_slot_4">Automation 4</string>
     <string name="tile_slot_5">Automation 5</string>
     <string name="import_label">Import automation</string>
+    <string name="app_watch_label">Automation – opened apps</string>
+    <string name="app_watch_description">Lets automations start when you open a chosen app. It only learns which app is on the screen – it does not read what the apps show or what you type.</string>
 </resources>

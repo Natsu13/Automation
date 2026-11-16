@@ -17,10 +17,13 @@ enum class BlockKind {
     ParallelStart,
 
     /** Separator between two branches of "Souběžně". */
-    Branch;
+    Branch,
+
+    /** A plain group: its steps run as usual, under a rule of the block (one at a time, a time limit). */
+    Scope;
 
     /** Starts a group that ends with an "end" block (if, loop, try, parallel). */
-    val isGroupStart: Boolean get() = this == IfStart || this == WhileStart || this == TryStart || this == ParallelStart
+    val isGroupStart: Boolean get() = this == IfStart || this == WhileStart || this == TryStart || this == ParallelStart || this == Scope
 }
 
 enum class BlockCategory(val title: String) {
@@ -55,6 +58,14 @@ enum class Requirement(val title: String, val description: String) {
     Overlay(
         "Zobrazení přes jiné aplikace",
         "Bez něj nejde z událostí na pozadí otevřít okno akce (dialogy, schránka, hlasitost na Androidu 17)."
+    ),
+    WriteSettings(
+        "Změna nastavení systému",
+        "Bez něj aplikace nesmí měnit jas displeje."
+    ),
+    Location(
+        "Přístup k poloze",
+        "Bez něj nejde zjistit, kde telefon je."
     ),
 }
 

@@ -76,6 +76,13 @@ class DialogRunUi : RunUi {
 
         data class Images(override val title: String, val images: List<String>, val pick: Boolean,
                           val answer: CompletableDeferred<String?>) : Request
+
+        data class Dictate(override val title: String, val language: String,
+                           val answer: CompletableDeferred<String?>) : Request
+
+        data class Photo(val answer: CompletableDeferred<String?>) : Request {
+            override val title: String get() = tr("Vyfotit")
+        }
     }
 
     var request by mutableStateOf<Request?>(null)
@@ -114,6 +121,16 @@ class DialogRunUi : RunUi {
         val answer = CompletableDeferred<String?>()
         return show(Request.Images(title, images, pick, answer), answer)
     }
+
+    override suspend fun dictate(prompt: String, language: String): String? {
+        val answer = CompletableDeferred<String?>()
+        return show(Request.Dictate(prompt, language, answer), answer)
+    }
+
+    override suspend fun takePhoto(): String? {
+        val answer = CompletableDeferred<String?>()
+        return show(Request.Photo(answer), answer)
+    }
 }
 
 /** Renders the dialog the running automation is currently waiting for. */
@@ -126,6 +143,58 @@ fun RunDialogs(ui: DialogRunUi) {
         is DialogRunUi.Request.Show -> ShowDialog(request)
         is DialogRunUi.Request.PickFile -> PickFile(request)
         is DialogRunUi.Request.Images -> ImagesDialog(request)
+        is DialogRunUi.Request.Dictate -> Dictate(request)
+        is DialogRunUi.Request.Photo -> TakePhoto(request)
+    }
+}
+
+/** The system speech recognition window; its best guess is the answer. */
+@Composable
+private fun Dictate(request: DialogRunUi.Request.Dictate) {
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        request.answer.complete(
+            result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+                ?.takeIf { result.resultCode == android.app.Activity.RESULT_OK }
+        )
+    }
+    LaunchedEffect(request) {
+        try {
+            launcher.launch(
+                android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                    .putExtra(
+                        android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                        android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                    )
+                    .apply {
+                        if (request.title.isNotBlank()) putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, request.title)
+                        if (request.language.isNotBlank()) putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, request.language)
+                    }
+            )
+        } catch (e: Exception) {
+            // No app that recognizes speech.
+            request.answer.complete(null)
+        }
+    }
+}
+
+/** The camera app saves the photo into the app cache (old photos are cleaned up after a day). */
+@Composable
+private fun TakePhoto(request: DialogRunUi.Request.Photo) {
+    val context = LocalContext.current
+    val file = androidx.compose.runtime.remember(request) {
+        val dir = java.io.File(context.cacheDir, "shared/photos").apply { mkdirs() }
+        dir.listFiles()?.filter { System.currentTimeMillis() - it.lastModified() > 24 * 3600_000L }?.forEach { it.delete() }
+        java.io.File(dir, "foto-" + java.util.UUID.randomUUID().toString().take(6) + ".jpg")
+    }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
+        request.answer.complete(if (saved) android.net.Uri.fromFile(file).toString() else null)
+    }
+    LaunchedEffect(request) {
+        try {
+            launcher.launch(androidx.core.content.FileProvider.getUriForFile(context, context.packageName + ".files", file))
+        } catch (e: Exception) {
+            request.answer.complete(null)
+        }
     }
 }
 

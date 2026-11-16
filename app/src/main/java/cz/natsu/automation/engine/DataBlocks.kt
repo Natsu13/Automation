@@ -32,18 +32,57 @@ object DataBlocks {
 
     private class ListLoop(val items: List<String>, var index: Int = 0)
 
+    /** Rounds running at the same time each keep their own state, so there is a limit. */
+    private const val MAX_PARALLEL_ROUNDS = 2000
+
+    private val notParallel: (Map<String, ParamValue>) -> Boolean = { (it["parallel"] as? ParamValue.Bool)?.value != true }
+
+    /** "Souběžně" of the two loops that know all their rounds in advance. */
+    private fun parallelParams(): List<ParamDef> = listOf(
+        ParamDef.Toggle("parallel", "Souběžně (všechna kola najednou)", summaryWhenOn = " souběžně"),
+        ParamDef.Number("limit", "Nejvýš kol najednou", 1f, 50f, 5f).apply {
+            hiddenWhen = notParallel
+            hiddenInSummaryWhen = { true }
+        },
+        ParamDef.Number("gap", "Pauza mezi starty kol", 0f, 10f, 0f, step = 0.1f, unit = "s").apply {
+            hiddenWhen = notParallel
+            hiddenInSummaryWhen = { true }
+        },
+        ParamDef.Text("collect", "Výsledky kol uložit do proměnné", placeholder = "název (nepovinné)", plain = true).apply {
+            hiddenWhen = notParallel
+            hiddenInSummaryWhen = { true }
+        },
+    )
+
+    /** Whether [block] is a loop set to run all its rounds at the same time. */
+    fun isParallel(ctx: RunContext, block: cz.natsu.automation.data.Block): Boolean =
+        (block.type == FOR_EACH || block.type == REPEAT) && ctx.bool(block, "parallel")
+
+    /** What the rounds of a parallel loop get as the loop's output: the items, or the round numbers. */
+    suspend fun parallelItems(ctx: RunContext, block: cz.natsu.automation.data.Block): List<String> {
+        val items = if (block.type == REPEAT) {
+            val count = parseNumber(ctx.text(block, "count"))?.toInt() ?: throw BlockException(tr("\"Kolikrát\" není číslo"))
+            if (count > MAX_PARALLEL_ROUNDS) throw BlockException(tr("souběžně jde nejvýš %s kol", MAX_PARALLEL_ROUNDS))
+            (1..count).map { it.toString() }
+        } else {
+            JsonTools.toList(ctx.text(block, "list"))
+        }
+        if (items.size > MAX_PARALLEL_ROUNDS) throw BlockException(tr("souběžně jde nejvýš %s kol", MAX_PARALLEL_ROUNDS))
+        return items
+    }
+
     val all: List<BlockDef> = listOf(
         // ---------- Loops ----------
         BlockDef(
             type = FOR_EACH,
-            summary = "Pro každou položku z {list}",
+            summary = "Pro každou položku z {list}{parallel}",
             title = "Pro každou položku",
             description = "Zopakuje kroky pro každou položku seznamu (JSON pole nebo jedna položka na řádek). " +
                     "Aktuální položka je výstup tohoto kroku.",
             category = BlockCategory.Control,
             icon = Icons.Rounded.Loop,
             kind = BlockKind.WhileStart,
-            params = listOf(ParamDef.Text("list", "Seznam", defaultRef = VarRef.Input)),
+            params = listOf(ParamDef.Text("list", "Seznam", defaultRef = VarRef.Input)) + parallelParams(),
             outputName = "Položka",
         ) { block ->
             val state = if (loopAgain.remove(block.id)) {
@@ -60,13 +99,13 @@ object DataBlocks {
 
         BlockDef(
             type = REPEAT,
-            summary = "Opakovat {count}×",
+            summary = "Opakovat {count}×{parallel}",
             title = "Opakovat několikrát",
             description = "Zopakuje kroky zadaný početkrát. Výstup je číslo aktuálního kola (od 1).",
             category = BlockCategory.Control,
             icon = Icons.Rounded.RepeatOne,
             kind = BlockKind.WhileStart,
-            params = listOf(ParamDef.Text("count", "Kolikrát", default = "3")),
+            params = listOf(ParamDef.Text("count", "Kolikrát", default = "3")) + parallelParams(),
             outputName = "Kolo",
         ) { block ->
             val round = if (loopAgain.remove(block.id)) (loopState[block.id] as? Int ?: 0) + 1 else 1

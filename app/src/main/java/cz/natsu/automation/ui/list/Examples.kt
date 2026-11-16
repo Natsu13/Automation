@@ -50,6 +50,10 @@ object Examples {
         "Skript: součet košíku" to "Skript: seznam, smyčka, podmínka a výpočet v pár řádcích kódu místo deseti bloků.",
         "Vyber podle: denní doba" to "Vyber podle: zeptá se na denní dobu a podle odpovědi spustí jednu z větví.",
         "Souběžně: dvě API najednou" to "Souběžně: pošle dva požadavky najednou a skriptem z nich složí jednu větu.",
+        "Souběžné opakování: pět API najednou" to "Pro každou položku souběžně: stáhne pět příspěvků najednou a složí je " +
+            "do seznamu ve správném pořadí.",
+        "Souběžný součet z API" to "Změnit proměnnou: pět požadavků najednou a každé kolo přičte své číslo do " +
+            "společného součtu, aniž by si ho kola přepsala.",
         "Podmínka výrazem: baterie" to "Pokud / Jinak pokud zapsané výrazem s „and / or“ nad baterií a typem připojení.",
         "Najít místo na mapě (intent)" to "Poslat intent: zeptá se na místo a otevře ho v mapách (akce VIEW, data geo:).",
         "Počkat na Wi-Fi" to "Počkat dokud + Zkusit: čeká až 30 s na Wi-Fi, jinak ohlásí, že se nedočkal.",
@@ -515,6 +519,78 @@ object Examples {
                     block("end_parallel", group),
                     joined,
                     block("show_text", null, "title" to richText(tr("Obě odpovědi")), "text" to richVar(VarRef.BlockOutput(joined.id))),
+                )
+            )
+        },
+
+        // A loop whose rounds run at the same time; the results come back in the order of the items
+        example("Souběžné opakování: pět API najednou", "repeat") {
+            val group = UUID.randomUUID().toString()
+            val each = block(
+                "for_each", group,
+                "list" to richText("1\n2\n3\n4\n5"),
+                "parallel" to ParamValue.Bool(true),
+                "collect" to richText("radky"),
+            )
+            val request = block(
+                "http_request", null,
+                "url" to ParamValue.Rich(
+                    listOf(Segment.Text("https://jsonplaceholder.typicode.com/posts/"), Segment.Var(VarRef.BlockOutput(each.id)))
+                ),
+                "only_body" to ParamValue.Bool(true),
+            )
+            val title = block("json_get", null, "source" to richVar(VarRef.BlockOutput(request.id)), "path" to richText("title"))
+            val position = block("loop_index")
+            val line = block(
+                "text", null,
+                "text" to ParamValue.Rich(
+                    listOf(
+                        Segment.Var(VarRef.BlockOutput(position.id)), Segment.Text(". "),
+                        Segment.Var(VarRef.BlockOutput(title.id)),
+                    )
+                ),
+            )
+            val joined = block("script", null, "code" to richText("return join(radky, \"\\n\")"))
+            Built(
+                listOf(
+                    each, request, title, position, line,
+                    block("end_while", group),
+                    joined,
+                    block("show_text", null, "title" to richText(tr("Nadpisy příspěvků")), "text" to richVar(VarRef.BlockOutput(joined.id))),
+                )
+            )
+        },
+
+        // Rounds running at the same time add up into one variable
+        example("Souběžný součet z API", "repeat") {
+            val group = UUID.randomUUID().toString()
+            val each = block(
+                "for_each", group,
+                "list" to richText("1\n2\n3\n4\n5"),
+                "parallel" to ParamValue.Bool(true),
+            )
+            val request = block(
+                "http_request", null,
+                "url" to ParamValue.Rich(
+                    listOf(Segment.Text("https://jsonplaceholder.typicode.com/posts/"), Segment.Var(VarRef.BlockOutput(each.id)))
+                ),
+                "only_body" to ParamValue.Bool(true),
+            )
+            val number = block("json_get", null, "source" to richVar(VarRef.BlockOutput(request.id)), "path" to richText("id"))
+            Built(
+                listOf(
+                    each, request, number,
+                    block(
+                        "change_variable", null,
+                        "name" to richText("soucet"),
+                        "value" to richVar(VarRef.BlockOutput(number.id)),
+                    ),
+                    block("end_while", group),
+                    block(
+                        "show_text", null,
+                        "title" to richText(tr("Součet")),
+                        "text" to ParamValue.Rich(listOf(Segment.Var(VarRef.Named("soucet")))),
+                    ),
                 )
             )
         },

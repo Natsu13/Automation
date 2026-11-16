@@ -13,6 +13,10 @@ interface RunUi {
     suspend fun pickFile(mime: String): String?
     /** Shows images; with [pick] returns the tapped one, otherwise "" after closing. */
     suspend fun showImages(title: String, images: List<String>, pick: Boolean): String?
+    /** Speech recognition: returns what the user said. [language] = "cs", "en-GB"…, empty = the phone's. */
+    suspend fun dictate(prompt: String, language: String): String? = null
+    /** Opens the camera; returns the file:// address of the photo taken. */
+    suspend fun takePhoto(): String? = null
 }
 
 /** Thrown when the user cancels a dialog: the run stops quietly, without an error. */

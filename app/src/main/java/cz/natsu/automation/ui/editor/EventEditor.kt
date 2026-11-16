@@ -31,6 +31,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AirplanemodeActive
 import androidx.compose.material.icons.rounded.AirplanemodeInactive
+import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.LocationOff
+import androidx.compose.material.icons.rounded.MyLocation
+import androidx.compose.material.icons.rounded.Nfc
+import androidx.compose.material.icons.rounded.Place
+import androidx.compose.material.icons.rounded.Sms
+import androidx.compose.material.icons.rounded.WbSunny
+import androidx.compose.material.icons.rounded.WbTwilight
 import androidx.compose.material.icons.rounded.BatteryAlert
 import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.Bluetooth
@@ -63,6 +72,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -74,6 +84,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -86,7 +97,13 @@ import cz.natsu.automation.data.EventGroup
 import cz.natsu.automation.data.EventPermission
 import cz.natsu.automation.data.EventTrigger
 import cz.natsu.automation.data.EventType
+import cz.natsu.automation.engine.BlockException
+import cz.natsu.automation.engine.DeviceState
+import cz.natsu.automation.engine.Locator
+import cz.natsu.automation.trigger.AppWatchService
 import cz.natsu.automation.trigger.EventAlarms
+import cz.natsu.automation.trigger.PlaceEvents
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -113,6 +130,14 @@ fun eventIcon(type: EventType?): ImageVector = when (type) {
     EventType.TimeDaily -> Icons.Rounded.Schedule
     EventType.TimeInterval -> Icons.Rounded.Repeat
     EventType.Notification -> Icons.Rounded.Notifications
+    EventType.NfcTag -> Icons.Rounded.Nfc
+    EventType.SmsReceived -> Icons.Rounded.Sms
+    EventType.IncomingCall -> Icons.Rounded.Call
+    EventType.PlaceEntered -> Icons.Rounded.Place
+    EventType.PlaceLeft -> Icons.Rounded.LocationOff
+    EventType.Sunrise -> Icons.Rounded.WbSunny
+    EventType.Sunset -> Icons.Rounded.WbTwilight
+    EventType.AppOpened -> Icons.Rounded.Apps
     EventType.Boot -> Icons.Rounded.RestartAlt
     null -> Icons.Rounded.WarningAmber
 }
@@ -124,6 +149,8 @@ fun eventLabel(event: EventTrigger): String {
         EventType.BatteryBelow, EventType.BatteryAbove -> "${tr(type.title)} ${event.param("percent")} %"
         EventType.TimeDaily -> tr("V %s", event.param("time")) + daysLabel(event.param("days")).let { if (it.isEmpty()) "" else " ($it)" }
         EventType.TimeInterval -> tr("Každých %s", intervalLabel(event.param("minutes").toIntOrNull() ?: 60))
+        EventType.PlaceEntered, EventType.PlaceLeft ->
+            "${tr(type.title)} (${event.param("radius").toIntOrNull() ?: PlaceEvents.DEFAULT_RADIUS} m)"
         else -> tr(type.title)
     }
 }
@@ -274,6 +301,24 @@ private fun EventCard(event: EventTrigger, viewModel: EditorViewModel) {
                         }
                     }
 
+                    EventType.PlaceEntered, EventType.PlaceLeft -> {
+                        PlaceField(event, viewModel)
+                        val stored = (event.param("radius").toFloatOrNull() ?: PlaceEvents.DEFAULT_RADIUS.toFloat())
+                        var value by remember(stored) { mutableFloatStateOf(stored) }
+                        Text(tr("Okruh: %s m", value.toInt()), style = MaterialTheme.typography.labelLarge)
+                        Slider(
+                            value = value,
+                            onValueChange = { value = (it / 50f).toInt() * 50f },
+                            onValueChangeFinished = { viewModel.updateEvent(event.id, "radius", value.toInt().toString()) },
+                            valueRange = 100f..2000f,
+                        )
+                    }
+
+                    EventType.Sunrise, EventType.Sunset -> {
+                        PlaceField(event, viewModel)
+                        NextRun(event)
+                    }
+
                     else -> Unit
                 }
                 type?.permission?.let { PermissionHint(it) }
@@ -282,14 +327,73 @@ private fun EventCard(event: EventTrigger, viewModel: EditorViewModel) {
     }
 }
 
+/** The place of an event as "latitude,longitude": typed in, or taken from where the phone is now. */
+@Composable
+private fun PlaceField(event: EventTrigger, viewModel: EditorViewModel) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var text by remember(event.id) { mutableStateOf(event.param("place")) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    fun locate() {
+        busy = true
+        error = null
+        scope.launch {
+            try {
+                val found = Locator.current(context)
+                text = Locator.coords(found.latitude, found.longitude)
+                viewModel.updateEvent(event.id, "place", text)
+            } catch (e: BlockException) {
+                error = e.message
+            } finally {
+                busy = false
+            }
+        }
+    }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) locate() else error = tr("chybí přístup k poloze")
+    }
+
+    OutlinedTextField(
+        value = text,
+        onValueChange = {
+            text = it
+            viewModel.updateEvent(event.id, "place", it.trim())
+        },
+        label = { Text(tr("Místo (šířka,délka)")) },
+        placeholder = { Text("50.0755,14.4378") },
+        singleLine = true,
+        isError = text.isNotBlank() && Locator.parse(text) == null,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    OutlinedButton(
+        enabled = !busy,
+        onClick = { if (DeviceState.hasLocation(context)) locate() else launcher.launch(Manifest.permission.ACCESS_FINE_LOCATION) },
+    ) {
+        Icon(Icons.Rounded.MyLocation, null, Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(if (busy) tr("Zjišťuji polohu…") else tr("Použít místo, kde teď jsem"))
+    }
+    error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+}
+
 @Composable
 private fun NextRun(event: EventTrigger) {
     val next = EventAlarms.nextTime(event) ?: run {
-        Text(tr("Vyber aspoň jeden den."), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        val sun = event.type == EventType.Sunrise.key || event.type == EventType.Sunset.key
+        Text(
+            when {
+                !sun -> tr("Vyber aspoň jeden den.")
+                Locator.parse(event.param("place")) == null -> tr("Zadej místo, pro které se má čas počítat.")
+                else -> tr("Na tomhle místě teď slunce nevychází ani nezapadá.")
+            },
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error
+        )
         return
     }
     Text(
-        "Příště: " + SimpleDateFormat("EEEE d. M. H:mm", Locale.forLanguageTag("cs")).format(Date(next)),
+        tr("Příště: ") + SimpleDateFormat("EEEE d. M. H:mm", if (cz.natsu.automation.i18n.I18n.english) Locale.ENGLISH else Locale.forLanguageTag("cs")).format(Date(next)),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -337,6 +441,57 @@ private fun PermissionHint(permission: EventPermission) {
                 if (!cz.natsu.automation.trigger.NotificationEvents.hasAccess(context)) Triple(
                     true, tr("Potřebuje přístup k oznámením (v nastavení systému zapni u aplikace Automation)."),
                     tr("Otevřít nastavení") to { context.startActivity(cz.natsu.automation.trigger.NotificationEvents.settingsIntent()) }
+                ) else Triple(false, "", null)
+            EventPermission.Place -> when {
+                !granted(Manifest.permission.ACCESS_FINE_LOCATION) -> Triple(
+                    true, tr("Bez přístupu k poloze se o příchodu ani odchodu nedozví."),
+                    tr("Povolit polohu") to { launcher.launch(Manifest.permission.ACCESS_FINE_LOCATION) }
+                )
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !granted(Manifest.permission.ACCESS_BACKGROUND_LOCATION) -> Triple(
+                    true, tr("Místo se hlídá, i když aplikace neběží – povol polohu „Vždy“."),
+                    tr("Povolit vždy") to {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            context.startActivity(
+                                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
+                            )
+                        } else {
+                            launcher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                        }
+                    }
+                )
+                else -> Triple(false, "", null)
+            }
+            EventPermission.Nfc -> {
+                val adapter = android.nfc.NfcAdapter.getDefaultAdapter(context)
+                when {
+                    adapter == null -> Triple(true, tr("Tenhle telefon NFC nemá."), null)
+                    !adapter.isEnabled -> Triple(
+                        true, tr("NFC je v telefonu vypnuté."),
+                        tr("Otevřít nastavení") to { context.startActivity(Intent(Settings.ACTION_NFC_SETTINGS)) }
+                    )
+                    else -> Triple(false, "", null)
+                }
+            }
+            EventPermission.Sms ->
+                if (!granted(Manifest.permission.RECEIVE_SMS)) Triple(
+                    true, tr("Potřebuje oprávnění SMS, jinak se o zprávě nedozví."),
+                    tr("Povolit") to { launcher.launch(Manifest.permission.RECEIVE_SMS) }
+                ) else Triple(false, "", null)
+            EventPermission.Phone -> when {
+                !granted(Manifest.permission.READ_PHONE_STATE) -> Triple(
+                    true, tr("Potřebuje oprávnění Telefon, jinak se o hovoru nedozví."),
+                    tr("Povolit") to { launcher.launch(Manifest.permission.READ_PHONE_STATE) }
+                )
+                !granted(Manifest.permission.READ_CALL_LOG) -> Triple(
+                    true, tr("Aby šlo zjistit číslo volajícího, povol i Seznam hovorů (událost funguje i bez něj)."),
+                    tr("Povolit") to { launcher.launch(Manifest.permission.READ_CALL_LOG) }
+                )
+                else -> Triple(false, "", null)
+            }
+            EventPermission.Accessibility ->
+                if (!AppWatchService.enabled(context)) Triple(
+                    true, tr("V nastavení Usnadnění zapni službu „Automation – opened apps“. Dozví se jen to, která aplikace je na displeji – obsah nečte."),
+                    tr("Otevřít nastavení") to { context.startActivity(AppWatchService.settingsIntent()) }
                 ) else Triple(false, "", null)
         }
     }

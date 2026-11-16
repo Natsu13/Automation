@@ -10,6 +10,8 @@ import cz.natsu.automation.AutomationApplication
 import cz.natsu.automation.data.AutomationEntity
 import cz.natsu.automation.data.EventTrigger
 import cz.natsu.automation.data.EventType
+import cz.natsu.automation.engine.Locator
+import cz.natsu.automation.engine.Sun
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
@@ -17,7 +19,7 @@ import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
 /**
- * Time events ("V určený čas", "Opakovaně") planned as system alarms – the app
+ * Time events ("V určený čas", "Opakovaně", sunrise and sunset) planned as system alarms – the app
  * does not need to run in between. Only the next occurrence of each event is
  * planned; it plans the following one when it fires.
  */
@@ -28,6 +30,8 @@ object EventAlarms {
     const val EXTRA_EVENT = "event"
     const val MIN_INTERVAL_MINUTES = 15
 
+    private val timeTypes = setOf(EventType.TimeDaily, EventType.TimeInterval, EventType.Sunrise, EventType.Sunset)
+
     private fun prefs(context: Context) = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     /** Plans every time event of [all] automations and cancels alarms of removed ones. */
@@ -37,7 +41,7 @@ object EventAlarms {
         for (automation in all) {
             for (event in automation.activeEvents) {
                 val type = EventType.of(event.type)
-                if (type != EventType.TimeDaily && type != EventType.TimeInterval) continue
+                if (type !in timeTypes) continue
                 planned += event.id
                 val keep = prefs.getLong("next_${event.id}", 0L).takeIf {
                     // An interval keeps its rhythm when the automation is edited.
@@ -88,7 +92,10 @@ object EventAlarms {
 
     /** When [event] fires next, or null when it never does (no day chosen). */
     fun nextTime(event: EventTrigger, now: Long = System.currentTimeMillis()): Long? =
-        when (EventType.of(event.type)) {
+        when (val type = EventType.of(event.type)) {
+            EventType.Sunrise, EventType.Sunset -> Locator.parse(event.param("place"))?.let { (lat, lon) ->
+                Sun.next(lat, lon, rise = type == EventType.Sunrise, now = now)
+            }
             EventType.TimeInterval -> {
                 val minutes = (event.param("minutes").toIntOrNull() ?: 60).coerceAtLeast(MIN_INTERVAL_MINUTES)
                 now + TimeUnit.MINUTES.toMillis(minutes.toLong())

@@ -128,6 +128,10 @@ object EventDispatcher {
         EventType.BluetoothConnected, EventType.BluetoothDisconnected -> values["bt_device"]
         EventType.Notification -> values["notif_text"]
         EventType.DndChanged -> values["dnd"]
+        EventType.NfcTag -> values["nfc_text"]?.takeIf { it.isNotEmpty() } ?: values["nfc_id"]
+        EventType.SmsReceived -> values["sms_text"]
+        EventType.IncomingCall -> values["call_number"]
+        EventType.AppOpened -> values["app_package"]
         EventType.PowerConnected, EventType.PowerDisconnected,
         EventType.BatteryBelow, EventType.BatteryAbove -> values["battery"]
         else -> null

@@ -117,6 +117,13 @@ object Blocks {
         ChoiceOption("notif_title", "Oznámení – nadpis", "Nadpis oznámení"),
         ChoiceOption("notif_text", "Oznámení – text", "Text oznámení"),
         ChoiceOption("notif_package", "Oznámení – balíček aplikace", "Balíček oznámení"),
+        ChoiceOption("sms_sender", "SMS – odesílatel", "Odesílatel SMS"),
+        ChoiceOption("sms_text", "SMS – text", "Text SMS"),
+        ChoiceOption("call_number", "Hovor – číslo", "Číslo volajícího"),
+        ChoiceOption("nfc_id", "NFC štítek – ID", "ID štítku"),
+        ChoiceOption("nfc_text", "NFC štítek – text", "Text štítku"),
+        ChoiceOption("app_package", "Aplikace – balíček", "Balíček aplikace"),
+        ChoiceOption("app_name", "Aplikace – název", "Název aplikace"),
     )
 
     /** The source of a launch condition; null for "Pokud" and older conditions with a custom value. */
@@ -518,6 +525,9 @@ object Blocks {
                 ParamDef.Number("delay", "Pauza před dalším pokusem", 0f, 60f, 2f, unit = "s").apply {
                     hiddenWhen = { (it["attempts"] as? ParamValue.Number)?.value?.let { n -> n <= 1f } ?: true }
                 },
+                ParamDef.Toggle("backoff", "Pauzu pokaždé zdvojnásobit").apply {
+                    hiddenWhen = { (it["attempts"] as? ParamValue.Number)?.value?.let { n -> n <= 1f } ?: true }
+                },
             ),
             outputName = "Chyba",
         ) { BlockResult.None },
@@ -837,7 +847,7 @@ object Blocks {
             BlockResult.Output(value)
         },
     ) + MoreBlocks.all + DataBlocks.all + HttpBlocks.all + ImageBlocks.all + ExtraBlocks.all + NotificationBlock.def +
-            ControlBlocks.all + AppBlocks.all
+            ControlBlocks.all + AppBlocks.all + DeviceBlocks.all
 
     private val byType = all.associateBy { it.type }
 

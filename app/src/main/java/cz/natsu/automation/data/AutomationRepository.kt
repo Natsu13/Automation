@@ -124,6 +124,7 @@ class AutomationRepository(
         cz.natsu.automation.trigger.BackgroundService.sync(context)
         cz.natsu.automation.trigger.EventAlarms.scheduleAll(context, all)
         cz.natsu.automation.trigger.NotificationEvents.sync(context, all)
+        cz.natsu.automation.trigger.MoreEvents.sync(context, all)
         ShortcutPublisher.publish(context, all)
         cz.natsu.automation.trigger.TileSlots.sync(context, all)
         try {

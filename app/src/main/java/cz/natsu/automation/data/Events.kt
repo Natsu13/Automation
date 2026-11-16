@@ -18,13 +18,24 @@ data class EventTrigger(
 }
 
 /** Something the user has to allow for an event (or its values) to work. */
-enum class EventPermission { Location, Bluetooth, NotificationAccess }
+enum class EventPermission {
+    Location, Bluetooth, NotificationAccess,
+
+    /** Location allowed "always": the system watches a place also while the app sleeps. */
+    Place,
+    Nfc, Sms, Phone,
+
+    /** The accessibility service that tells which app came to the screen. */
+    Accessibility,
+}
 
 enum class EventGroup(val title: String) {
     Network("Síť"),
     Power("Baterie a nabíjení"),
     Screen("Displej"),
     Devices("Zařízení"),
+    Phone("Zprávy a hovory"),
+    Place("Místo"),
     Time("Čas"),
     Other("Ostatní"),
 }
@@ -108,6 +119,46 @@ enum class EventType(
         EventGroup.Devices, input = "zapnuto / vypnuto",
     ),
 
+    NfcTag(
+        "nfc_tag", "Přiložení NFC štítku",
+        "Když k telefonu přiložíš NFC štítek (displej musí svítit). Vstup = text na štítku, nebo jeho ID, když je prázdný.",
+        EventGroup.Devices, needsService = false, permission = EventPermission.Nfc, input = "text štítku nebo ID",
+    ),
+
+    SmsReceived(
+        "sms_received", "Příchozí SMS",
+        "Když přijde textová zpráva. Vstup = text; odesílatele vrátí blok Údaje z události.",
+        EventGroup.Phone, needsService = false, permission = EventPermission.Sms, input = "text zprávy",
+    ),
+    IncomingCall(
+        "incoming_call", "Příchozí hovor",
+        "Když telefon začne zvonit. Vstup = číslo volajícího (prázdné u skrytého čísla).",
+        EventGroup.Phone, needsService = false, permission = EventPermission.Phone, input = "číslo volajícího",
+    ),
+
+    PlaceEntered(
+        "place_entered", "Příchod na místo",
+        "Když telefon dorazí do okruhu kolem zvoleného místa. Android si toho všimne obvykle do pár minut.",
+        EventGroup.Place, needsService = false, permission = EventPermission.Place,
+        defaults = mapOf("place" to "", "radius" to "200"),
+    ),
+    PlaceLeft(
+        "place_left", "Odchod z místa",
+        "Když telefon opustí okruh kolem zvoleného místa.",
+        EventGroup.Place, needsService = false, permission = EventPermission.Place,
+        defaults = mapOf("place" to "", "radius" to "200"),
+    ),
+
+    Sunrise(
+        "sunrise", "Východ slunce",
+        "Každý den při východu slunce na zvoleném místě. Posun (třeba půl hodiny potom) udělá blok Počkat.",
+        EventGroup.Time, needsService = false, defaults = mapOf("place" to ""),
+    ),
+    Sunset(
+        "sunset", "Západ slunce",
+        "Každý den při západu slunce na zvoleném místě.",
+        EventGroup.Time, needsService = false, defaults = mapOf("place" to ""),
+    ),
     TimeDaily(
         "time_daily", "V určený čas",
         "Každý zvolený den v daný čas.",
@@ -123,6 +174,12 @@ enum class EventType(
         "notification", "Příchozí oznámení",
         "Když jakákoli aplikace zobrazí oznámení. Vstup = text; aplikaci a nadpis vrátí blok Údaje z události, filtrovat je jde v Podmínkách spuštění.",
         EventGroup.Other, needsService = false, permission = EventPermission.NotificationAccess, input = "text oznámení",
+    ),
+    AppOpened(
+        "app_opened", "Otevření aplikace",
+        "Když se na displeji objeví jiná aplikace. Vstup = její balíček (třeba com.spotify.music); " +
+                "kterou aplikaci chceš, nastav v Podmínkách spuštění.",
+        EventGroup.Other, needsService = false, permission = EventPermission.Accessibility, input = "balíček aplikace",
     ),
     Boot("boot", "Po zapnutí telefonu", "Jednou po startu telefonu.", EventGroup.Other, needsService = false);
 
@@ -158,7 +215,14 @@ enum class EventValue(val key: String, val label: String, val description: Strin
     NotificationApp("notif_app", "Oznámení – aplikace", "Název aplikace, která oznámení poslala."),
     NotificationPackage("notif_package", "Oznámení – balíček", "Balíček aplikace, třeba com.whatsapp."),
     NotificationTitle("notif_title", "Oznámení – nadpis", "Nadpis oznámení (často odesílatel)."),
-    NotificationText("notif_text", "Oznámení – text", "Text oznámení.");
+    NotificationText("notif_text", "Oznámení – text", "Text oznámení."),
+    NfcId("nfc_id", "NFC štítek – ID", "Číslo štítku, třeba 04:A2:1B:…; má ho i prázdný štítek."),
+    NfcText("nfc_text", "NFC štítek – text", "Text nebo odkaz uložený na štítku."),
+    SmsSender("sms_sender", "SMS – odesílatel", "Číslo nebo jméno odesílatele zprávy."),
+    SmsText("sms_text", "SMS – text", "Text zprávy."),
+    CallNumber("call_number", "Hovor – číslo", "Číslo volajícího (potřebuje přístup k historii hovorů)."),
+    AppPackage("app_package", "Aplikace – balíček", "Balíček otevřené aplikace, třeba com.spotify.music."),
+    AppName("app_name", "Aplikace – název", "Název otevřené aplikace.");
 
     companion object {
         private val byKey = entries.associateBy { it.key }
