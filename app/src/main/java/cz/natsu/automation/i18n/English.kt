@@ -2923,6 +2923,28 @@ object English {
             "writing failed",
         "štítek se vzdálil dřív, než se zápis dokončil" to
             "the tag moved away before the writing finished",
+        "Ukázat web {url}" to
+            "Show web page {url}",
+        "Ukázat web v okně" to
+            "Show web page in a window",
+        "Otevře webovou stránku v okně přímo v aplikaci a počká, až ji zavřeš. Výstupem je adresa, na které jsi skončil – hodí se třeba po přihlášení, které tě přesměruje. Skript se pustí v každé načtené stránce; zavolá-li done(hodnota), okno se zavře a výstupem je ta hodnota." to
+            "Opens a web page in a window right in the app and waits until you close it. The output is the address you ended on – handy after a sign-in that redirects you. The script runs in every loaded page; when it calls done(value), the window closes and that value is the output.",
+        "JavaScript po načtení stránky" to
+            "JavaScript after the page loads",
+        "Výsledek nebo adresa" to
+            "Result or address",
+        "Adresa stránky" to
+            "Page address",
+        "nepovinný" to
+            "optional",
+        "chybí adresa stránky" to
+            "the page address is missing",
+        "v okně jde otevřít jen adresa http:// nebo https://" to
+            "only an http:// or https:// address can be opened in the window",
+        "web jde ukázat jen v okně" to
+            "a web page can be shown only in a window",
+        "Web" to
+            "Web",
         "Ladicí záznam událostí" to
             "Event debug log",
         "Zapisuje každou událost, která do aplikace dorazila, co přinesla a které automatizace kvůli ní běžely." to
