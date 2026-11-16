@@ -1289,8 +1289,38 @@ object English {
             "Notification {title} {text} with buttons {b1_label} {b2_label} {b3_label}",
         "Oznámení s tlačítky" to
             "Notification with buttons",
-        "Ukáže oznámení až se třemi tlačítky: zkopírovat text, spustit jinou automatizaci, otevřít odkaz nebo sdílet text. Texty se doplní při zobrazení, takže tlačítko zkopíruje to, co automatizace spočítala." to
-            "Shows a notification with up to three buttons: copy a text, run another automation, open a link or share a text. The texts are filled in when it is shown, so a button copies what the automation computed.",
+        "Ukáže oznámení až se třemi tlačítky: zkopírovat text, spustit jinou automatizaci, otevřít odkaz nebo sdílet text. Texty se doplní při zobrazení, takže tlačítko zkopíruje to, co automatizace spočítala. Může v něm běžet odpočet a po jeho doběhnutí se spustit automatizace." to
+            "Shows a notification with up to three buttons: copy a text, run another automation, open a link or share a text. The texts are filled in when it is shown, so a button copies what the automation computed. A countdown can run in it and an automation can start when it ends.",
+        "Název oznámení" to
+            "Notification name",
+        "nepovinný – stejný název oznámení nahradí" to
+            "optional – the same name replaces the notification",
+        "Odpočet" to
+            "Countdown",
+        "bez odpočtu; sekundy nebo 1:30" to
+            "no countdown; seconds or 1:30",
+        "Po doběhnutí spustit" to
+            "Run when it ends",
+        "odpočet „%s“ není čas (sekundy nebo 1:30)" to
+            "countdown “%s” is not a time (seconds or 1:30)",
+        "chybí název oznámení" to
+            "the notification name is missing",
+        "Zrušit oznámení {name}" to
+            "Cancel notification {name}",
+        "Zrušit oznámení" to
+            "Cancel notification",
+        "Zavře oznámení podle jeho názvu (pole Název oznámení v bloku Oznámení s tlačítky) a zruší jeho odpočet – co mělo po doběhnutí běžet, se nespustí." to
+            "Closes a notification by its name (the Notification name field of the Notification with buttons block) and cancels its countdown – what was to run at its end does not start.",
+        "Zbývající čas odpočtu {name}" to
+            "Remaining countdown time {name}",
+        "Zbývající čas odpočtu" to
+            "Remaining countdown time",
+        "Kolik sekund zbývá odpočtu v oznámení daného názvu (0, když žádný neběží). Hodí se k pozastavení: zapamatuj si zbytek, ukaž oznámení bez odpočtu a později ho se zbytkem pusť znovu." to
+            "How many seconds are left of the countdown in the notification of that name (0 when none runs). Handy for pausing: remember the rest, show the notification without a countdown and start it again with the rest later.",
+        "Zbývá sekund" to
+            "Seconds left",
+        "Konec odpočtu v oznámení" to
+            "End of a notification countdown",
         "Tiché (bez zvuku a vyskočení)" to
             "Quiet (no sound, no pop-up)",
         " (tiché)" to
@@ -2945,6 +2975,26 @@ object English {
             "a web page can be shown only in a window",
         "Web" to
             "Web",
+        "Časovač s pauzou" to
+            "Timer with pause",
+        "Oznámení s odpočtem a tlačítky Pauza, Pokračovat a Zrušit. Tlačítka pouští tuhle automatizaci znovu a ta podle Vstupu pozná, co má udělat." to
+            "A notification with a countdown and the buttons Pause, Continue and Cancel. The buttons run this automation again and it tells from the Input what to do.",
+        "Časovač" to
+            "Timer",
+        "Běží…" to
+            "Running…",
+        "Pauza" to
+            "Pause",
+        "Pokračovat" to
+            "Continue",
+        "Pozastaveno, zbývá sekund: " to
+            "Paused, seconds left: ",
+        "Časovač zrušen" to
+            "Timer cancelled",
+        "Čas vypršel" to
+            "Time is up",
+        "Časovač doběhl." to
+            "The timer has finished.",
         "Ladicí záznam událostí" to
             "Event debug log",
         "Zapisuje každou událost, která do aplikace dorazila, co přinesla a které automatizace kvůli ní běžely." to

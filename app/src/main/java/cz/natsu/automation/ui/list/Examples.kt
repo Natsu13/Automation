@@ -54,6 +54,8 @@ object Examples {
             "do seznamu ve správném pořadí.",
         "Souběžný součet z API" to "Změnit proměnnou: pět požadavků najednou a každé kolo přičte své číslo do " +
             "společného součtu, aniž by si ho kola přepsala.",
+        "Časovač s pauzou" to "Oznámení s odpočtem a tlačítky Pauza, Pokračovat a Zrušit. Tlačítka pouští tuhle " +
+            "automatizaci znovu a ta podle Vstupu pozná, co má udělat.",
         "Podmínka výrazem: baterie" to "Pokud / Jinak pokud zapsané výrazem s „and / or“ nad baterií a typem připojení.",
         "Najít místo na mapě (intent)" to "Poslat intent: zeptá se na místo a otevře ho v mapách (akce VIEW, data geo:).",
         "Počkat na Wi-Fi" to "Počkat dokud + Zkusit: čeká až 30 s na Wi-Fi, jinak ohlásí, že se nedočkal.",
@@ -593,6 +595,70 @@ object Examples {
                     ),
                 )
             )
+        },
+
+        // A countdown in a notification; its buttons run this automation again with another input
+        example("Časovač s pauzou", "timer") {
+            val group = UUID.randomUUID().toString()
+            val name = "casovac"
+            // The id of the automation is known only after it is stored: see the end.
+            val self = ParamValue.Choice("")
+            fun button(index: Int, label: String, input: String) = arrayOf(
+                "b${index}_action" to ParamValue.Choice("run"),
+                "b${index}_label" to richText(tr(label)),
+                "b${index}_automation" to self,
+                "b${index}_input" to richText(input),
+            )
+            fun running(countdown: ParamValue) = block(
+                "notification", null,
+                "title" to richText(tr("Časovač")), "text" to richText(tr("Běží…")), "name" to richText(name),
+                "countdown" to countdown, "end_automation" to self, "end_input" to richText("konec"),
+                *button(1, "Pauza", "pauza"), *button(2, "Zrušit", "zrusit"),
+            )
+            fun whenInput(type: String, value: String) = block(
+                type, group, "left" to richVar(VarRef.Input), "op" to ParamValue.Choice("equals"), "right" to richText(value)
+            )
+            val remaining = block("notification_remaining", null, "name" to richText(name))
+            val stored = block("store_get", null, "key" to richText("casovac_zbyva"), "fallback" to richText("60"))
+            Built(
+                listOf(
+                    whenInput("if", "pauza"),
+                    remaining,
+                    block("store_set", null, "key" to richText("casovac_zbyva"), "value" to richVar(VarRef.BlockOutput(remaining.id))),
+                    block(
+                        "notification", null,
+                        "title" to richText(tr("Časovač")),
+                        "text" to ParamValue.Rich(
+                            listOf(Segment.Text(tr("Pozastaveno, zbývá sekund: ")), Segment.Var(VarRef.BlockOutput(remaining.id)))
+                        ),
+                        "name" to richText(name), "quiet" to ParamValue.Bool(true),
+                        *button(1, "Pokračovat", "pokracovat"), *button(2, "Zrušit", "zrusit"),
+                    ),
+                    whenInput("else_if", "pokracovat"),
+                    stored,
+                    running(richVar(VarRef.BlockOutput(stored.id))),
+                    whenInput("else_if", "zrusit"),
+                    block("notification_cancel", null, "name" to richText(name)),
+                    block("toast", null, "text" to richText(tr("Časovač zrušen"))),
+                    whenInput("else_if", "konec"),
+                    block(
+                        "notification", null,
+                        "title" to richText(tr("Čas vypršel")), "text" to richText(tr("Časovač doběhl.")),
+                        "b1_action" to ParamValue.Choice("dismiss"), "b1_label" to richText("OK"),
+                    ),
+                    block("else", group),
+                    running(richText("5:00")),
+                    block("end_if", group),
+                )
+            ) { stored ->
+                // Now the buttons and the end of the countdown can point at this very automation.
+                val id = ParamValue.Choice(stored.id.toString())
+                stored.copy(
+                    blocksJson = cz.natsu.automation.data.BlockJson.encode(stored.blocks.map { block ->
+                        block.copy(params = block.params.mapValues { (key, value) -> if (key.endsWith("automation")) id else value })
+                    })
+                )
+            }
         },
 
         // A condition written as an expression, with "otherwise if"
