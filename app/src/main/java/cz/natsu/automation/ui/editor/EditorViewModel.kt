@@ -342,7 +342,7 @@ class EditorViewModel(application: Application, private val automationId: Long) 
             }.trim().ifEmpty { tr("(adresa není vyplněná)") }
         }.distinct()
         if (addresses.isNotEmpty()) add(tr("Posílá data na internet:\n") + addresses.joinToString("\n") { "• ${it.take(120)}" })
-        if (blocks.any { it.type in setOf("share", "share_file", "save_file") }) add(tr("Sdílí nebo ukládá soubory a text"))
+        if (blocks.any { it.type in setOf("share", "share_file", "save_file", "pick_save_file", "write_file", "add_record") }) add(tr("Sdílí nebo ukládá soubory a text"))
         if (blocks.any { it.type in setOf("open_app", "send_intent") }) {
             add("Otevírá jiné aplikace nebo jim posílá příkazy (intent, spuštění služby)")
         }

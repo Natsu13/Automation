@@ -74,6 +74,10 @@ class DialogRunUi : RunUi {
             override val title: String get() = tr("Vybrat soubor")
         }
 
+        data class Writable(val format: String, val name: String, val answer: CompletableDeferred<String?>) : Request {
+            override val title: String get() = tr("Soubor pro zápis")
+        }
+
         data class Images(override val title: String, val images: List<String>, val pick: Boolean,
                           val answer: CompletableDeferred<String?>) : Request
 
@@ -122,6 +126,11 @@ class DialogRunUi : RunUi {
     override suspend fun pickFile(mime: String): String? {
         val answer = CompletableDeferred<String?>()
         return show(Request.PickFile(mime, answer), answer)
+    }
+
+    override suspend fun pickWritable(format: String, name: String): String? {
+        val answer = CompletableDeferred<String?>()
+        return show(Request.Writable(format, name, answer), answer)
     }
 
     override suspend fun showImages(title: String, images: List<String>, pick: Boolean): String? {
@@ -343,6 +352,7 @@ fun RunDialogs(ui: DialogRunUi) {
         is DialogRunUi.Request.Choose -> ChooseDialog(request)
         is DialogRunUi.Request.Show -> ShowDialog(request)
         is DialogRunUi.Request.PickFile -> PickFile(request)
+        is DialogRunUi.Request.Writable -> PickWritable(request)
         is DialogRunUi.Request.Images -> ImagesDialog(request)
         is DialogRunUi.Request.Dictate -> Dictate(request)
         is DialogRunUi.Request.Photo -> TakePhoto(request)
@@ -413,6 +423,70 @@ private fun PickFile(request: DialogRunUi.Request.PickFile) {
             request.answer.complete(null)
         }
     }
+}
+
+/**
+ * Where to write: a new file of one of the offered formats, or an existing one. The system
+ * window then creates or picks it and the app keeps the permission to write into it.
+ */
+@Composable
+private fun PickWritable(request: DialogRunUi.Request.Writable) {
+    val context = LocalContext.current
+    val access = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        // Leaving the system window without a file goes back to this dialog.
+        val uri = result.data?.data?.takeIf { result.resultCode == android.app.Activity.RESULT_OK }
+        if (uri != null) {
+            try {
+                context.contentResolver.takePersistableUriPermission(uri, access)
+            } catch (_: Exception) {
+            }
+            request.answer.complete(uri.toString())
+        }
+    }
+    fun open(intent: android.content.Intent) {
+        try {
+            launcher.launch(
+                intent.addCategory(android.content.Intent.CATEGORY_OPENABLE)
+                    .addFlags(access or android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+            )
+        } catch (e: Exception) {
+            request.answer.complete(null)
+        }
+    }
+    val formats = cz.natsu.automation.engine.FileFormat.of(request.format)?.let { listOf(it) }
+        ?: cz.natsu.automation.engine.FileFormat.entries
+    val colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+    AlertDialog(
+        onDismissRequest = { request.answer.complete(null) },
+        title = { Text(request.title) },
+        text = {
+            Column {
+                for (format in formats) {
+                    ListItem(
+                        headlineContent = { Text(tr("Nový soubor: %s", tr(format.label))) },
+                        colors = colors,
+                        modifier = Modifier.clickable {
+                            open(
+                                android.content.Intent(android.content.Intent.ACTION_CREATE_DOCUMENT)
+                                    .setType(format.mime)
+                                    .putExtra(android.content.Intent.EXTRA_TITLE, request.name + "." + format.extension)
+                            )
+                        }
+                    )
+                }
+                ListItem(
+                    headlineContent = { Text(tr("Vybrat existující soubor")) },
+                    colors = colors,
+                    modifier = Modifier.clickable {
+                        open(android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT).setType("*/*"))
+                    }
+                )
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = { request.answer.complete(null) }) { Text(tr("Zrušit")) } },
+    )
 }
 
 @Composable

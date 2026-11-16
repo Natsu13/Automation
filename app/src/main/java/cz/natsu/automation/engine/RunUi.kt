@@ -23,6 +23,12 @@ interface RunUi {
      * dialog and [value] is returned instead.
      */
     suspend fun showWeb(title: String, url: String, script: String = ""): String? = null
+    /**
+     * Asks where to write: a new file (of [format]: "csv", "json", "txt", or "ask" = offer them all)
+     * named [name], or an existing one. Returns its content:// address, which the app may write
+     * into from then on.
+     */
+    suspend fun pickWritable(format: String, name: String): String? = null
     /** Waits for an NFC tag held to the phone and writes [message] on it; returns the tag's ID. */
     suspend fun writeTag(message: android.nfc.NdefMessage): String? = null
 }

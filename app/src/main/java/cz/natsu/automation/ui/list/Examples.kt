@@ -56,6 +56,8 @@ object Examples {
             "společného součtu, aniž by si ho kola přepsala.",
         "Časovač s pauzou" to "Oznámení s odpočtem a tlačítky Pauza, Pokračovat a Zrušit. Tlačítka pouští tuhle " +
             "automatizaci znovu a ta podle Vstupu pozná, co má udělat.",
+        "Oznámení do souboru" to "Každé příchozí oznámení zapíše jako řádek do CSV nebo položku do JSON. Poprvé ji " +
+            "spusť ručně: zeptá se na soubor (nový nebo existující) a uloží si ho blokem Uložit hodnotu.",
         "Podmínka výrazem: baterie" to "Pokud / Jinak pokud zapsané výrazem s „and / or“ nad baterií a typem připojení.",
         "Najít místo na mapě (intent)" to "Poslat intent: zeptá se na místo a otevře ho v mapách (akce VIEW, data geo:).",
         "Počkat na Wi-Fi" to "Počkat dokud + Zkusit: čeká až 30 s na Wi-Fi, jinak ohlásí, že se nedočkal.",
@@ -657,6 +659,41 @@ object Examples {
                     blocksJson = cz.natsu.automation.data.BlockJson.encode(stored.blocks.map { block ->
                         block.copy(params = block.params.mapValues { (key, value) -> if (key.endsWith("automation")) id else value })
                     })
+                )
+            }
+        },
+
+        // Every notification becomes a record in a file; the file is asked for once and kept as a stored value
+        example("Oznámení do souboru", "file") {
+            val group = UUID.randomUUID().toString()
+            val key = "soubor_oznameni"
+            val stored = block("store_get", null, "key" to richText(key))
+            val picked = block(cz.natsu.automation.engine.FileBlocks.PICK, null, "name" to richText("oznameni"))
+            fun value(name: String, ref: VarRef) = listOf(Segment.Text("$name="), Segment.Var(ref), Segment.Text("\n"))
+            Built(
+                listOf(
+                    stored,
+                    block("if", group, "left" to richVar(VarRef.BlockOutput(stored.id)), "op" to ParamValue.Choice("empty")),
+                    picked,
+                    block("store_set", null, "key" to richText(key), "value" to richVar(VarRef.BlockOutput(picked.id))),
+                    block("toast", null, "text" to richText(tr("Soubor je vybraný, oznámení se do něj budou zapisovat"))),
+                    // Started by hand later on there is no notification to write.
+                    block("else_if", group, "left" to richVar(VarRef.Event("notif_package")), "op" to ParamValue.Choice("not_empty")),
+                    block(
+                        "add_record", null,
+                        "file" to richVar(VarRef.BlockOutput(stored.id)),
+                        "values" to ParamValue.Rich(
+                            value("cas", VarRef.CurrentDate) + value("aplikace", VarRef.Event("notif_app")) +
+                                value("nadpis", VarRef.Event("notif_title")) + value("text", VarRef.Event("notif_text"))
+                        ),
+                    ),
+                    block("end_if", group),
+                )
+            ) {
+                it.copy(
+                    eventsJson = cz.natsu.automation.data.EventJson.encode(
+                        listOf(cz.natsu.automation.data.EventTrigger(cz.natsu.automation.data.EventType.Notification.key))
+                    )
                 )
             }
         },
