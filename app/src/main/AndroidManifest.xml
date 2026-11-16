@@ -150,6 +150,10 @@
             android:exported="false" />
 
         <receiver
+            android:name=".trigger.NotificationTimerReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".trigger.PlaceReceiver"
             android:exported="false" />
 

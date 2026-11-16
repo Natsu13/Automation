@@ -92,6 +92,15 @@ object EventDispatcher {
         }
     }
 
+    /** Runs [automation] right away, without its launch conditions (a finished countdown of a notification). */
+    fun runNow(context: Context, automation: AutomationEntity, input: String, label: String): Job {
+        val app = context.applicationContext
+        return (app as AutomationApplication).repository.appScope.launch {
+            UsageMeter.countRun(app)
+            run(app, automation, input, EventInfo(label))
+        }
+    }
+
     private suspend fun runIfConditions(context: Context, automation: AutomationEntity, input: String, event: EventInfo) {
         val ok = AutomationRunner.conditionsMet(
             context, automation.conditions, automation.conditionsAny, input, RunTrigger.Event, event

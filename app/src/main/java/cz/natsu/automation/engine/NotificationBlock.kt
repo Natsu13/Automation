@@ -16,6 +16,9 @@ import cz.natsu.automation.R
 import cz.natsu.automation.data.ParamValue
 import cz.natsu.automation.data.VarRef
 import cz.natsu.automation.trigger.NotificationButtonReceiver
+import cz.natsu.automation.trigger.NotificationTimers
+import androidx.compose.material.icons.rounded.HourglassBottom
+import androidx.compose.material.icons.rounded.NotificationsOff
 import cz.natsu.automation.trigger.TriggerActivity
 
 /**
@@ -88,13 +91,55 @@ object NotificationBlock {
         )
     }
 
+    private fun noCountdown(values: Map<String, ParamValue>): Boolean =
+        (values["countdown"] as? ParamValue.Rich)?.segments.isNullOrEmpty()
+
+    /** A named notification is the same one for every block; an unnamed one belongs to its block. */
+    private suspend fun RunContext.idOf(block: cz.natsu.automation.data.Block): Int =
+        text(block, "name").trim().let { if (it.isEmpty()) block.id.hashCode() else NotificationTimers.idOf(it) }
+
+    private suspend fun RunContext.namedId(block: cz.natsu.automation.data.Block): Int =
+        NotificationTimers.idOf(text(block, "name").trim().ifEmpty { throw BlockException(tr("chybí název oznámení")) })
+
+    /** Small companions of the notification: closing it and asking how much of its countdown is left. */
+    val more = listOf(
+        BlockDef(
+            type = "notification_cancel",
+            summary = "Zrušit oznámení {name}",
+            title = "Zrušit oznámení",
+            description = "Zavře oznámení podle jeho názvu (pole Název oznámení v bloku Oznámení s tlačítky) " +
+                    "a zruší jeho odpočet – co mělo po doběhnutí běžet, se nespustí.",
+            category = BlockCategory.Other,
+            icon = Icons.Rounded.NotificationsOff,
+            params = listOf(ParamDef.Text("name", "Název oznámení")),
+        ) { block ->
+            val id = namedId(block)
+            NotificationTimers.clear(context, id)
+            NotificationManagerCompat.from(context).cancel(id)
+            BlockResult.None
+        },
+        BlockDef(
+            type = "notification_remaining",
+            summary = "Zbývající čas odpočtu {name}",
+            title = "Zbývající čas odpočtu",
+            description = "Kolik sekund zbývá odpočtu v oznámení daného názvu (0, když žádný neběží). Hodí se k pozastavení: " +
+                    "zapamatuj si zbytek, ukaž oznámení bez odpočtu a později ho se zbytkem pusť znovu.",
+            category = BlockCategory.Other,
+            icon = Icons.Rounded.HourglassBottom,
+            params = listOf(ParamDef.Text("name", "Název oznámení")),
+            outputName = "Zbývá sekund",
+        ) { block ->
+            BlockResult.Output(NotificationTimers.remaining(context, namedId(block)).toString())
+        },
+    )
+
     val def = BlockDef(
         type = TYPE,
         summary = "Oznámení {title} {text} s tlačítky {b1_label} {b2_label} {b3_label}",
         title = "Oznámení s tlačítky",
         description = "Ukáže oznámení až se třemi tlačítky: zkopírovat text, spustit jinou automatizaci, " +
             "otevřít odkaz nebo sdílet text. Texty se doplní při zobrazení, takže tlačítko zkopíruje to, " +
-            "co automatizace spočítala.",
+            "co automatizace spočítala. Může v něm běžet odpočet a po jeho doběhnutí se spustit automatizace.",
         category = BlockCategory.Other,
         icon = Icons.Rounded.NotificationsActive,
         requirement = Requirement.PostNotifications,
@@ -102,6 +147,20 @@ object NotificationBlock {
             ParamDef.Text("title", "Nadpis", default = "Automatizace"),
             ParamDef.Text("text", "Text", defaultRef = VarRef.Input),
             ParamDef.Toggle("quiet", "Tiché (bez zvuku a vyskočení)", summaryWhenOn = " (tiché)"),
+            ParamDef.Text("name", "Název oznámení", placeholder = "nepovinný – stejný název oznámení nahradí").apply {
+                hiddenInSummaryWhen = { true }
+            },
+            ParamDef.Text("countdown", "Odpočet", placeholder = "bez odpočtu; sekundy nebo 1:30").apply {
+                hiddenInSummaryWhen = { true }
+            },
+            ParamDef.Automation("end_automation", "Po doběhnutí spustit").apply {
+                hiddenWhen = ::noCountdown
+                hiddenInSummaryWhen = { true }
+            },
+            ParamDef.Text("end_input", "Vstup pro automatizaci", placeholder = "nic").apply {
+                hiddenWhen = ::noCountdown
+                hiddenInSummaryWhen = { true }
+            },
         ) + (1..BUTTONS).flatMap(::buttonParams),
     ) { block ->
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
@@ -109,13 +168,22 @@ object NotificationBlock {
         }
         val quiet = bool(block, "quiet")
         ensureChannels(context)
-        // One notification per block: running the automation again replaces it.
-        val id = block.id.hashCode()
+        // One notification per block (or per name): showing it again replaces it.
+        val id = idOf(block)
+        val countdown = text(block, "countdown").trim().takeIf { it.isNotEmpty() }?.let {
+            NotificationTimers.parse(it) ?: throw BlockException(tr("odpočet „%s“ není čas (sekundy nebo 1:30)", it))
+        }?.takeIf { it > 0 }
+        val end = countdown?.let { System.currentTimeMillis() + it * 1000 }
         val builder = NotificationCompat.Builder(context, if (quiet) CHANNEL_QUIET else CHANNEL_LOUD)
             .setSmallIcon(R.drawable.ic_tile)
             .setContentTitle(text(block, "title").ifBlank { "Automatizace" })
             .setAutoCancel(true)
             .setPriority(if (quiet) NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_HIGH)
+        if (end != null) {
+            // Android draws the running time itself; nothing has to keep updating the notification.
+            builder.setUsesChronometer(true).setChronometerCountDown(true).setWhen(end).setShowWhen(true)
+                .setOnlyAlertOnce(true)
+        }
         val body = text(block, "text")
         if (body.isNotBlank()) {
             builder.setContentText(body).setStyle(NotificationCompat.BigTextStyle().bigText(body))
@@ -166,6 +234,13 @@ object NotificationBlock {
 
         @Suppress("MissingPermission")
         NotificationManagerCompat.from(context).notify(id, builder.build())
+        if (end != null) {
+            NotificationTimers.set(
+                context, id, end, choice(block, "end_automation").toLongOrNull(), text(block, "end_input")
+            )
+        } else {
+            NotificationTimers.clear(context, id)
+        }
         BlockResult.None
     }
 
