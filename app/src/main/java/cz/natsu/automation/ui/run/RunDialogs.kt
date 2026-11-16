@@ -83,6 +83,10 @@ class DialogRunUi : RunUi {
         data class Photo(val answer: CompletableDeferred<String?>) : Request {
             override val title: String get() = tr("Vyfotit")
         }
+
+        data class Tag(val message: android.nfc.NdefMessage, val answer: CompletableDeferred<String?>) : Request {
+            override val title: String get() = tr("Zápis na NFC štítek")
+        }
     }
 
     var request by mutableStateOf<Request?>(null)
@@ -131,6 +135,77 @@ class DialogRunUi : RunUi {
         val answer = CompletableDeferred<String?>()
         return show(Request.Photo(answer), answer)
     }
+
+    override suspend fun writeTag(message: android.nfc.NdefMessage): String? {
+        val answer = CompletableDeferred<String?>()
+        return show(Request.Tag(message, answer), answer)
+    }
+}
+
+/**
+ * Waits for a tag: while the dialog is open the phone gives every tag to this window
+ * (no other app opens) and the first one gets the message written.
+ */
+@Composable
+private fun WriteTag(request: DialogRunUi.Request.Tag) {
+    val context = LocalContext.current
+    val activity = remember(context) {
+        generateSequence(context) { (it as? android.content.ContextWrapper)?.baseContext }
+            .filterIsInstance<android.app.Activity>().firstOrNull()
+    }
+    val adapter = remember { android.nfc.NfcAdapter.getDefaultAdapter(context) }
+    var error by remember(request) { mutableStateOf<String?>(null) }
+    val ready = activity != null && adapter?.isEnabled == true
+    androidx.compose.runtime.DisposableEffect(request) {
+        if (ready) {
+            try {
+                adapter!!.enableReaderMode(
+                    activity,
+                    { tag ->
+                        try {
+                            request.answer.complete(cz.natsu.automation.engine.NfcTags.write(tag, request.message))
+                        } catch (e: Exception) {
+                            error = cz.natsu.automation.engine.NfcTags.reason(e)
+                        }
+                    },
+                    android.nfc.NfcAdapter.FLAG_READER_NFC_A or android.nfc.NfcAdapter.FLAG_READER_NFC_B or
+                            android.nfc.NfcAdapter.FLAG_READER_NFC_F or android.nfc.NfcAdapter.FLAG_READER_NFC_V,
+                    null,
+                )
+            } catch (e: Exception) {
+                error = cz.natsu.automation.engine.NfcTags.reason(e)
+            }
+        }
+        onDispose {
+            try {
+                if (ready) adapter!!.disableReaderMode(activity)
+            } catch (_: Exception) {
+            }
+        }
+    }
+    AlertDialog(
+        onDismissRequest = { request.answer.complete(null) },
+        title = { Text(request.title) },
+        text = {
+            Column {
+                Text(
+                    when {
+                        adapter == null -> tr("Tenhle telefon NFC nemá.")
+                        !ready -> tr("NFC je vypnuté – zapni ho v nastavení telefonu.")
+                        else -> tr("Přilož štítek k zadní straně telefonu a chvíli ho tam drž.")
+                    }
+                )
+                error?.let {
+                    Text(
+                        tr("Nepovedlo se: %s. Zkus štítek přiložit znovu.", it),
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { request.answer.complete(null) }) { Text(tr("Zrušit")) } },
+    )
 }
 
 /** Renders the dialog the running automation is currently waiting for. */
@@ -145,6 +220,7 @@ fun RunDialogs(ui: DialogRunUi) {
         is DialogRunUi.Request.Images -> ImagesDialog(request)
         is DialogRunUi.Request.Dictate -> Dictate(request)
         is DialogRunUi.Request.Photo -> TakePhoto(request)
+        is DialogRunUi.Request.Tag -> WriteTag(request)
     }
 }
 

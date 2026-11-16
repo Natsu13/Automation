@@ -8,6 +8,7 @@ import android.widget.Toast
 import cz.natsu.automation.AutomationApplication
 import cz.natsu.automation.data.AutomationEntity
 import cz.natsu.automation.data.Block
+import cz.natsu.automation.data.EventLog
 import cz.natsu.automation.data.EventTrigger
 import cz.natsu.automation.data.EventType
 import cz.natsu.automation.data.ParamValue
@@ -59,6 +60,7 @@ object EventDispatcher {
             val event = EventInfo(type.title, values)
             val input = inputOf(type, values)
             val candidates = repository.withEvent(type).filter { (_, events) -> events.any(matches) }
+            EventLog.came(app, type.title, values, candidates.size)
             if (candidates.isEmpty()) return@launch
             UsageMeter.countEvent(app)
             // Each automation runs on its own: a slow one (waiting, network) must not
@@ -84,6 +86,7 @@ object EventDispatcher {
         val repository = (app as AutomationApplication).repository
         return repository.appScope.launch {
             UsageMeter.countEvent(app)
+            EventLog.came(app, type.title, emptyMap(), 1)
             runIfConditions(app, automation, "", EventInfo(type.title))
             UsageMeter.sample(app)
         }
@@ -93,6 +96,7 @@ object EventDispatcher {
         val ok = AutomationRunner.conditionsMet(
             context, automation.conditions, automation.conditionsAny, input, RunTrigger.Event, event
         )
+        EventLog.decided(context, event.label, automation.name, ok)
         if (!ok) return
         UsageMeter.countRun(context)
         run(context, automation, input, event)

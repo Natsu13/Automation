@@ -17,6 +17,8 @@ interface RunUi {
     suspend fun dictate(prompt: String, language: String): String? = null
     /** Opens the camera; returns the file:// address of the photo taken. */
     suspend fun takePhoto(): String? = null
+    /** Waits for an NFC tag held to the phone and writes [message] on it; returns the tag's ID. */
+    suspend fun writeTag(message: android.nfc.NdefMessage): String? = null
 }
 
 /** Thrown when the user cancels a dialog: the run stops quietly, without an error. */

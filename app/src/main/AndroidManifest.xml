@@ -170,19 +170,37 @@
             </intent-filter>
         </receiver>
 
-        <!-- A scanned NFC tag; switched on only while an automation reacts to tags. -->
+        <!-- A scanned NFC tag. Tags come through one of the two aliases below, switched on only
+             while an automation reacts to tags (MoreEvents.sync). -->
         <activity
             android:name=".trigger.NfcActivity"
-            android:enabled="false"
             android:excludeFromRecents="true"
-            android:exported="true"
+            android:exported="false"
             android:noHistory="true"
             android:taskAffinity=""
-            android:theme="@android:style/Theme.NoDisplay">
+            android:theme="@android:style/Theme.NoDisplay" />
+
+        <!-- Android 16 and older. -->
+        <activity-alias
+            android:name=".trigger.NfcTag"
+            android:enabled="false"
+            android:exported="true"
+            android:targetActivity=".trigger.NfcActivity">
             <intent-filter>
                 <action android:name="android.nfc.action.NDEF_DISCOVERED" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="text/plain" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <!-- Tags with a link; without this filter they go only to the browser. -->
+            <intent-filter>
+                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+                <data android:scheme="tel" />
+                <data android:scheme="sms" />
+                <data android:scheme="mailto" />
+                <data android:scheme="geo" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.nfc.action.TECH_DISCOVERED" />
@@ -194,7 +212,43 @@
             <meta-data
                 android:name="android.nfc.action.TECH_DISCOVERED"
                 android:resource="@xml/nfc_tech" />
-        </activity>
+        </activity-alias>
+
+        <!-- Android 17+: an app built for it gets tags only through a screen that nothing but the
+             phone's NFC may open (the DISPATCH_NFC_MESSAGE permission); without it tags are not delivered. -->
+        <activity-alias
+            android:name=".trigger.NfcTagGuarded"
+            android:enabled="false"
+            android:exported="true"
+            android:permission="android.permission.DISPATCH_NFC_MESSAGE"
+            android:targetActivity=".trigger.NfcActivity">
+            <intent-filter>
+                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <!-- Tags with a link; without this filter they go only to the browser. -->
+            <intent-filter>
+                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+                <data android:scheme="tel" />
+                <data android:scheme="sms" />
+                <data android:scheme="mailto" />
+                <data android:scheme="geo" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.nfc.action.TECH_DISCOVERED" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.nfc.action.TAG_DISCOVERED" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.nfc.action.TECH_DISCOVERED"
+                android:resource="@xml/nfc_tech" />
+        </activity-alias>
 
         <!-- "Otevření aplikace": tells which app came to the screen; switched on by the user. -->
         <service

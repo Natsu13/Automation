@@ -165,7 +165,7 @@ fun VariablePickerSheet(
     /** Closes the sheet and lets the user tap the step whose output is wanted; null = no step has an output. */
     onPickFromSteps: (() -> Unit)? = null,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Text(
             tr("Vložit proměnnou"),
             style = MaterialTheme.typography.titleLarge,
@@ -218,7 +218,7 @@ fun AutomationSettingsSheet(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(
             Modifier
                 .verticalScroll(rememberScrollState())
@@ -426,7 +426,7 @@ fun RunSheet(
     val needsInput = remember(viewModel.blocks.toList()) { viewModel.usesInput() }
     val result = viewModel.lastResult
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(
             Modifier
                 .padding(horizontal = 16.dp)
