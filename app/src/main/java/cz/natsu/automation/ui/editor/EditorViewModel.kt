@@ -350,7 +350,8 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         }
         if (blocks.any { it.type == "run_automation" }) add(tr("Spouští jiné tvoje automatizace"))
         if (blocks.any { it.type == "script" }) add(tr("Obsahuje skript – přečti si ho"))
-        if (isEmpty()) add(tr("Nespouští se sama, nepoužívá tajné hodnoty a nic neposílá na internet."))
+        // Only when there is nothing to say at all: the dialog lists the secrets itself, below these lines.
+        if (isEmpty() && secretsUsed().isEmpty()) add(tr("Nespouští se sama, nepoužívá tajné hodnoty a nic neposílá na internet."))
     }
 
     /** The user checked the imported automation and allows it to run. */
