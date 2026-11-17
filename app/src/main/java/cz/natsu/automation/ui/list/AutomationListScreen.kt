@@ -510,7 +510,13 @@ private fun ExamplesDialog(
  * from the guide on the web editor's site (with "# @name", "# @event", … lines in front).
  */
 @Composable
-private fun PasteScriptDialog(onDismiss: () -> Unit, onImport: (String) -> Unit) {
+internal fun PasteScriptDialog(
+    onDismiss: () -> Unit,
+    onImport: (String) -> Unit,
+    title: String = tr("Vložit skript"),
+    hint: String = tr("Automatizace zapsaná jako skript – z „Zobrazit jako skript“, nebo od AI podle návodu na natsu13.github.io/Automation/ai-guide.md. Řádky # @ nastaví název a spuštění."),
+    confirm: String = tr("Importovat"),
+) {
     val context = LocalContext.current
     var text by remember {
         // A copied script is offered right away; anything else stays out of the field.
@@ -520,11 +526,11 @@ private fun PasteScriptDialog(onDismiss: () -> Unit, onImport: (String) -> Unit)
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(tr("Vložit skript")) },
+        title = { Text(title) },
         text = {
             Column {
                 Text(
-                    tr("Automatizace zapsaná jako skript – z „Zobrazit jako skript“, nebo od AI podle návodu na natsu13.github.io/Automation/ai-guide.md. Řádky # @ nastaví název a spuštění."),
+                    hint,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -539,7 +545,7 @@ private fun PasteScriptDialog(onDismiss: () -> Unit, onImport: (String) -> Unit)
             }
         },
         confirmButton = {
-            TextButton(onClick = { onImport(text) }, enabled = text.isNotBlank()) { Text(tr("Importovat")) }
+            TextButton(onClick = { onImport(text) }, enabled = text.isNotBlank()) { Text(confirm) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Zrušit")) } },
     )

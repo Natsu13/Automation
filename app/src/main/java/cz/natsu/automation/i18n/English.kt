@@ -1731,8 +1731,30 @@ object English {
             "Imported automation – it does not run yet. Go through the steps and tap here to allow it.",
         "Uložené kroky jsou poškozené nebo z novější verze aplikace. Nic se nepřepíše – data zůstávají uložená a po aktualizaci aplikace se můžou znovu načíst." to
             "The stored steps are damaged or come from a newer version of the app. Nothing is overwritten – the data stays stored and may load again after the app is updated.",
-        "Automatizaci pošleš jako soubor .json (třeba do jiného telefonu). Import ze souboru přidá novou automatizaci, tahle zůstane beze změny." to
-            "You send the automation as a .json file (to another phone, say). Importing a file adds a new automation; this one stays as it is.",
+        "Automatizaci pošleš jako soubor .json (třeba do jiného telefonu). Import jako novou přidá další automatizaci, tahle zůstane beze změny." to
+            "You send the automation as a .json file (to another phone, say). Importing as new adds another automation; this one stays as it is.",
+        "Importovat jako novou" to
+            "Import as new",
+        "Aktualizovat tuhle automatizaci" to
+            "Update this automation",
+        "Nahradí kroky novou verzí ze skriptu (třeba od AI) nebo ze souboru. Historie běhů, uložené hodnoty a dlaždice zůstanou. Spuštění, název a ikonu změní, jen když je skript nastavuje (řádky # @); Zpět vrátí předchozí verzi." to
+            "Replaces the steps with a new version from a script (from an AI model, say) or a file. Run history, stored values and the tile stay. How it starts, its name and icon change only when the script sets them (# @ lines); Undo brings the previous version back.",
+        "Aktualizovat ze skriptu" to
+            "Update from a script",
+        "Vlož novou verzi této automatizace jako skript. Kroky se nahradí, historie a uložené hodnoty zůstanou." to
+            "Paste the new version of this automation as a script. The steps are replaced; history and stored values stay.",
+        "Aktualizovat" to
+            "Update",
+        "Ze skriptu" to
+            "From a script",
+        "Ze souboru" to
+            "From a file",
+        "Automatizace aktualizována – historie běhů a uložené hodnoty zůstaly. Zpět vrátí předchozí verzi." to
+            "Automation updated – run history and stored values stayed. Undo brings the previous version back.",
+        "Soubor obsahuje víc automatizací – do téhle jde nahrát jen jedna." to
+            "The file holds several automations – only one can go into this one.",
+        "Teď to nejde – počkej, až doběhne." to
+            "Not now – wait until it finishes.",
         "Hotovo" to
             "Done",
         "Zrušeno" to
