@@ -115,6 +115,19 @@
     time: ["Čas", "Time"], percent: ["Hranice", "Level"], minutes: ["Každých (min)", "Every (min)"], radius: ["Okruh (m)", "Radius (m)"],
     place: ["Místo (šířka, délka nebo adresa)", "Place (lat, lng or address)"],
     nameInCode: ["Jméno výstupu v kódu", "Name of the output in the code"],
+    ai: ["AI", "AI"],
+    aiCopy: ["Zkopírovat návod pro AI", "Copy the guide for AI"],
+    aiCopyD: ["I se zadáním – vlož do ChatGPT, Claude…", "With a request – paste into ChatGPT, Claude…"],
+    aiOpen: ["Otevřít návod", "Open the guide"],
+    aiOpenD: ["ai-guide.md – bloky, události, ukázky", "ai-guide.md – blocks, events, examples"],
+    aiImport: ["Vložit skript od AI", "Paste a script from AI"],
+    aiImportD: ["Odpověď AI přes Import", "The AI's answer through Import"],
+    aiCopied: ["Návod zkopírován – vlož ho do AI a dopiš, co má automatizace dělat", "Guide copied – paste it into the AI and say what the automation should do"],
+    aiFail: ["Návod se nepodařilo načíst (stránka otevřená ze souboru?) – otevři ho a zkopíruj ručně", "Could not load the guide (page opened from a file?) – open it and copy it by hand"],
+    aiPrompt: [
+      "Níže je návod k Android aplikaci Automation. Podle něj mi napiš automatizaci, která: <POPIŠ, CO MÁ DĚLAT>.\nOdpověz skriptem v jednom bloku kódu (začni hlavičkou # @name), pak mi krátce napiš, jak ho dostanu do telefonu a co musím povolit. Odpovídej česky.\n\n---\n\n",
+      "Below is the guide to the Automation Android app. Following it, write me an automation that: <DESCRIBE WHAT IT SHOULD DO>.\nAnswer with the script in one code block (start with the # @name header), then briefly tell me how to get it into the phone and what to allow.\n\n---\n\n",
+    ],
     currentDate: ["Aktuální datum", "Current date"],
     inputD: ["Text, se kterým byla akce spuštěna (označený, sdílený nebo zkopírovaný)", "The text the action was started with (selected, shared or copied)"],
     triggerD: ["Jak byla automatizace spuštěna", "How the automation was started"],
@@ -468,7 +481,7 @@
       out.push(text.slice(last, m.index));
       last = m.index + m[0].length;
       const p = def.params.find((x) => x.key === m[1]);
-      if (!p || M.isParamHidden(def, p, block.params) || p.noSummary) continue;
+      if (!p || M.isParamHidden(def, p, block.params) || M.isParamHidden(def, { hidden: p.noSummary }, block.params)) continue;
       const v = values[p.key];
       if (!v) continue;
       if (v.type === "rich") {
@@ -1193,6 +1206,7 @@
       // The blocks the text was written from fill in what the text does not show (hidden settings, ids).
       const parsed = Script.parse(text, { blocks: prev.blocks });
       prev.blocks = parsed.blocks;
+      applyMeta(prev, parsed.meta);
       showStatus(parsed.blocks);
       commitSoon();
       renderSidebar();
@@ -1203,7 +1217,7 @@
       h("div", { class: "code-toolbar" }, status, h("div", { class: "spacer" }),
         h("button", { class: "btn ghost small", onclick: () => { navigator.clipboard.writeText(ed.ta.value); toast(t("copied")); } }, icon("content_copy", "small"), t("copy")),
         h("button", { class: "btn ghost small", onclick: () => { commit(); renderMain(); } }, icon("format_align_left", "small"), t("format")),
-        h("button", { class: "btn ghost small", onclick: () => downloadText(fileBase(a) + ".txt", ed.ta.value, "text/plain") }, icon("download", "small"), ".txt")),
+        h("button", { class: "btn ghost small", onclick: () => downloadText(fileBase(a) + ".txt", Script.header(cur()) + "\n\n" + ed.ta.value, "text/plain") }, icon("download", "small"), ".txt")),
       ed.area);
     return h("div", null, shell, h("div", { class: "code-help", html: t("codeHelp") }));
   }
@@ -1313,13 +1327,30 @@
     downloadText(name, M.exportFile(automations));
   }
 
+  /** The guide for AI assistants (web/ai-guide.md, generated from the app) and the way back in. */
+  function aiMenu(anchor) {
+    popover(anchor, [
+      popItem("content_copy", t("aiCopy"), t("aiCopyD"), async () => {
+        try {
+          const response = await fetch("ai-guide.md", { cache: "no-cache" });
+          if (!response.ok) throw new Error(response.status);
+          await navigator.clipboard.writeText(t("aiPrompt") + (await response.text()));
+          toast(t("aiCopied"));
+        } catch (e) { toast(t("aiFail"), "err"); }
+      }),
+      popItem("menu_book", t("aiOpen"), t("aiOpenD"), () => window.open("ai-guide.md", "_blank", "noopener")),
+      h("div", { class: "pop-sep" }),
+      popItem("upload_file", t("aiImport"), t("aiImportD"), importDialog),
+    ]);
+  }
+
   function exportMenu(anchor) {
     popover(anchor, [
       popItem("description", t("exportThis"), t("exportThisD"), () => download([cur()])),
       popItem("folder_zip", t("exportAll"), t("exportAllD") + " (" + S.automations.length + ")", () => download(S.automations)),
       h("div", { class: "pop-sep" }),
       popItem("content_copy", t("exportCopy"), null, () => { navigator.clipboard.writeText(M.exportFile([cur()])); toast(t("copied")); }),
-      popItem("code", t("exportCode"), ".txt", () => downloadText(fileBase(cur()) + ".txt", Script.write(cur().blocks, S.lang), "text/plain")),
+      popItem("code", t("exportCode"), ".txt", () => downloadText(fileBase(cur()) + ".txt", Script.header(cur()) + "\n\n" + Script.write(cur().blocks, S.lang), "text/plain")),
     ]);
   }
 
@@ -1343,9 +1374,22 @@
       try { return M.importText(text); } catch (e) { throw new Error(e.message === "format" ? t("importFormat") : t("importFail")); }
     }
     // A script copied from the app ("Zobrazit jako skript").
-    const blocks = Script.parse(text).blocks;
-    if (!blocks.length) throw new Error(t("importFail"));
-    return [M.normalizeAutomation({ name: "Import", blocks })];
+    const parsed = Script.parse(text);
+    if (!parsed.blocks.length) throw new Error(t("importFail"));
+    const a = M.normalizeAutomation({ name: "Import", blocks: parsed.blocks });
+    applyMeta(a, parsed.meta);
+    return [a];
+  }
+
+  /** Settings from the "# @name / @triggers / @event / @condition" lines in front of a script. */
+  function applyMeta(a, meta) {
+    if (!meta) return;
+    if (meta.name != null) a.name = meta.name;
+    if (meta.icon) a.icon = meta.icon;
+    if (meta.triggers) for (const f of ["triggerProcessText", "triggerShare", "triggerTile", "triggerClipboard"]) a[f] = !!meta.triggers[f];
+    if (meta.events) a.events = meta.events;
+    if (meta.conditions) a.conditions = meta.conditions;
+    if (meta.conditionsAny != null) a.conditionsAny = meta.conditionsAny;
   }
 
   async function importFiles(files) {
@@ -1417,6 +1461,7 @@
     $("#btn-import").onclick = importDialog;
     $("#btn-export").onclick = (e) => exportMenu(e.currentTarget);
     $("#btn-examples").onclick = examplesDialog;
+    $("#btn-ai").onclick = (e) => aiMenu(e.currentTarget);
     $("#btn-undo").onclick = undo;
     $("#btn-redo").onclick = redo;
     $("#btn-lang").onclick = () => { S.lang = S.lang === "cs" ? "en" : "cs"; save(); renderAll(); };

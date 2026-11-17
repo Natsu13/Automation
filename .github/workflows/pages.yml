@@ -1,10 +1,17 @@
 name: Web editor
 
-# Publishes the web editor (the static files in web/) to GitHub Pages.
+# Publishes the web editor (the static files in web/) to GitHub Pages. Before that the block
+# catalog (web/catalog.js) and the guide for AI assistants (web/ai-guide.md) are generated
+# from the app's code, so the site always matches the blocks on master.
 on:
   push:
     branches: [master]
-    paths: ["web/**", ".github/workflows/pages.yml"]
+    paths:
+      - "web/**"
+      - "app/src/main/**"
+      - "app/src/test/java/cz/natsu/automation/WebCatalogExport.kt"
+      - "app/src/test/java/cz/natsu/automation/AiGuideExport.kt"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -19,12 +26,22 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Generate the block catalog and the AI guide
+        run: ./gradlew --no-daemon :app:testDebugUnitTest --tests "*WebCatalogExport*" --tests "*AiGuideExport*"
 
       - uses: actions/configure-pages@v5
 

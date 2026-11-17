@@ -59,10 +59,15 @@ class WebCatalogExport {
      * Kotlin lambda, so it is tried out: the parameters whose change makes a difference
      * are its "controllers", and every combination of their values is recorded.
      */
-    private fun hiddenRule(params: List<ParamDef>, param: ParamDef): JsonElement {
-        if (param.hiddenWhen == null) return JsonNull
+    internal fun hiddenRule(
+        params: List<ParamDef>,
+        param: ParamDef,
+        /** The rule tried out; the parameter's visibility, or e.g. its "left out of the summary" rule. */
+        rule: ((Map<String, ParamValue>) -> Boolean)? = param.hiddenWhen,
+    ): JsonElement {
+        if (rule == null) return JsonNull
         val defaults = params.associate { it.key to it.defaultValue() }
-        fun hidden(values: Map<String, ParamValue>) = try { param.isHidden(values) } catch (e: Exception) { false }
+        fun hidden(values: Map<String, ParamValue>) = try { rule(values) } catch (e: Exception) { false }
         /** Values worth trying: every choice, both toggle states, sample numbers, an empty and a filled-in text. */
         fun domain(p: ParamDef): List<ParamValue> = when (p) {
             is ParamDef.Choice -> p.options.map { ParamValue.Choice(it.value) }
@@ -82,7 +87,7 @@ class WebCatalogExport {
         while (grew) {
             grew = false
             for (p in params) {
-                if (p === param || p in controllers) continue
+                if (p in controllers) continue  // a rule may depend on the parameter itself ("custom" is not summarised)
                 val cs = combos(controllers)
                 if (cs.size > 2000) break
                 val matters = cs.any { combo ->
@@ -93,7 +98,7 @@ class WebCatalogExport {
             }
             // "a or b": from the defaults neither alone changes anything, so pairs are tried too.
             if (!grew && controllers.isEmpty()) {
-                val candidates = params.filter { it !== param && it !is ParamDef.Text && it !is ParamDef.Automation }
+                val candidates = params.filter { it !is ParamDef.Text && it !is ParamDef.Automation }
                 pairs@ for (p in candidates) for (q in candidates) {
                     if (p === q) continue
                     val seen = domain(p).flatMap { a -> domain(q).map { b -> hidden(defaults + (p.key to a) + (q.key to b)) } }
@@ -141,10 +146,8 @@ class WebCatalogExport {
         put("label", t(p.label))
         put("default", valueJson(p.defaultValue()))
         put("hidden", hiddenRule(all, p))
-        val inSummary = p.hiddenInSummaryWhen
-        if (inSummary != null && runCatching { inSummary(all.associate { it.key to it.defaultValue() }) }.getOrDefault(false)) {
-            put("noSummary", true)
-        }
+        // Left out of the one-line summary: a rule like "hidden", tried out the same way.
+        p.hiddenInSummaryWhen?.let { put("noSummary", hiddenRule(all, p, it)) }
         when (p) {
             is ParamDef.Text -> {
                 put("kind", "text")
