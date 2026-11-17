@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Automation Studio</title>
+  <meta name="description" content="Webový editor automatizací pro aplikaci Automation – bloky, kód, import a export.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0..1,0&display=block">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%236d5efc'/%3E%3Cpath d='M13 3 6 13h5l-1 8 7-10h-5z' fill='white'/%3E%3C/svg%3E">
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <button class="icon-btn only-narrow" id="toggle-sidebar" data-i18n-title="automations"><span class="ms">menu</span></button>
+      <div class="brand">
+        <span class="brand-mark"><span class="ms fill">bolt</span></span>
+        <span class="brand-name">Automation <b>Studio</b></span>
+      </div>
+      <div class="top-actions">
+        <button class="btn ghost" id="btn-import"><span class="ms">upload_file</span><span data-i18n="import"></span></button>
+        <div class="menu-wrap">
+          <button class="btn ghost" id="btn-export"><span class="ms">download</span><span data-i18n="export"></span><span class="ms small">expand_more</span></button>
+        </div>
+        <button class="btn ghost" id="btn-examples"><span class="ms">auto_awesome</span><span data-i18n="examples"></span></button>
+      </div>
+      <div class="spacer"></div>
+      <div class="top-actions">
+        <button class="icon-btn" id="btn-undo" data-i18n-title="undo"><span class="ms">undo</span></button>
+        <button class="icon-btn" id="btn-redo" data-i18n-title="redo"><span class="ms">redo</span></button>
+        <span class="divider"></span>
+        <button class="btn ghost compact" id="btn-lang"><span class="ms">translate</span><span id="lang-label">CS</span></button>
+        <button class="icon-btn" id="btn-theme" data-i18n-title="theme"><span class="ms">dark_mode</span></button>
+        <button class="icon-btn only-narrow" id="toggle-library" data-i18n-title="library"><span class="ms">widgets</span></button>
+      </div>
+    </header>
+
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main" id="main"></main>
+    <aside class="library" id="library"></aside>
+    <div class="scrim" id="scrim"></div>
+  </div>
+
+  <input type="file" id="file-input" accept=".json,.txt,application/json,text/plain" multiple hidden>
+  <div id="overlay-root"></div>
+  <div id="toasts"></div>
+
+  <script src="catalog.js"></script>
+  <script src="model.js"></script>
+  <script src="script.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
