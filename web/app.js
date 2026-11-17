@@ -115,6 +115,10 @@
     time: ["Čas", "Time"], percent: ["Hranice", "Level"], minutes: ["Každých (min)", "Every (min)"], radius: ["Okruh (m)", "Radius (m)"],
     place: ["Místo (šířka, délka nebo adresa)", "Place (lat, lng or address)"],
     nameInCode: ["Jméno výstupu v kódu", "Name of the output in the code"],
+    secretsExport: [
+      "Používá tajné hodnoty: %s. Do souboru se neukládají – appka si o ně řekne při povolení (nebo Nastavení → Tajné hodnoty).",
+      "Uses secret values: %s. They are not saved in the file – the app asks for them when you allow it (or Settings → Secret values).",
+    ],
     ai: ["AI", "AI"],
     aiCopy: ["Zkopírovat návod pro AI", "Copy the guide for AI"],
     aiCopyD: ["I se zadáním – vlož do ChatGPT, Claude…", "With a request – paste into ChatGPT, Claude…"],
@@ -248,10 +252,10 @@
   }
 
   // ---------- toasts, popovers, modals ----------
-  function toast(text, kind = "") {
-    const el = h("div", { class: "toast " + kind }, icon(kind === "err" ? "error" : "check_circle", "small"), text);
+  function toast(text, kind = "", ms = 2600) {
+    const el = h("div", { class: "toast " + kind }, icon(kind === "err" ? "error" : kind === "info" ? "key" : "check_circle", "small"), text);
     $("#toasts").append(el);
-    setTimeout(() => el.remove(), 2600);
+    setTimeout(() => el.remove(), ms);
   }
 
   let openPopover = null;
@@ -1325,6 +1329,13 @@
   function download(automations) {
     const name = automations.length === 1 ? fileBase(automations[0]) + ".automation.json" : "automatizace.json";
     downloadText(name, M.exportFile(automations));
+    warnSecrets(automations);
+  }
+
+  /** Secrets are never part of an export: say which ones the phone will ask for. */
+  function warnSecrets(automations) {
+    const names = [...new Set(automations.flatMap((a) => M.collectNames(a).secrets))];
+    if (names.length) toast(t("secretsExport", names.join(", ")), "info", 7000);
   }
 
   /** The guide for AI assistants (web/ai-guide.md, generated from the app) and the way back in. */

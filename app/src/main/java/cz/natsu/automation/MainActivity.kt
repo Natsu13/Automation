@@ -127,8 +127,8 @@ class MainActivity : ComponentActivity() {
         val app = application as AutomationApplication
         lifecycleScope.launch {
             val message = try {
-                val count = AutomationTransfer.import(this@MainActivity, app.repository, uri)
-                AutomationTransfer.importedMessage(count)
+                val imported = AutomationTransfer.import(this@MainActivity, app.repository, uri)
+                AutomationTransfer.importedMessage(imported)
             } catch (e: ImportException) {
                 e.message
             } catch (e: Exception) {

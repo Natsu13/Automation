@@ -106,6 +106,19 @@ class ScriptReaderTest {
     }
 
     @Test
+    fun secretsTheStepsUse() {
+        val read = ScriptReader.read(
+            """
+            # @condition launch_condition({source: "custom", left: secret("home_ssid"), op: "not_empty"})
+            r = http_request({url: "https://api.example.com/?k=" & secret("api_key"), headers: "Authorization: " & secret("token")})
+            toast(secret("api_key"))
+            """.trimIndent()
+        )
+        assertEquals(listOf("api_key", "token"), cz.natsu.automation.data.SecretStore.usedIn(read.blocks))
+        assertEquals(listOf("home_ssid", "api_key", "token"), cz.natsu.automation.data.SecretStore.usedIn(read.conditions + read.blocks))
+    }
+
+    @Test
     fun importAcceptsAScriptFile() {
         val imported = AutomationTransfer.decode("# @name \"Ahoj\"\n# @triggers share\ntoast(\"Ahoj \" & input)")
         assertEquals("Ahoj", imported.single().name)

@@ -36,6 +36,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.ContentPaste
@@ -100,6 +101,20 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
     var showRun by remember { mutableStateOf(false) }
     var showRename by remember { mutableStateOf(false) }
     var showReview by remember { mutableStateOf(false) }
+    // Secrets the steps use that this phone does not have (an imported automation, a deleted secret).
+    var secretsVersion by remember { mutableIntStateOf(0) }
+    var addingSecret by remember { mutableStateOf<String?>(null) }
+    val usedSecrets = viewModel.secretsUsed()
+    val missingSecrets = remember(secretsVersion, usedSecrets) {
+        usedSecrets.filterNot { cz.natsu.automation.data.SecretStore.contains(context, it) }
+    }
+    addingSecret?.let { name ->
+        cz.natsu.automation.ui.settings.AddMissingSecretDialog(
+            name = name,
+            onDismiss = { addingSecret = null },
+            onSaved = { addingSecret = null; secretsVersion++ },
+        )
+    }
     var lostAcknowledged by remember { mutableStateOf(false) }
     var variableTarget by remember { mutableStateOf<Pair<String, RichTextFieldController>?>(null) }
     // Picking a variable by tapping the step that produces it (instead of from the list).
@@ -279,6 +294,21 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                                 tr("Importovaná automatizace – zatím se nespouští. Projdi si kroky a klepnutím sem ji povol."),
                                 Modifier.weight(1f)
                             )
+                        }
+                    }
+                }
+            }
+            if (missingSecrets.isNotEmpty()) {
+                item(key = "missing_secrets") {
+                    Surface(color = MaterialTheme.colorScheme.tertiaryContainer, shape = MaterialTheme.shapes.large) {
+                        Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.Key, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                tr("Chybí tajné hodnoty: %s – bez nich automatizace skončí chybou.", missingSecrets.joinToString(", ")),
+                                Modifier.weight(1f).padding(vertical = 8.dp),
+                            )
+                            androidx.compose.material3.TextButton(onClick = { addingSecret = missingSecrets.first() }) { Text(tr("Doplnit")) }
                         }
                     }
                 }
@@ -529,6 +559,25 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                 ) {
                     Text(tr("Pochází ze souboru. Povol ji, jen když věříš tomu, kdo ji vytvořil, a víš, co dělá:"))
                     for (line in summary) Text(line, style = MaterialTheme.typography.bodyMedium)
+                    if (usedSecrets.isNotEmpty()) {
+                        Text(tr("Používá tvoje tajné hodnoty:"), style = MaterialTheme.typography.bodyMedium)
+                        for (name in usedSecrets) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Rounded.Key, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                                Text(name, Modifier.weight(1f).padding(start = 8.dp), style = MaterialTheme.typography.bodyMedium)
+                                if (name in missingSecrets) {
+                                    androidx.compose.material3.TextButton(onClick = { addingSecret = name }) { Text(tr("Doplnit")) }
+                                } else {
+                                    Text(tr("uložená ✓"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        }
+                        if (missingSecrets.isNotEmpty()) Text(
+                            tr("Bez chybějících hodnot automatizace skončí chybou. Do exportu se tajné hodnoty nikdy nedostanou, proto je musíš zadat sám."),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             },
             confirmButton = {

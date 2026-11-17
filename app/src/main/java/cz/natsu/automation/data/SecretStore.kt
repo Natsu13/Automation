@@ -70,6 +70,17 @@ object SecretStore {
     fun remove(context: Context, name: String) {
         prefs(context).edit().remove(PREFIX + name).apply()
     }
+
+    /** Names of the secrets the steps refer to, in the order they first appear. */
+    fun usedIn(blocks: List<Block>): List<String> = blocks.asSequence()
+        .flatMap { it.params.values.asSequence() }
+        .filterIsInstance<ParamValue.Rich>()
+        .flatMap { it.segments.asSequence() }
+        .mapNotNull { ((it as? Segment.Var)?.ref as? VarRef.Secret)?.name }
+        .distinct().toList()
+
+    /** The secrets the steps refer to that are not stored on this phone (an imported automation, a deleted secret). */
+    fun missingIn(context: Context, blocks: List<Block>): List<String> = usedIn(blocks).filterNot { contains(context, it) }
 }
 
 /**

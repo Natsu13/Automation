@@ -204,8 +204,10 @@ class AiGuideExport {
                them in the editor, but saying it up front helps.
             4. **How to start it** – e.g. “select text → menu → *your automation name*”, “Share → Automation”,
                the quick-settings tile, or that it runs by itself on the chosen event.
-            5. If something needs a secret (API key, token): tell the user to add it in the app under
-               **Settings → Secret values** with the name you used in `secret("name")`. Secrets never leave the phone.
+            5. If something needs a secret (API key, token), name it in `secret("name")` and tell the user which
+               value to get (e.g. where to create the API key). Secrets never get into a script or an export: after
+               the import the app says which secrets are missing and asks for them when the user allows the
+               automation (or **Settings → Secret values**).
             """.trimIndent()
         )
         appendLine()

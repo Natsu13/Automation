@@ -296,8 +296,8 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         viewModelScope.launch {
             onDone(
                 try {
-                    val count = cz.natsu.automation.data.AutomationTransfer.import(getApplication(), repository, uri)
-                    cz.natsu.automation.data.AutomationTransfer.importedMessage(count)
+                    val imported = cz.natsu.automation.data.AutomationTransfer.import(getApplication(), repository, uri)
+                    cz.natsu.automation.data.AutomationTransfer.importedMessage(imported)
                 } catch (e: cz.natsu.automation.data.ImportException) {
                     e.message
                 } catch (e: Exception) {
@@ -317,6 +317,9 @@ class EditorViewModel(application: Application, private val automationId: Long) 
 
     // ---------- review of an imported automation ----------
 
+    /** Secrets the steps and launch conditions use, in the order they appear. */
+    fun secretsUsed(): List<String> = cz.natsu.automation.data.SecretStore.usedIn(blocks + conditions)
+
     /** What an imported automation does that the user should know before allowing it. */
     fun reviewSummary(): List<String> = buildList {
         val starts = buildList {
@@ -329,8 +332,7 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         val refs = (blocks + conditions).flatMap { block ->
             block.params.values.filterIsInstance<ParamValue.Rich>().flatMap { it.segments }
         }.filterIsInstance<Segment.Var>().map { it.ref }
-        val secrets = refs.filterIsInstance<VarRef.Secret>().map { it.name }.distinct()
-        if (secrets.isNotEmpty()) add(tr("Používá tvoje tajné hodnoty: %s", secrets.joinToString(", ")))
+        // Secrets are listed by the review dialog itself, each with whether it is stored (secretsUsed).
         if (VarRef.Clipboard in refs || blocks.any { it.type == "get_clipboard" }) add(tr("Čte schránku"))
 
         val addresses = blocks.filter { it.type in setOf("http_request", "web", "open_url") }.map { block ->

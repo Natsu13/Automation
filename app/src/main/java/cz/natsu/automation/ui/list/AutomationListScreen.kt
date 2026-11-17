@@ -121,8 +121,7 @@ class AutomationListViewModel(application: Application) : AndroidViewModel(appli
             onDone(
                 try {
                     val automations = AutomationTransfer.decode(text)
-                    if (automations.isEmpty()) throw ImportException(tr("V souboru nejsou žádné automatizace."))
-                    AutomationTransfer.importedMessage(repository.importAll(automations))
+                    AutomationTransfer.importedMessage(AutomationTransfer.importAll(getApplication(), repository, automations))
                 } catch (e: ImportException) {
                     e.message
                 } catch (e: Exception) {
@@ -136,8 +135,8 @@ class AutomationListViewModel(application: Application) : AndroidViewModel(appli
         viewModelScope.launch {
             onDone(
                 try {
-                    val count = AutomationTransfer.import(getApplication(), repository, uri)
-                    AutomationTransfer.importedMessage(count)
+                    val imported = AutomationTransfer.import(getApplication(), repository, uri)
+                    AutomationTransfer.importedMessage(imported)
                 } catch (e: ImportException) {
                     e.message
                 } catch (e: Exception) {
