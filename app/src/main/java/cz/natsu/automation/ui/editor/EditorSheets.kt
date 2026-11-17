@@ -329,7 +329,7 @@ fun AutomationSettingsSheet(
             Spacer(Modifier.height(20.dp))
             Text(tr("Export a import"), style = MaterialTheme.typography.titleMedium)
             Text(
-                tr("Automatizaci pošleš jako soubor .json (třeba do jiného telefonu). Import ze souboru přidá novou automatizaci, tahle zůstane beze změny."),
+                tr("Automatizaci pošleš jako soubor .json (třeba do jiného telefonu). Import jako novou přidá další automatizaci, tahle zůstane beze změny."),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
@@ -354,7 +354,43 @@ fun AutomationSettingsSheet(
                 FilledTonalButton(onClick = { importLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/*")) }) {
                     Icon(Icons.Rounded.FileOpen, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text(tr("Importovat"))
+                    Text(tr("Importovat jako novou"))
+                }
+            }
+
+            // Updating this automation keeps its id, so its run history, stored values, tile and shortcuts stay.
+            Spacer(Modifier.height(16.dp))
+            Text(tr("Aktualizovat tuhle automatizaci"), style = MaterialTheme.typography.titleSmall)
+            Text(
+                tr("Nahradí kroky novou verzí ze skriptu (třeba od AI) nebo ze souboru. Historie běhů, uložené hodnoty a dlaždice zůstanou. Spuštění, název a ikonu změní, jen když je skript nastavuje (řádky # @); Zpět vrátí předchozí verzi."),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+            )
+            val showUpdated: (String) -> Unit = { message -> Toast.makeText(context, message, Toast.LENGTH_LONG).show() }
+            val updateLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                if (uri != null) viewModel.updateFromFile(uri, showUpdated)
+            }
+            var pasteUpdate by remember { mutableStateOf(false) }
+            if (pasteUpdate) {
+                cz.natsu.automation.ui.list.PasteScriptDialog(
+                    onDismiss = { pasteUpdate = false },
+                    onImport = { text -> pasteUpdate = false; viewModel.updateFromText(text, showUpdated) },
+                    title = tr("Aktualizovat ze skriptu"),
+                    hint = tr("Vlož novou verzi této automatizace jako skript. Kroky se nahradí, historie a uložené hodnoty zůstanou."),
+                    confirm = tr("Aktualizovat"),
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { pasteUpdate = true }) {
+                    Icon(Icons.Rounded.TextFields, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(tr("Ze skriptu"))
+                }
+                OutlinedButton(onClick = { updateLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/*")) }) {
+                    Icon(Icons.Rounded.FileOpen, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(tr("Ze souboru"))
                 }
             }
         }

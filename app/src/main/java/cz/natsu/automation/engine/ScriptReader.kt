@@ -66,8 +66,23 @@ object ScriptWords {
  * The web editor has the same reader (web/script.js).
  */
 class ScriptReader private constructor(private val text: String) {
+    /** Which settings a script's "# @" header sets; the rest of an automation it updates stays as it is. */
+    data class Header(val name: Boolean, val icon: Boolean, val start: Boolean) {
+        companion object { val ALL = Header(name = true, icon = true, start = true) }
+    }
+
     companion object {
         fun read(text: String, fallbackName: String = "Import"): ExportedAutomation = ScriptReader(text).read(fallbackName)
+
+        /** Which settings a script's "# @" lines set. */
+        fun headerOf(text: String): Header {
+            val words = Regex("^\\s*#\\s*@(\\w+)", RegexOption.MULTILINE).findAll(text).map { it.groupValues[1] }.toSet()
+            return Header(
+                name = "name" in words,
+                icon = "icon" in words,
+                start = words.any { it in setOf("triggers", "event", "condition", "conditions") },
+            )
+        }
 
         /** Whether a text looks like a script rather than an export file. */
         fun looksLikeScript(text: String): Boolean {

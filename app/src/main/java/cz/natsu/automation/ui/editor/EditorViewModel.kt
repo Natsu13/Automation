@@ -12,6 +12,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import cz.natsu.automation.AutomationApplication
 import cz.natsu.automation.data.AutomationEntity
+import cz.natsu.automation.data.AutomationTransfer
+import cz.natsu.automation.data.ImportException
 import cz.natsu.automation.data.Block
 import cz.natsu.automation.data.BlockJson
 import cz.natsu.automation.data.EventType
@@ -307,6 +309,70 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         }
     }
 
+    /**
+     * Updates this automation from a script or an export file instead of adding a new one, so its
+     * run history, stored values, tile and shortcuts stay. The steps are replaced; the name, icon and
+     * how it starts only when the text sets them (a script's "# @" lines; an export file sets all).
+     * One step in the editor's history, so Undo brings the previous version back.
+     */
+    fun updateFromText(text: String, onDone: (String) -> Unit) {
+        viewModelScope.launch {
+            onDone(
+                try {
+                    if (running || unreadable || foldedGroup != null) throw ImportException(tr("Teď to nejde – počkej, až doběhne."))
+                    val automation = AutomationTransfer.decode(text).let {
+                        it.singleOrNull() ?: throw ImportException(tr("Soubor obsahuje víc automatizací – do téhle jde nahrát jen jedna."))
+                    }
+                    if (automation.blocks.isEmpty()) throw ImportException(tr("Ve skriptu nejsou žádné kroky."))
+                    val header = if (cz.natsu.automation.engine.ScriptReader.looksLikeScript(text)) {
+                        cz.natsu.automation.engine.ScriptReader.headerOf(text)
+                    } else cz.natsu.automation.engine.ScriptReader.Header.ALL
+                    replaceWith(automation, header)
+                    val missing = cz.natsu.automation.data.SecretStore.missingIn(getApplication(), blocks + conditions)
+                    tr("Automatizace aktualizována – historie běhů a uložené hodnoty zůstaly. Zpět vrátí předchozí verzi.") +
+                        if (missing.isEmpty()) "" else "\n" + tr("Chybí tajné hodnoty: %s – bez nich automatizace skončí chybou.", missing.joinToString(", "))
+                } catch (e: ImportException) {
+                    e.message ?: tr("Import se nepodařil: %s", "")
+                } catch (e: Exception) {
+                    tr("Import se nepodařil: %s", e.message)
+                }
+            )
+        }
+    }
+
+    fun updateFromFile(uri: android.net.Uri, onDone: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                updateFromText(AutomationTransfer.readText(getApplication(), uri), onDone)
+            } catch (e: ImportException) {
+                onDone(e.message ?: "")
+            } catch (e: Exception) {
+                onDone(tr("Import se nepodařil: %s", e.message))
+            }
+        }
+    }
+
+    private fun replaceWith(automation: cz.natsu.automation.data.ExportedAutomation, header: cz.natsu.automation.engine.ScriptReader.Header) {
+        if (header.name && automation.name.isNotBlank()) name = automation.name
+        if (header.icon) icon = automation.icon
+        if (header.start) {
+            triggerProcessText = automation.triggerProcessText
+            triggerShare = automation.triggerShare
+            triggerTile = automation.triggerTile
+            triggerClipboard = automation.triggerClipboard
+            events.clear()
+            events.addAll(automation.events)
+            conditions.clear()
+            conditions.addAll(automation.conditions)
+            conditionsAny = automation.conditionsAny
+        }
+        blocks.clear()
+        blocks.addAll(automation.blocks)
+        expandedIds.clear()
+        lastMergeKey = null
+        changed()
+    }
+
     fun saveNow() {
         // Without a pending edit there is nothing new; saving would only rewrite the
         // stored steps (and drop parts that could not be read).
@@ -350,7 +416,8 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         }
         if (blocks.any { it.type == "run_automation" }) add(tr("Spouští jiné tvoje automatizace"))
         if (blocks.any { it.type == "script" }) add(tr("Obsahuje skript – přečti si ho"))
-        if (isEmpty()) add(tr("Nespouští se sama, nepoužívá tajné hodnoty a nic neposílá na internet."))
+        // Only when there is nothing to say at all: the dialog lists the secrets itself, below these lines.
+        if (isEmpty() && secretsUsed().isEmpty()) add(tr("Nespouští se sama, nepoužívá tajné hodnoty a nic neposílá na internet."))
     }
 
     /** The user checked the imported automation and allows it to run. */

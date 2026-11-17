@@ -119,6 +119,16 @@ class ScriptReaderTest {
     }
 
     @Test
+    fun whatTheHeaderSets() {
+        // Updating an automation changes only what the script's header sets.
+        assertEquals(ScriptReader.Header(name = false, icon = false, start = false), ScriptReader.headerOf("toast(input)"))
+        assertEquals(ScriptReader.Header(name = true, icon = false, start = false), ScriptReader.headerOf("# @name \"A\"\ntoast(input)"))
+        assertEquals(ScriptReader.Header(name = false, icon = true, start = true), ScriptReader.headerOf("# @icon star\n  # @event boot\ntoast(input)"))
+        assertTrue(ScriptReader.headerOf("# @triggers share\nx = 1").start)
+        assertTrue(ScriptReader.headerOf("# @condition launch_condition({op: \"not_empty\"})\nx = 1").start)
+    }
+
+    @Test
     fun importAcceptsAScriptFile() {
         val imported = AutomationTransfer.decode("# @name \"Ahoj\"\n# @triggers share\ntoast(\"Ahoj \" & input)")
         assertEquals("Ahoj", imported.single().name)

@@ -143,16 +143,17 @@ object AutomationTransfer {
     }
 
     /** Reads an export file and stores its automations as new ones. Returns how many were added. */
-    suspend fun import(context: Context, repository: AutomationRepository, uri: Uri): Imported {
-        val text = withContext(Dispatchers.IO) {
-            context.contentResolver.openInputStream(uri)?.use { stream ->
-                // An export is small; refuse anything that clearly isn't one.
-                val bytes = stream.readNBytesCompat(5 * 1024 * 1024)
-                    ?: throw ImportException(tr("Soubor je příliš velký."))
-                bytes.toString(Charsets.UTF_8)
-            } ?: throw ImportException(tr("Soubor se nepodařilo otevřít."))
-        }
-        return importAll(context, repository, decode(text))
+    suspend fun import(context: Context, repository: AutomationRepository, uri: Uri): Imported =
+        importAll(context, repository, decode(readText(context, uri)))
+
+    /** The text of an export file or a script file. */
+    suspend fun readText(context: Context, uri: Uri): String = withContext(Dispatchers.IO) {
+        context.contentResolver.openInputStream(uri)?.use { stream ->
+            // An export is small; refuse anything that clearly isn't one.
+            val bytes = stream.readNBytesCompat(5 * 1024 * 1024)
+                ?: throw ImportException(tr("Soubor je příliš velký."))
+            bytes.toString(Charsets.UTF_8)
+        } ?: throw ImportException(tr("Soubor se nepodařilo otevřít."))
     }
 
     private fun java.io.InputStream.readNBytesCompat(limit: Int): ByteArray? {

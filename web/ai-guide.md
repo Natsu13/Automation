@@ -25,6 +25,12 @@ how the automation starts. Answer the user in their language (the app is in Engl
      2. **Export → This automation** downloads a `.automation.json` file; send it to the phone
         (e-mail, cloud, cable…) and in the app use **⋮ → Import from file** (or open the file with the app).
    - Either way the `# @` lines set the name, icon and how the automation starts.
+   - **Updating an automation the user already has** (a fix, a new version): open it in the app →
+     automation settings → **Update this automation → From a script** (or *From a file*). The steps are
+     replaced; run history, stored values and the tile stay, and Undo brings the old version back.
+     The name, icon and start change only when the script has those `# @` lines, so for an update
+     leave them out unless they should change. Ask the user for the current script (*Show as script*)
+     when you need to change an existing automation.
    - An imported automation does not run until the user opens it, checks the steps and taps the banner
      to allow it.
 3. **What to allow on the phone** – list the permissions of the blocks and events you used (see
