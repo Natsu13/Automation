@@ -115,6 +115,23 @@ class AutomationListViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
+    /** Imports pasted text: a script ("Show as script", one from an AI model) or an export file's JSON. */
+    fun importText(text: String, onDone: (String?) -> Unit) {
+        viewModelScope.launch {
+            onDone(
+                try {
+                    val automations = AutomationTransfer.decode(text)
+                    if (automations.isEmpty()) throw ImportException(tr("V souboru nejsou žádné automatizace."))
+                    AutomationTransfer.importedMessage(repository.importAll(automations))
+                } catch (e: ImportException) {
+                    e.message
+                } catch (e: Exception) {
+                    tr("Import se nepodařil: %s", e.message)
+                }
+            )
+        }
+    }
+
     fun import(uri: android.net.Uri, onDone: (String?) -> Unit) {
         viewModelScope.launch {
             onDone(
@@ -146,6 +163,18 @@ fun AutomationListScreen(viewModel: AutomationListViewModel, onOpen: (Long) -> U
                 viewModel.createExamples(chosen) { added ->
                     val message = if (added == 1) tr("Ukázka přidána") else tr("Přidáno ukázek: %s", added)
                     android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+                }
+            },
+        )
+    }
+    var showPasteScript by remember { mutableStateOf(false) }
+    if (showPasteScript) {
+        PasteScriptDialog(
+            onDismiss = { showPasteScript = false },
+            onImport = { text ->
+                showPasteScript = false
+                viewModel.importText(text) { message ->
+                    message?.let { android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show() }
                 }
             },
         )
@@ -197,6 +226,11 @@ fun AutomationListScreen(viewModel: AutomationListViewModel, onOpen: (Long) -> U
                                     menu = false
                                     importLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/*"))
                                 }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(tr("Vložit skript")) },
+                                leadingIcon = { Icon(Icons.Rounded.TextFields, null) },
+                                onClick = { menu = false; showPasteScript = true }
                             )
                             DropdownMenuItem(
                                 text = { Text(tr("Exportovat vše")) },
@@ -467,6 +501,46 @@ private fun ExamplesDialog(
                 onClick = { onCreate(Examples.all.filter { it.name in chosen }) },
                 enabled = chosen.isNotEmpty(),
             ) { Text(if (chosen.isEmpty()) tr("Vytvořit") else tr("Vytvořit (%s)", chosen.size)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Zrušit")) } },
+    )
+}
+
+/**
+ * Pasting an automation written as a script: the text of "Show as script", or one an AI model wrote
+ * from the guide on the web editor's site (with "# @name", "# @event", … lines in front).
+ */
+@Composable
+private fun PasteScriptDialog(onDismiss: () -> Unit, onImport: (String) -> Unit) {
+    val context = LocalContext.current
+    var text by remember {
+        // A copied script is offered right away; anything else stays out of the field.
+        val clip = context.getSystemService(android.content.ClipboardManager::class.java)
+            ?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()
+        mutableStateOf(if (clip.isNotBlank() && cz.natsu.automation.engine.ScriptReader.looksLikeScript(clip)) clip else "")
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(tr("Vložit skript")) },
+        text = {
+            Column {
+                Text(
+                    tr("Automatizace zapsaná jako skript – z „Zobrazit jako skript“, nebo od AI podle návodu na natsu13.github.io/Automation/ai-guide.md. Řádky # @ nastaví název a spuštění."),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(12.dp))
+                androidx.compose.material3.OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 180.dp, max = 360.dp),
+                    textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace),
+                    placeholder = { Text("# @name \"…\"\ntoast(\"Ahoj \" & input)") },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onImport(text) }, enabled = text.isNotBlank()) { Text(tr("Importovat")) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Zrušit")) } },
     )

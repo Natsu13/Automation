@@ -16,16 +16,17 @@ how the automation starts. Answer the user in their language (the app is in Engl
 1. **The script** in one code block (start it with the `# @name` header). Use only the blocks, parameters,
    values and events listed in this guide.
 2. **How to get it into the phone** – copy these steps for the user:
-   1. Open the web editor https://natsu13.github.io/Automation/
-   2. Click **Import**, paste the script into the text box and click **Import**. The steps appear as blocks;
-      check them (the *Code* tab shows the script again).
-   3. **Export → This automation** downloads a `.automation.json` file. Send it to the phone (e-mail,
-      cloud, cable…).
-   4. In the app: **⋮ → Import from file** (or share / open the `.json` file with the Automation app).
-   5. An imported automation does not run until the user opens it, checks the steps and taps the banner
-      to allow it.
-   - Without the web editor: create a new automation in the app, add the block **Script** and paste the
-     script lines into it (the `# @` lines are comments there; set the start in the automation's settings).
+   - **Straight in the app** (simplest): copy the script, open the Automation app, **⋮ → Paste a script**
+     (the copied script is filled in) → **Import**. A `.txt` file with the script works too:
+     **⋮ → Import from file**.
+   - **Through the web editor** (to look at the blocks or change them on a computer first):
+     1. Open https://natsu13.github.io/Automation/, click **Import**, paste the script and click **Import**. The steps appear as
+        blocks (the *Code* tab shows the script again).
+     2. **Export → This automation** downloads a `.automation.json` file; send it to the phone
+        (e-mail, cloud, cable…) and in the app use **⋮ → Import from file** (or open the file with the app).
+   - Either way the `# @` lines set the name, icon and how the automation starts.
+   - An imported automation does not run until the user opens it, checks the steps and taps the banner
+     to allow it.
 3. **What to allow on the phone** – list the permissions of the blocks and events you used (see
    *Requires* in the reference, e.g. notifications, location, “Do not disturb” access). The app asks for
    them in the editor, but saying it up front helps.

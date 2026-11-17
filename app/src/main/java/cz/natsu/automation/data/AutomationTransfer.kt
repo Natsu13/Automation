@@ -71,9 +71,17 @@ object AutomationTransfer {
         (if (count == 1) "Automatizace importována" else "Importováno automatizací: $count") +
                 " – najdeš ji v seznamu. Než půjde spustit, otevři ji a povol."
 
-    /** Accepts a full export file or a single exported automation. */
+    /**
+     * Accepts a full export file, a single exported automation, or an automation written as a
+     * script ("Show as script", or one an AI model wrote from the guide on the web editor's site).
+     */
     fun decode(text: String): List<ExportedAutomation> {
         val trimmed = text.trim().removePrefix("﻿")
+        if (cz.natsu.automation.engine.ScriptReader.looksLikeScript(trimmed)) {
+            val automation = cz.natsu.automation.engine.ScriptReader.read(trimmed, tr("Importovaná automatizace"))
+            if (automation.blocks.isEmpty()) throw ImportException(tr("Ve skriptu nejsou žádné kroky."))
+            return listOf(automation)
+        }
         val file = runCatching { json.decodeFromString(ExportFile.serializer(), trimmed) }.getOrNull()
         if (file != null) {
             if (file.format != FORMAT) throw ImportException(tr("Soubor není export z Automatizací."))

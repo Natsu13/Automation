@@ -211,6 +211,14 @@ object English {
             "More options",
         "Importovat ze souboru" to
             "Import from file",
+        "Vložit skript" to
+            "Paste a script",
+        "Automatizace zapsaná jako skript – z „Zobrazit jako skript“, nebo od AI podle návodu na natsu13.github.io/Automation/ai-guide.md. Řádky # @ nastaví název a spuštění." to
+            "An automation written as a script – from “Show as script”, or from an AI model following the guide at natsu13.github.io/Automation/ai-guide.md. The # @ lines set its name and how it starts.",
+        "Importovaná automatizace" to
+            "Imported automation",
+        "Ve skriptu nejsou žádné kroky." to
+            "The script has no steps.",
         "Exportovat vše" to
             "Export all",
         "Nová" to
