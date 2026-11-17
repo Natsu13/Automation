@@ -40,11 +40,39 @@ aplikace (CZ i EN). Zpětné čtení:
 
 Když se změní `ScriptWriter` v aplikaci, je potřeba stejně upravit `script.js`.
 
+## Návod pro AI (`ai-guide.md`)
+
+Návod, podle kterého AI model (ChatGPT, Claude…) napíše automatizaci na přání. Na webu je na
+`…/ai-guide.md`; v editoru tlačítko **AI → Zkopírovat návod pro AI** ho zkopíruje i s připraveným zadáním.
+
+- Jak automatizaci předat uživateli (editor → Import → Export → appka „Importovat ze souboru“),
+  co povolit a jak ji spustit.
+- Formát: skript jako „Zobrazit jako skript“ + hlavička pro spuštění:
+
+  ```
+  # @name "Ranní počasí"
+  # @icon light
+  # @triggers share, process_text, tile, clipboard
+  # @event time_daily(time: "07:15", days: "12345")
+  # @conditions all
+  # @condition launch_condition({source: "wifi_name", op: "equals", right: "Domov"})
+  ```
+
+  V bloku Skript jsou řádky `# @` jen komentáře; editor z nich při importu nastaví spuštění.
+- Reference všech bloků (signatura, parametry, výchozí hodnoty, povolené hodnoty, kdy se parametr
+  používá, co vyžaduje), události, hodnoty událostí, jazyk Skriptu a ukázky z appky napsané jejím
+  vlastním `ScriptWriter`.
+
+Generuje ho `AiGuideExport.kt` (JVM test) spolu s katalogem.
+
 ## Katalog bloků
 
 `catalog.js` se generuje z kódu aplikace (bloky, parametry, výchozí hodnoty, pravidla skrývání parametrů,
 události, ikony, ukázky, nápověda, CZ/EN). Po změně bloků v aplikaci ho přegeneruj:
 
 ```bash
-./gradlew :app:testDebugUnitTest --tests "*WebCatalogExport*"
+./gradlew :app:testDebugUnitTest --tests "*WebCatalogExport*" --tests "*AiGuideExport*"
 ```
+
+Oba soubory se přegenerují i při každém běhu unit testů (`./gradlew test`) a znovu při nasazení
+na GitHub Pages (workflow `pages.yml`), takže web vždy odpovídá blokům v `master`.

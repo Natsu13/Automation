@@ -32,6 +32,8 @@
   const ONLY_BLOCKS = ["try", "catch", "end_try", "parallel", "parallel_branch", "end_parallel", "lock", "end_lock", "time_limit", "end_time_limit"];
   const NOTE = { cs: "ve skriptu jen jako bloky", en: "only as blocks, not in a script" };
   const PARALLEL = { cs: "souběžně", en: "in parallel" };
+  /** Words of "# @triggers" and the automation fields they switch on. */
+  const TRIGGER_FIELDS = { process_text: "triggerProcessText", share: "triggerShare", tile: "triggerTile", clipboard: "triggerClipboard" };
   const CMP = { "==": "equals", "!=": "not_equals", ">": "greater", "<": "less", ">=": "greater_eq", "<=": "less_eq" };
   const CMP_TEXT = { equals: "==", not_equals: "!=", greater: ">", less: "<", greater_eq: ">=", less_eq: "<=" };
 
@@ -296,8 +298,10 @@
     for (const [id, name] of Object.entries(oldNames)) oldByName[name] = oldBlocks.find((b) => b.id === id);
     const usedOld = new Set();
 
+    const meta = {};                // settings from "# @…" lines: name, icon, triggers, events, conditions
     const out = [];                 // {block, explicit: {key: value}, name}
     const names = {};               // output name -> new block
+    const variables = new Set();    // variables set so far (by steps or by script code)
     const stack = [];               // open groups
     let script = null;              // the Skript block being collected
     let comment = null;             // the Poznámka block being collected
@@ -474,6 +478,7 @@
       } else block.groupId = null;
       out.push({ block, name: opts.name });
       if (opts.name) names[opts.name] = { block };
+      if (type === "set_variable") variables.add((plain(params.name) || "").trim());
       return block;
     };
 
@@ -555,6 +560,8 @@
       }
       if (!name) return false;
       const was = oldByName[name]?.type;
+      // "total = total * 0.9" changes an existing variable: only script code does exactly that.
+      if (!was && (names[name] || variables.has(name)) && !richOf(value)) return false;
       // name = calc(…)
       if (value[0]?.v === "calc" && wrapped(value.slice(1))) {
         const exprSrc = src.slice(value[2]?.s ?? value[1].e, value[value.length - 1].s);
@@ -610,11 +617,28 @@
       return { type, params };
     };
 
+    /**
+     * "# Zkusit  (ve skriptu jen jako bloky)". Exact titles first; then, since people and AI models
+     * write "# On error (only as blocks)" or "# End try (…)", by key words in either language.
+     */
     const markerTitle = (body) => {
-      const m = /^(.*?)\s+\((.*)\)$/.exec(body);
-      if (!m || (m[2] !== NOTE.cs && m[2] !== NOTE.en)) return null;
-      return ONLY_BLOCKS.find((t) => [def(t)?.title.cs, def(t)?.title.en].includes(m[1].trim())) || null;
+      const m = /^(.*?)\s*\(([^()]*)\)\s*$/.exec(body);
+      if (!m) return null;
+      const note = fold(m[2]);
+      if (m[2] !== NOTE.cs && m[2] !== NOTE.en && !/blok|block/.test(note)) return null;
+      const exact = ONLY_BLOCKS.find((t) => [def(t)?.title.cs, def(t)?.title.en].includes(m[1].trim()));
+      if (exact) return exact;
+      const t = fold(m[1]);
+      const end = /\b(end|konec|ukonc)/.test(t);
+      if (/(time ?limit|casov|timeout)/.test(t)) return end ? "end_time_limit" : "time_limit";
+      if (/(lock|one at a time|jeden po|zamek)/.test(t)) return end ? "end_lock" : "lock";
+      if (/(branch|vetev|zaroven|at the same time)/.test(t) && !end) return "parallel_branch";
+      if (/(parallel|soubez)/.test(t)) return end ? "end_parallel" : "parallel";
+      if (/(catch|fail|error|except|selz|chyb)/.test(t) && !end) return "catch";
+      if (/(try|zkus)/.test(t)) return end ? "end_try" : "try";
+      return null;
     };
+    const fold = (s) => s.toLowerCase().normalize("NFD").replace(/\p{Mn}+/gu, "").trim();
 
     // A Skript block is written as its code; an unchanged one is recognised and kept whole.
     const refName = (ref) => (ref.type === "output" ? oldNames[ref.blockId] || "nic" : ref.type === "date" ? "date()"
@@ -643,6 +667,9 @@
       const trimmed = raw.trim();
       if (!trimmed) { if (comment) comment = null; return; }
 
+      // "# @name …", "# @event …": the automation's settings (see header()); comments for the Skript block.
+      const directive = /^#\s*@(\w+)\s*(.*)$/.exec(trimmed);
+      if (directive && readDirective(directive[1], directive[2].trim())) { finish(); return; }
       if (trimmed.startsWith("#")) {
         const body = trimmed.replace(/^#\s?/, "");
         const marker = markerTitle(body);
@@ -679,6 +706,8 @@
       comment = null;
       if (lexed && statement(lexed.tokens, trimmed, { indent, disabled: false, note: lexed.comment })) { script = null; return; }
       // Anything else is script code; following lines of code go to the same Skript block.
+      const assigned = /^([\p{L}_][\p{L}\p{N}_]*)\s*[-+*/&]?=(?!=)/u.exec(trimmed);
+      if (assigned) variables.add(assigned[1]);
       const code = raw.slice(Math.min(indent, script ? script.indent : indent));
       if (script) {
         const text = plainCode(script.block) + "\n" + code;
@@ -695,7 +724,43 @@
         : s.ref.type === "date" ? "date()" : s.ref.type === "event" ? `event(${quote(s.ref.key)})`
         : s.ref.type === "secret" ? `secret(${quote(s.ref.name)})` : s.ref.type)).join("");
     }
-    return { blocks: out.map((o) => o.block) };
+    function readDirective(word, rest) {
+      const str = (s) => { try { return JSON.parse(s); } catch (e) { return s.replace(/^"|"$/g, ""); } };
+      switch (word) {
+        case "name": meta.name = str(rest); return true;
+        case "icon": meta.icon = str(rest); return true;
+        case "triggers": {
+          meta.triggers = {};
+          for (const w of rest.split(/[,\s]+/).filter(Boolean)) {
+            const field = TRIGGER_FIELDS[w];
+            if (field) meta.triggers[field] = true;
+          }
+          return true;
+        }
+        case "event": {
+          const m = /^([a-z_]+)\s*(?:\((.*)\))?\s*$/.exec(rest);
+          if (!m || !M.eventDefs.has(m[1])) return false;
+          const params = { ...M.eventDefs.get(m[1]).defaults };
+          for (const [, k, v] of (m[2] || "").matchAll(/(\w+)\s*:\s*("(?:\\.|[^"\\])*"|[^,\s)]+)/g)) params[k] = String(str(v));
+          (meta.events = meta.events || []).push({ type: m[1], params, id: M.uuid() });
+          return true;
+        }
+        case "conditions": meta.conditionsAny = rest === "any"; return rest === "any" || rest === "all";
+        case "condition": {
+          // The same call as in the script: launch_condition({source: "wifi_name", op: "equals", right: "Domov"})
+          const call = /^launch_condition\b/.test(rest) ? rest : "launch_condition(" + rest + ")";
+          const lexed = (() => { try { return lex(call, 0).tokens; } catch (e) { return null; } })();
+          const parsed = lexed && callOf(lexed);
+          if (!parsed || parsed.type !== "launch_condition") return false;
+          const block = M.newBlock("launch_condition");
+          Object.assign(block.params, parsed.params);
+          (meta.conditions = meta.conditions || []).push(block);
+          return true;
+        }
+      }
+      return false;
+    }
+    return { blocks: out.map((o) => o.block), meta };
   }
 
   // ---------- highlighting ----------
@@ -724,5 +789,25 @@
     return out + "\n";
   }
 
-  window.Script = { write, parse, highlight, shownNames, outputNamesOf, ScriptError };
+  /**
+   * The automation's settings as comment lines in front of the script, so one text describes a whole
+   * automation (what an AI model writes, the "download as code" file). The Skript block ignores them.
+   */
+  function header(automation) {
+    const lines = ["# @name " + JSON.stringify(automation.name || "")];
+    if (automation.icon) lines.push("# @icon " + automation.icon);
+    const triggers = Object.entries(TRIGGER_FIELDS).filter(([, f]) => automation[f]).map(([w]) => w);
+    if (triggers.length) lines.push("# @triggers " + triggers.join(", "));
+    for (const e of automation.events || []) {
+      const args = Object.entries(e.params || {}).map(([k, v]) => k + ": " + JSON.stringify(String(v)));
+      lines.push("# @event " + e.type + (args.length ? "(" + args.join(", ") + ")" : ""));
+    }
+    if ((automation.conditions || []).length) {
+      lines.push("# @conditions " + (automation.conditionsAny ? "any" : "all"));
+      for (const c of automation.conditions) lines.push("# @condition " + write([c]).replace(/^# /, ""));
+    }
+    return lines.join("\n");
+  }
+
+  window.Script = { write, parse, header, highlight, shownNames, outputNamesOf, ScriptError };
 })();
