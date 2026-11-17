@@ -211,6 +211,34 @@ object English {
             "More options",
         "Importovat ze souboru" to
             "Import from file",
+        "Vložit skript" to
+            "Paste a script",
+        "Automatizace importována" to
+            "Automation imported",
+        "Importováno automatizací: %s" to
+            "Automations imported: %s",
+        " – najdeš ji v seznamu. Než půjde spustit, otevři ji a povol." to
+            " – it is in the list. Before it can run, open it and allow it.",
+        "Chybí tajné hodnoty: %s – doplníš je při povolení, nebo v Nastavení → Tajné hodnoty." to
+            "Missing secret values: %s – add them when you allow it, or in Settings → Secret values.",
+        "Chybí tajné hodnoty: %s – bez nich automatizace skončí chybou." to
+            "Missing secret values: %s – without them the automation fails.",
+        "Doplnit" to
+            "Add",
+        "Doplnit tajnou hodnotu" to
+            "Add a secret value",
+        "Používá tvoje tajné hodnoty:" to
+            "Uses your secret values:",
+        "uložená ✓" to
+            "stored ✓",
+        "Bez chybějících hodnot automatizace skončí chybou. Do exportu se tajné hodnoty nikdy nedostanou, proto je musíš zadat sám." to
+            "Without the missing values the automation fails. Secret values never get into an export, so you have to enter them yourself.",
+        "Automatizace zapsaná jako skript – z „Zobrazit jako skript“, nebo od AI podle návodu na natsu13.github.io/Automation/ai-guide.md. Řádky # @ nastaví název a spuštění." to
+            "An automation written as a script – from “Show as script”, or from an AI model following the guide at natsu13.github.io/Automation/ai-guide.md. The # @ lines set its name and how it starts.",
+        "Importovaná automatizace" to
+            "Imported automation",
+        "Ve skriptu nejsou žádné kroky." to
+            "The script has no steps.",
         "Exportovat vše" to
             "Export all",
         "Nová" to

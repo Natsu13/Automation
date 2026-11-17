@@ -66,14 +66,39 @@ object AutomationTransfer {
         })
     )
 
-    /** What to tell the user after an import of [count] automations. */
-    fun importedMessage(count: Int): String =
-        (if (count == 1) "Automatizace importována" else "Importováno automatizací: $count") +
-                " – najdeš ji v seznamu. Než půjde spustit, otevři ji a povol."
+    /** How an import went: [missingSecrets] = secrets the automations use that this phone does not have. */
+    class Imported(val count: Int, val missingSecrets: List<String>)
 
-    /** Accepts a full export file or a single exported automation. */
+    /** What to tell the user after an import. */
+    fun importedMessage(imported: Imported): String =
+        (if (imported.count == 1) tr("Automatizace importována") else tr("Importováno automatizací: %s", imported.count)) +
+                tr(" – najdeš ji v seznamu. Než půjde spustit, otevři ji a povol.") +
+                if (imported.missingSecrets.isEmpty()) "" else "\n" + tr(
+                    "Chybí tajné hodnoty: %s – doplníš je při povolení, nebo v Nastavení → Tajné hodnoty.",
+                    imported.missingSecrets.joinToString(", ")
+                )
+
+    /** Stores [automations] as new ones and checks which of their secrets this phone lacks. */
+    suspend fun importAll(context: Context, repository: AutomationRepository, automations: List<ExportedAutomation>): Imported {
+        if (automations.isEmpty()) throw ImportException(tr("V souboru nejsou žádné automatizace."))
+        val count = repository.importAll(automations)
+        val missing = withContext(Dispatchers.IO) {
+            SecretStore.missingIn(context, automations.flatMap { it.blocks + it.conditions })
+        }
+        return Imported(count, missing)
+    }
+
+    /**
+     * Accepts a full export file, a single exported automation, or an automation written as a
+     * script ("Show as script", or one an AI model wrote from the guide on the web editor's site).
+     */
     fun decode(text: String): List<ExportedAutomation> {
         val trimmed = text.trim().removePrefix("﻿")
+        if (cz.natsu.automation.engine.ScriptReader.looksLikeScript(trimmed)) {
+            val automation = cz.natsu.automation.engine.ScriptReader.read(trimmed, tr("Importovaná automatizace"))
+            if (automation.blocks.isEmpty()) throw ImportException(tr("Ve skriptu nejsou žádné kroky."))
+            return listOf(automation)
+        }
         val file = runCatching { json.decodeFromString(ExportFile.serializer(), trimmed) }.getOrNull()
         if (file != null) {
             if (file.format != FORMAT) throw ImportException(tr("Soubor není export z Automatizací."))
@@ -118,7 +143,7 @@ object AutomationTransfer {
     }
 
     /** Reads an export file and stores its automations as new ones. Returns how many were added. */
-    suspend fun import(context: Context, repository: AutomationRepository, uri: Uri): Int {
+    suspend fun import(context: Context, repository: AutomationRepository, uri: Uri): Imported {
         val text = withContext(Dispatchers.IO) {
             context.contentResolver.openInputStream(uri)?.use { stream ->
                 // An export is small; refuse anything that clearly isn't one.
@@ -127,9 +152,7 @@ object AutomationTransfer {
                 bytes.toString(Charsets.UTF_8)
             } ?: throw ImportException(tr("Soubor se nepodařilo otevřít."))
         }
-        val automations = decode(text)
-        if (automations.isEmpty()) throw ImportException(tr("V souboru nejsou žádné automatizace."))
-        return repository.importAll(automations)
+        return importAll(context, repository, decode(text))
     }
 
     private fun java.io.InputStream.readNBytesCompat(limit: Int): ByteArray? {

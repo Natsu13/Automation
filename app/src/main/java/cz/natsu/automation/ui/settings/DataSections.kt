@@ -215,12 +215,31 @@ fun SecretsSection() {
     }
 }
 
+/**
+ * Asks for the value of a secret an automation uses but this phone does not have (an imported
+ * automation). The name is the one the steps use, so it cannot be changed here.
+ */
+@Composable
+fun AddMissingSecretDialog(name: String, onDismiss: () -> Unit, onSaved: () -> Unit) {
+    val context = LocalContext.current
+    SecretDialog(
+        existingName = name,
+        taken = emptySet(),
+        onDismiss = onDismiss,
+        onSave = { n, value -> SecretStore.set(context, n, value); onSaved() },
+        title = tr("Doplnit tajnou hodnotu"),
+        nameLocked = true,
+    )
+}
+
 @Composable
 private fun SecretDialog(
     existingName: String?,
     taken: Set<String>,
     onDismiss: () -> Unit,
     onSave: (name: String, value: String) -> Unit,
+    title: String? = null,
+    nameLocked: Boolean = false,
 ) {
     var name by remember { mutableStateOf(existingName ?: "") }
     // The stored value is never shown again; changing a secret means typing it anew.
@@ -233,7 +252,7 @@ private fun SecretDialog(
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (existingName == null) tr("Nová tajná hodnota") else tr("Změnit tajnou hodnotu")) },
+        title = { Text(title ?: if (existingName == null) tr("Nová tajná hodnota") else tr("Změnit tajnou hodnotu")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
@@ -242,6 +261,7 @@ private fun SecretDialog(
                     label = { Text(tr("Název")) },
                     placeholder = { Text(tr("např. github_token")) },
                     singleLine = true,
+                    enabled = !nameLocked,
                     isError = nameError != null,
                     supportingText = nameError?.let { { Text(it) } },
                     modifier = Modifier.fillMaxWidth()
@@ -249,7 +269,7 @@ private fun SecretDialog(
                 OutlinedTextField(
                     value = value,
                     onValueChange = { value = it },
-                    label = { Text(if (existingName == null) tr("Hodnota") else tr("Nová hodnota")) },
+                    label = { Text(if (existingName == null || nameLocked) tr("Hodnota") else tr("Nová hodnota")) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth()

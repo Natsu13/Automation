@@ -58,7 +58,10 @@ Návod, podle kterého AI model (ChatGPT, Claude…) napíše automatizaci na p�
   # @condition launch_condition({source: "wifi_name", op: "equals", right: "Domov"})
   ```
 
-  V bloku Skript jsou řádky `# @` jen komentáře; editor z nich při importu nastaví spuštění.
+  V bloku Skript jsou řádky `# @` jen komentáře; editor i appka z nich při importu nastaví spuštění.
+- Skript jde naimportovat přímo v appce: **⋮ → Vložit skript** (předvyplní se ze schránky) nebo
+  **⋮ → Importovat ze souboru** se souborem `.txt`. Čte ho `engine/ScriptReader.kt` – stejná pravidla
+  jako `web/script.js`, změny je potřeba dělat v obou.
 - Reference všech bloků (signatura, parametry, výchozí hodnoty, povolené hodnoty, kdy se parametr
   používá, co vyžaduje), události, hodnoty událostí, jazyk Skriptu a ukázky z appky napsané jejím
   vlastním `ScriptWriter`.

@@ -270,28 +270,16 @@ class ScriptWriter(private val blocks: List<Block>) {
             .replace(Regex("[^a-z0-9]+"), "_").trim('_').let { if (it.firstOrNull()?.isDigit() == true) "_$it" else it }
 
     private companion object {
-        /** Words of the language and names the script already gives a meaning. */
-        val RESERVED = setOf(
-            "if", "pokud", "else", "jinak", "end", "konec", "while", "dokud", "for", "pro", "return", "vrat",
-            "break", "ukonci", "continue", "pokracuj", "and", "or", "not", "nebo", "zaroven", "true", "false",
-            "null", "nic", "ano", "input", "vstup", "clipboard", "trigger", "text", "date", "count", "list", "type",
-        )
+        // Shared with ScriptReader, which reads this text back into blocks.
+        val RESERVED = cz.natsu.automation.engine.ScriptWords.RESERVED
+        val FUNCTIONS = cz.natsu.automation.engine.ScriptWords.FUNCTIONS
+        val SHADOWED = cz.natsu.automation.engine.ScriptWords.SHADOWED
 
         val OPPOSITE = mapOf(
             "equals" to "not_equals", "not_equals" to "equals", "contains" to "not_contains",
             "not_contains" to "contains", "empty" to "not_empty", "not_empty" to "empty",
             "greater" to "less_eq", "less_eq" to "greater", "less" to "greater_eq", "greater_eq" to "less",
         )
-
-        /** Built-in functions a variable should not be named after. */
-        val FUNCTIONS = setOf(
-            "len", "upper", "lower", "trim", "contains", "starts", "ends", "substr", "str", "num", "int",
-            "round", "floor", "ceil", "abs", "sqrt", "min", "max", "sum", "avg", "calc", "range", "keys",
-            "values", "push", "tojson", "iif", "now", "event", "secret", "block", "exact", "matches",
-        )
-
-        /** Blocks named like a built-in function of the language: reached through block("type", …). */
-        val SHADOWED = setOf("replace", "text", "random", "date", "split", "join", "find", "match", "type", "json")
     }
 }
 

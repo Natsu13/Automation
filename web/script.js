@@ -302,6 +302,7 @@
     const out = [];                 // {block, explicit: {key: value}, name}
     const names = {};               // output name -> new block
     const variables = new Set();    // variables set so far (by steps or by script code)
+    const defaultNames = {};        // how many steps got each default output name so far
     const stack = [];               // open groups
     let script = null;              // the Skript block being collected
     let comment = null;             // the Poznámka block being collected
@@ -477,6 +478,16 @@
         block.groupId = stack.pop()?.block.groupId || M.uuid();
       } else block.groupId = null;
       out.push({ block, name: opts.name });
+      // The name the output goes by: the one written, or the one "Show as script" gives it
+      // (a Skript block's "script_result", Zkusit's "error"), as the app's ScriptReader does.
+      if (d?.output) {
+        let base = identifier(d.output.en || d.output.cs) || "value";
+        if (M.blockDefs.has(base) || FUNCTIONS.has(base)) base += "_result";
+        const n = (defaultNames[base] || 0) + 1;
+        defaultNames[base] = n;
+        const fallback = n === 1 ? base : base + n;
+        if (!opts.name && !names[fallback] && !variables.has(fallback)) names[fallback] = { block };
+      }
       if (opts.name) names[opts.name] = { block };
       if (type === "set_variable") variables.add((plain(params.name) || "").trim());
       return block;
