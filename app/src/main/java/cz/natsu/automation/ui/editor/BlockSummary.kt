@@ -116,6 +116,10 @@ private fun buildSummary(
                         }
                         is Segment.Text -> {
                             if (budget <= 0) continue
+                            if (cz.natsu.automation.engine.EmbeddedImage.isEmbedded(segment.text)) {
+                                pill(tr("🖼 obrázek"), valueStyle, keepTogether = true)
+                                continue
+                            }
                             var shown = segment.text.replace(Regex("\\s*\\R\\s*"), " ⏎ ")
                             if (shown.length > budget) shown = shown.take(budget).trimEnd() + "…"
                             budget -= shown.length

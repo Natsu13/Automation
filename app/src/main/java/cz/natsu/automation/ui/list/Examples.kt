@@ -8,7 +8,11 @@ import cz.natsu.automation.data.Segment
 import cz.natsu.automation.data.VarRef
 import cz.natsu.automation.data.richText
 import cz.natsu.automation.data.richVar
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Storage
 import cz.natsu.automation.engine.Blocks
+import cz.natsu.automation.engine.EmbeddedImage
+import cz.natsu.automation.engine.NotificationBlock
 import cz.natsu.automation.i18n.tr
 import java.util.UUID
 
@@ -62,6 +66,8 @@ object Examples {
         "Najít místo na mapě (intent)" to "Poslat intent: zeptá se na místo a otevře ho v mapách (akce VIEW, data geo:).",
         "Počkat na Wi-Fi" to "Počkat dokud + Zkusit: čeká až 30 s na Wi-Fi, jinak ohlásí, že se nedočkal.",
         "Nahrát obrázek (multipart)" to "API: vybereš obrázek, zmenší se a pošle se i s popiskem jako formulář (multipart).",
+        "Ikona volného místa" to "Obrázek v automatizaci: ikonu disku obarví podle volného místa (zelená, oranžová, " +
+            "červená), napíše pod ni procenta a ukáže ji v oznámení. Místo bloku Úložiště telefonu můžeš číst hodnotu z API.",
     )
 
     private fun example(name: String, icon: String, build: () -> Built) =
@@ -732,6 +738,61 @@ object Examples {
                         "target" to ParamValue.Choice("activity"),
                         "action" to richText("android.intent.action.VIEW"),
                         "data" to ParamValue.Rich(listOf(Segment.Text("geo:0,0?q="), Segment.Var(VarRef.BlockOutput(place.id)))),
+                    ),
+                )
+            )
+        },
+
+        // An image stored in the automation: tinted by state, with a text under it, shown in a notification
+        example("Ikona volného místa", "storage") {
+            val group = UUID.randomUUID().toString()
+            val free = block("storage", null, "info" to ParamValue.Choice("free_percent"))
+            fun expression(vararg parts: Any) = ParamValue.Rich(parts.map {
+                if (it is Block) Segment.Var(VarRef.BlockOutput(it.id)) else Segment.Text(it.toString())
+            })
+            fun color(value: String) = block("set_variable", null, "name" to richText("barva"), "value" to richText(value))
+            val colorRef = richVar(VarRef.Named("barva"))
+            // Drawn on the phone; plain JVM tests have no real Bitmap, they get an empty image.
+            val icon = runCatching {
+                EmbeddedImage.encode(
+                    EmbeddedImage.fromIcon(Icons.Rounded.Storage, android.graphics.Color.WHITE), EmbeddedImage.ICON_SIZE
+                )
+            }.getOrDefault("data:image/png;base64,")
+            val tinted = block(
+                "image_edit", null,
+                "source" to richText(icon),
+                "op" to ParamValue.Choice("tint"),
+                "color" to colorRef,
+            )
+            val labelled = block(
+                "image_text", null,
+                "source" to richVar(VarRef.BlockOutput(tinted.id)),
+                "text" to expression(free, " %"),
+                "position" to ParamValue.Choice("below"),
+                "color" to colorRef,
+                "size" to ParamValue.Number(35f),
+            )
+            Built(
+                listOf(
+                    free,
+                    block("if", group, "mode" to ParamValue.Choice("expert"), "expression" to expression(free, " < 10")),
+                    color("#E53935"),
+                    block("else_if", group, "mode" to ParamValue.Choice("expert"), "expression" to expression(free, " < 25")),
+                    color("#FB8C00"),
+                    block("else", group),
+                    color("#43A047"),
+                    block("end_if", group),
+                    tinted,
+                    labelled,
+                    block(
+                        NotificationBlock.TYPE, null,
+                        "title" to richText(tr("Volné místo")),
+                        "text" to expression(tr("V telefonu zbývá "), free, tr(" % místa.")),
+                        "quiet" to ParamValue.Bool(true),
+                        "name" to richText("volne_misto"),
+                        "image" to richVar(VarRef.BlockOutput(labelled.id)),
+                        "small_icon" to ParamValue.Choice("same"),
+                        "b1_action" to ParamValue.Choice("none"),
                     ),
                 )
             )

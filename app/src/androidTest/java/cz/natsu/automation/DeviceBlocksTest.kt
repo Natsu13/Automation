@@ -3,6 +3,9 @@ package cz.natsu.automation
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.Storage
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import cz.natsu.automation.data.Block
@@ -64,6 +67,60 @@ class DeviceBlocksTest {
                 "scope" to ParamValue.Choice(if (shared) "shared" else "own"),
             )
         )
+    }
+
+    @Test
+    fun freeSpaceIconExampleDrawsATintedIconWithText() {
+        val example = cz.natsu.automation.ui.list.Examples.all.first { it.name == "Ikona volného místa" }
+        val blocks = example.build().blocks
+        val icon = (blocks.first { it.type == "image_edit" }.params["source"] as ParamValue.Rich).segments
+            .filterIsInstance<Segment.Text>().single().text
+        assertTrue("icon is stored in the automation", icon.startsWith("data:image/png;base64,") && icon.length > 200)
+
+        // Everything but the notification, then return the picture.
+        val labelled = blocks.first { it.type == "image_text" }
+        val result = run(*blocks.dropLast(1).toTypedArray(), block("return", "text" to rich(VarRef.BlockOutput(labelled.id))))
+        assertNull(result.error)
+        val file = File(Uri.parse(result.output).path!!)
+        val bitmap = android.graphics.BitmapFactory.decodeFile(file.path)
+        assertEquals(192, bitmap.width)
+        assertEquals(192, bitmap.height)
+        // Some pixel has one of the three state colours.
+        val states = setOf(0xFFE53935.toInt(), 0xFFFB8C00.toInt(), 0xFF43A047.toInt())
+        val pixels = IntArray(bitmap.width * bitmap.height).also { bitmap.getPixels(it, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height) }
+        assertTrue(pixels.any { it in states })
+        context.getExternalFilesDir(null)?.let { file.copyTo(File(it, "free_space_icon.png"), overwrite = true) }
+
+        // The whole example, with the notification (skipped when notifications are off for the app).
+        val full = run(*blocks.toTypedArray())
+        assertTrue(full.error == null || full.requirement != null)
+    }
+
+    @Test
+    fun notificationHasTapActionAndItsOwnStatusBarIcon() {
+        fun icon(vector: androidx.compose.ui.graphics.vector.ImageVector, color: Int) =
+            cz.natsu.automation.engine.EmbeddedImage.encode(cz.natsu.automation.engine.EmbeddedImage.fromIcon(vector, color))
+        val result = run(
+            block(
+                "notification",
+                "title" to richText("Test obrázku"),
+                "text" to richText("klepni"),
+                "quiet" to ParamValue.Bool(true),
+                "name" to richText("test_tap"),
+                "image" to richText(icon(Icons.Rounded.Storage, Color.RED)),
+                "small_icon" to ParamValue.Choice("other"),
+                "small_image" to richText(icon(Icons.Rounded.Star, Color.WHITE)),
+                "tap_action" to ParamValue.Choice("url"),
+                "tap_url" to richText("example.com"),
+                "b1_action" to ParamValue.Choice("none"),
+            )
+        )
+        assertNull(result.error)
+        val manager = context.getSystemService(android.app.NotificationManager::class.java)
+        val shown = manager.activeNotifications.first { it.notification.extras.getString("android.title") == "Test obrázku" }
+        assertTrue("tap does something", shown.notification.contentIntent != null)
+        assertEquals(android.graphics.drawable.Icon.TYPE_BITMAP, shown.notification.smallIcon.type)
+        assertTrue("large image", shown.notification.getLargeIcon() != null)
     }
 
     @Test
@@ -183,6 +240,8 @@ class DeviceBlocksTest {
         assertTrue(logged, "tajne-heslo-123" !in logged)
         SecretStore.remove(context, "test_token")
         val missing = run(block("text", "text" to rich(VarRef.Secret("test_token"))))
-        assertTrue(missing.error!!.contains("neexistuje"))
+        // The message is in the language of the app (English on an English phone).
+        val expected = cz.natsu.automation.i18n.tr("tajná hodnota \"%s\" neexistuje (Nastavení → Tajné hodnoty)", "test_token")
+        assertTrue(missing.error, missing.error!!.contains(expected))
     }
 }

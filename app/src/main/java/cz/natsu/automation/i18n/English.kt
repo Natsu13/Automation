@@ -1139,12 +1139,12 @@ object English {
             "Chosen image",
         "výstup bloku Vybrat soubor, stažený soubor nebo https:// adresa" to
             "output of the Pick file block, a downloaded file or an https:// address",
-        "Obrázek: {op} {max_size}{angle}{flip}{format}" to
-            "Image: {op} {max_size}{angle}{flip}{format}",
+        "Obrázek: {op} {max_size}{angle}{flip}{format}{color}" to
+            "Image: {op} {max_size}{angle}{flip}{format}{color}",
         "Upravit obrázek" to
             "Edit image",
-        "Jedna úprava obrázku: zmenšit, otočit, převrátit, oříznout na čtverec, nebo převést na JPG / PNG / WEBP. Vrátí nový soubor – další úpravu přidáš dalším blokem." to
-            "One image edit: shrink, rotate, flip, crop to a square, or convert to JPG / PNG / WEBP. Returns a new file – add another block for another edit.",
+        "Jedna úprava obrázku: zmenšit, otočit, převrátit, oříznout na čtverec, nebo převést na JPG / PNG / WEBP, nebo obarvit jednou barvou (ikonu podle stavu). Vrátí nový soubor – další úpravu přidáš dalším blokem." to
+            "One image edit: shrink, rotate, flip, crop to a square, or convert to JPG / PNG / WEBP, or tint it one colour (an icon by state). Returns a new file – add another block for another edit.",
         "Úprava" to
             "Edit",
         "Zmenšit" to
@@ -1317,8 +1317,8 @@ object English {
             "Notification {title} {text} with buttons {b1_label} {b2_label} {b3_label}",
         "Oznámení s tlačítky" to
             "Notification with buttons",
-        "Ukáže oznámení až se třemi tlačítky: zkopírovat text, spustit jinou automatizaci, otevřít odkaz nebo sdílet text. Texty se doplní při zobrazení, takže tlačítko zkopíruje to, co automatizace spočítala. Může v něm běžet odpočet a po jeho doběhnutí se spustit automatizace." to
-            "Shows a notification with up to three buttons: copy a text, run another automation, open a link or share a text. The texts are filled in when it is shown, so a button copies what the automation computed. A countdown can run in it and an automation can start when it ends.",
+        "Ukáže oznámení až se třemi tlačítky: zkopírovat text, spustit jinou automatizaci, otevřít odkaz nebo sdílet text. Texty se doplní při zobrazení, takže tlačítko zkopíruje to, co automatizace spočítala. Může v něm běžet odpočet a po jeho doběhnutí se spustit automatizace. Může mít i obrázek – vložený přímo do automatizace nebo vytvořený bloky Obrázky." to
+            "Shows a notification with up to three buttons: copy a text, run another automation, open a link or share a text. The texts are filled in when it is shown, so a button copies what the automation computed. A countdown can run in it and an automation can start when it ends. It can also have an image – stored right in the automation or made with the Images blocks.",
         "Název oznámení" to
             "Notification name",
         "nepovinný – stejný název oznámení nahradí" to
@@ -3151,5 +3151,157 @@ object English {
             "started: %s",
         "podmínky spuštění nesplněny: %s" to
             "launch conditions not met: %s",
+        "Obarvit (jednou barvou, tvar zůstane)" to
+            "Tint (one colour, the shape stays)",
+        "obarvit na" to
+            "tint",
+        "Barva" to
+            "Colour",
+        "bílá, červená, #FF9800…" to
+            "white, red, #FF9800…",
+        "Text {text} do obrázku {position}" to
+            "Text {text} into image {position}",
+        "Text do obrázku" to
+            "Text into image",
+        "Napíše do obrázku krátký text – pod obrázek, přes jeho spodek nebo doprostřed. Třeba „42 %“ pod ikonu, která se pak ukáže v oznámení. Vrátí nový obrázek (PNG)." to
+            "Writes a short text into the image – under it, over its bottom or in the middle. For example “42 %” under an icon that is then shown in a notification. Returns a new image (PNG).",
+        "Pod obrázek (obrázek se zmenší, rozměr zůstane)" to
+            "Under the image (the image shrinks, the size stays)",
+        "pod obrázek" to
+            "under the image",
+        "Přidat pruh pod obrázek (obrázek bude vyšší)" to
+            "Add a strip under the image (it gets taller)",
+        "do pruhu pod obrázkem" to
+            "into a strip under the image",
+        "Přes spodek obrázku" to
+            "Over the bottom of the image",
+        "přes spodek" to
+            "over the bottom",
+        "Doprostřed obrázku" to
+            "In the middle of the image",
+        "doprostřed" to
+            "in the middle",
+        "Barva textu" to
+            "Text colour",
+        "bílá; bílá, červená, #FF9800…" to
+            "white; white, red, #FF9800…",
+        "Výška textu" to
+            "Text height",
+        "Obrázek s textem" to
+            "Image with text",
+        "barva není zadaná" to
+            "no colour given",
+        "„%s“ není barva (např. červená, #FF9800)" to
+            "“%s” is not a colour (e.g. red, #FF9800)",
+        "vložený obrázek je poškozený" to
+            "the stored image is damaged",
+        "Úložiště telefonu" to
+            "Phone storage",
+        "Kolik místa v telefonu zbývá nebo je zabráno – v procentech nebo v GB." to
+            "How much space is left or used on the phone – in percent or in GB.",
+        "Volné místo (%)" to
+            "Free space (%)",
+        "volné místo v %" to
+            "free space in %",
+        "Volné místo (GB)" to
+            "Free space (GB)",
+        "volné místo v GB" to
+            "free space in GB",
+        "Zabrané místo (%)" to
+            "Used space (%)",
+        "zabrané místo v %" to
+            "used space in %",
+        "Celková velikost (GB)" to
+            "Total size (GB)",
+        "velikost úložiště" to
+            "storage size",
+        "Úložiště" to
+            "Storage",
+        "bez obrázku; vložený obrázek, soubor nebo https://" to
+            "no image; stored image, file or https://",
+        "Obrázek uložený v automatizaci" to
+            "Image stored in the automation",
+        "Odebrat" to
+            "Remove",
+        "Vložit obrázek" to
+            "Insert image",
+        "Vložit ikonu" to
+            "Insert icon",
+        "Obrázek nejde načíst." to
+            "The image cannot be loaded.",
+        "Ikona do obrázku" to
+            "Icon as image",
+        "Bílou ikonu můžeš později obarvit blokem Upravit obrázek (Obarvit) podle stavu." to
+            "A white icon can be tinted later by state with the Edit image block (Tint).",
+        "🖼 obrázek" to
+            "🖼 image",
+        "Ikona volného místa" to
+            "Free space icon",
+        "Obrázek v automatizaci: ikonu disku obarví podle volného místa (zelená, oranžová, červená), napíše pod ni procenta a ukáže ji v oznámení. Místo bloku Úložiště telefonu můžeš číst hodnotu z API." to
+            "Image in the automation: tints a disk icon by the free space (green, orange, red), writes the percent under it and shows it in a notification. Instead of the Phone storage block you can read the value from an API.",
+        "Volné místo" to
+            "Free space",
+        "V telefonu zbývá " to
+            "Space left on the phone: ",
+        " % místa." to
+            " %.",
+        "vložený obrázek, výstup bloku Vybrat soubor, stažený soubor nebo https:// adresa" to
+            "stored image, output of Choose file, a downloaded file or an https:// address",
+        "Ikona ve stavovém řádku" to
+            "Status bar icon",
+        "Ikona aplikace" to
+            "App icon",
+        "Stejný obrázek jako v oznámení" to
+            "Same image as in the notification",
+        "Jiný obrázek" to
+            "Another image",
+        "Obrázek do stavového řádku" to
+            "Status bar image",
+        "vložený obrázek, soubor nebo https:// (Android z něj kreslí jen tvar)" to
+            "stored image, file or https:// (Android draws only its shape)",
+        "Po klepnutí na oznámení" to
+            "When the notification is tapped",
+        "Nic (jen se zavře)" to
+            "Nothing (it just closes)",
+        "nic" to
+            "nothing",
+        "spustit automatizaci" to
+            "run automation",
+        "kopírovat" to
+            "copy",
+        "otevřít odkaz" to
+            "open link",
+        "sdílet" to
+            "share",
+        "Není to barva" to
+            "Not a colour",
+        "Vybrat barvu" to
+            "Choose colour",
+        "Odstín" to
+            "Hue",
+        "Sytost" to
+            "Saturation",
+        "Použít" to
+            "Use",
+        "1. tlačítko" to
+            "Button 1",
+        "2. tlačítko" to
+            "Button 2",
+        "3. tlačítko" to
+            "Button 3",
+        "co hledat" to
+            "what to find",
+        "hodnota" to
+            "value",
+        "nezaokrouhlovat" to
+            "do not round",
+        "nic = smazat" to
+            "nothing = delete",
+        "výstup bloku Vybrat soubor, Upravit obrázek, stažený soubor nebo https:// adresa" to
+            "output of Choose file, Edit image, a downloaded file or an https:// address",
+        "{mode} v {source}" to
+            "{mode} in {source}",
+        "title: Ahoj\nuser.id: 42" to
+            "title: Hello\nuser.id: 42",
     )
 }

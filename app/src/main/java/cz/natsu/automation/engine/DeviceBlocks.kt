@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.Storage
 import androidx.core.location.LocationManagerCompat
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.BinaryBitmap
@@ -390,6 +391,38 @@ object DeviceBlocks {
                 }
             }
             BlockResult.Output(if (base64) Base64.encodeToString(bytes, Base64.NO_WRAP) else String(bytes, Charsets.UTF_8))
+        },
+
+        BlockDef(
+            type = "storage",
+            summary = "Zjistit {info}",
+            title = "Úložiště telefonu",
+            description = "Kolik místa v telefonu zbývá nebo je zabráno – v procentech nebo v GB.",
+            category = BlockCategory.Device,
+            icon = Icons.Rounded.Storage,
+            params = listOf(
+                ParamDef.Choice(
+                    "info", "Zjistit", listOf(
+                        ChoiceOption("free_percent", "Volné místo (%)", "volné místo v %"),
+                        ChoiceOption("free_gb", "Volné místo (GB)", "volné místo v GB"),
+                        ChoiceOption("used_percent", "Zabrané místo (%)", "zabrané místo v %"),
+                        ChoiceOption("total_gb", "Celková velikost (GB)", "velikost úložiště"),
+                    )
+                ),
+            ),
+            outputName = "Úložiště",
+        ) { block ->
+            val stat = android.os.StatFs(android.os.Environment.getDataDirectory().path)
+            val total = stat.totalBytes.toDouble().coerceAtLeast(1.0)
+            val free = stat.availableBytes.toDouble()
+            val gb = 1024.0 * 1024 * 1024
+            val value = when (choice(block, "info")) {
+                "free_gb" -> formatNumber(Math.round(free / gb * 10) / 10.0)
+                "used_percent" -> Math.round((total - free) / total * 100).toString()
+                "total_gb" -> formatNumber(Math.round(total / gb * 10) / 10.0)
+                else -> Math.round(free / total * 100).toString()
+            }
+            BlockResult.Output(value)
         },
     )
 

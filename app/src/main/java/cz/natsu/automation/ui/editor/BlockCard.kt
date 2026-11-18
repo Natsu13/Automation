@@ -227,13 +227,23 @@ fun BlockCard(
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     for (param in def.params) {
                         if (param.isHidden(values)) continue
-                        ParamEditor(
-                            param = param,
-                            value = block.params[param.key] ?: param.defaultValue(),
-                            chipStyle = chipStyle,
-                            onChange = { actions.onParamChange(param.key, it) },
-                            onRequestVariable = actions.onRequestVariable,
-                        )
+                        val embedded = if (param is ParamDef.Text && param.imagePicker) embeddedImageOf(block.params[param.key]) else null
+                        if (embedded != null) {
+                            EmbeddedImageField(param, embedded) {
+                                actions.onParamChange(param.key, cz.natsu.automation.data.richText(""))
+                            }
+                        } else {
+                            ParamEditor(
+                                param = param,
+                                value = block.params[param.key] ?: param.defaultValue(),
+                                chipStyle = chipStyle,
+                                onChange = { actions.onParamChange(param.key, it) },
+                                onRequestVariable = actions.onRequestVariable,
+                            )
+                        }
+                        if (param is ParamDef.Text && param.imagePicker) {
+                            ImagePickerRow { actions.onParamChange(param.key, it) }
+                        }
                         if (param is ParamDef.Text && param.appPicker) {
                             SuggestionsRow(
                                 ValueSuggestions(emptyList(), hint = tr("Nainstalované aplikace:"), app = AppValue.Package)
@@ -411,15 +421,23 @@ private fun ParamEditor(
     when (param) {
         is ParamDef.Text -> Column {
             ParamLabel(tr(param.label))
-            RichTextField(
-                segments = (value as? ParamValue.Rich)?.segments ?: emptyList(),
-                onChange = { onChange(ParamValue.Rich(it)) },
-                styleOf = chipStyle,
-                placeholder = tr(param.placeholder),
-                allowVariables = !param.plain,
-                onRequestVariable = onRequestVariable,
-                code = param.code,
-            )
+            val segments = (value as? ParamValue.Rich)?.segments ?: emptyList()
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RichTextField(
+                    segments = segments,
+                    onChange = { onChange(ParamValue.Rich(it)) },
+                    styleOf = chipStyle,
+                    modifier = Modifier.weight(1f),
+                    placeholder = tr(param.placeholder),
+                    allowVariables = !param.plain,
+                    onRequestVariable = onRequestVariable,
+                    code = param.code,
+                )
+                if (param.colorPicker) {
+                    Spacer(Modifier.width(8.dp))
+                    ColorSwatchButton(segments) { onChange(cz.natsu.automation.data.richText(it)) }
+                }
+            }
         }
 
         is ParamDef.Choice -> Column {

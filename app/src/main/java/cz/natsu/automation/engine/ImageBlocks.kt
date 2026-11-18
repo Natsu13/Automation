@@ -11,7 +11,9 @@ import android.net.Uri
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ImageSearch
 import androidx.compose.material.icons.rounded.PhotoFilter
+import androidx.compose.material.icons.rounded.TextFields
 import cz.natsu.automation.data.ParamValue
+import cz.natsu.automation.data.VarRef
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
@@ -28,19 +30,21 @@ object ImageBlocks {
         (map[key] as? ParamValue.Choice)?.value !in values
     }
 
-    private val sourceHint = "výstup bloku Vybrat soubor, stažený soubor nebo https:// adresa"
+    private val sourceHint = "vložený obrázek, výstup bloku Vybrat soubor, stažený soubor nebo https:// adresa"
+
+    private val colorHint = "bílá, červená, #FF9800…"
 
     val all: List<BlockDef> = listOf(
         BlockDef(
             type = "image_edit",
-            summary = "Obrázek: {op} {max_size}{angle}{flip}{format}",
+            summary = "Obrázek: {op} {max_size}{angle}{flip}{format}{color}",
             title = "Upravit obrázek",
             description = "Jedna úprava obrázku: zmenšit, otočit, převrátit, oříznout na čtverec, nebo převést " +
-                    "na JPG / PNG / WEBP. Vrátí nový soubor – další úpravu přidáš dalším blokem.",
+                    "na JPG / PNG / WEBP, nebo obarvit jednou barvou (ikonu podle stavu). Vrátí nový soubor – další úpravu přidáš dalším blokem.",
             category = BlockCategory.Images,
             icon = Icons.Rounded.PhotoFilter,
             params = listOf(
-                ParamDef.Text("source", "Obrázek", placeholder = sourceHint),
+                ParamDef.Text("source", "Obrázek", placeholder = sourceHint, imagePicker = true),
                 ParamDef.Choice(
                     "op", "Úprava", listOf(
                         ChoiceOption("resize", "Zmenšit", "zmenšit na"),
@@ -48,8 +52,12 @@ object ImageBlocks {
                         ChoiceOption("flip", "Převrátit (zrcadlit)", "převrátit"),
                         ChoiceOption("square", "Oříznout na čtverec (střed)", "oříznout na čtverec"),
                         ChoiceOption("convert", "Převést formát", "převést na"),
+                        ChoiceOption("tint", "Obarvit (jednou barvou, tvar zůstane)", "obarvit na"),
                     )
                 ),
+                ParamDef.Text("color", "Barva", placeholder = colorHint, colorPicker = true).apply {
+                    hiddenWhen = choiceNot("op", "tint")
+                },
                 ParamDef.Number("max_size", "Delší strana nejvýš", 100f, 4000f, 1600f, step = 100f, unit = "px").apply {
                     hiddenWhen = choiceNot("op", "resize")
                 },
@@ -93,6 +101,10 @@ object ImageBlocks {
                     val side = minOf(bitmap.width, bitmap.height)
                     result = Bitmap.createBitmap(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side)
                 }
+                "tint" -> {
+                    result = ImageTools.tint(bitmap, ImageTools.color(text(block, "color")))
+                    format = ImageTools.Format.PNG
+                }
                 "convert" -> {
                     result = bitmap
                     format = ImageTools.Format.of(choice(block, "format"))
@@ -115,6 +127,45 @@ object ImageBlocks {
         },
 
         BlockDef(
+            type = "image_text",
+            summary = "Text {text} do obrázku {position}",
+            title = "Text do obrázku",
+            description = "Napíše do obrázku krátký text – pod obrázek, přes jeho spodek nebo doprostřed. " +
+                    "Třeba „42 %“ pod ikonu, která se pak ukáže v oznámení. Vrátí nový obrázek (PNG).",
+            category = BlockCategory.Images,
+            icon = Icons.Rounded.TextFields,
+            params = listOf(
+                ParamDef.Text("source", "Obrázek", placeholder = sourceHint, imagePicker = true),
+                ParamDef.Text("text", "Text", defaultRef = VarRef.Input),
+                ParamDef.Choice(
+                    "position", "Kam", listOf(
+                        ChoiceOption("below", "Pod obrázek (obrázek se zmenší, rozměr zůstane)", "pod obrázek"),
+                        ChoiceOption("band", "Přidat pruh pod obrázek (obrázek bude vyšší)", "do pruhu pod obrázkem"),
+                        ChoiceOption("overlay", "Přes spodek obrázku", "přes spodek"),
+                        ChoiceOption("center", "Doprostřed obrázku", "doprostřed"),
+                    )
+                ),
+                ParamDef.Text("color", "Barva textu", placeholder = "bílá; " + colorHint, colorPicker = true).apply {
+                    hiddenInSummaryWhen = { true }
+                },
+                ParamDef.Number("size", "Výška textu", 10f, 60f, 35f, step = 5f, unit = "%").apply {
+                    hiddenInSummaryWhen = { true }
+                },
+            ),
+            outputName = "Obrázek s textem",
+        ) { block ->
+            val image = ImageTools.load(context, text(block, "source"))
+            val result = ImageTools.withText(
+                image.bitmap,
+                text(block, "text").trim(),
+                choice(block, "position"),
+                ImageTools.color(text(block, "color"), android.graphics.Color.WHITE),
+                number(block, "size") / 100f,
+            )
+            BlockResult.Output(ImageTools.save(context, result, ImageTools.Format.PNG, 100, image.name))
+        },
+
+        BlockDef(
             type = "image_info",
             summary = "Zjistit o obrázku {what}",
             title = "Informace o obrázku",
@@ -122,7 +173,7 @@ object ImageBlocks {
             category = BlockCategory.Images,
             icon = Icons.Rounded.ImageSearch,
             params = listOf(
-                ParamDef.Text("source", "Obrázek", placeholder = sourceHint),
+                ParamDef.Text("source", "Obrázek", placeholder = sourceHint, imagePicker = true),
                 ParamDef.Choice(
                     "what", "Co zjistit", listOf(
                         ChoiceOption("all", "Vše jako JSON (width, height, bytes, type, name)", "vše"),
@@ -231,6 +282,86 @@ object ImageTools {
             else -> decoded
         }
         Loaded(upright, Format.ofMime(bounds.outMimeType ?: file.mime), file.name)
+    }
+
+    private val colorNames = mapOf(
+        "white" to "#FFFFFF", "bílá" to "#FFFFFF", "bila" to "#FFFFFF",
+        "black" to "#000000", "černá" to "#000000", "cerna" to "#000000",
+        "red" to "#E53935", "červená" to "#E53935", "cervena" to "#E53935",
+        "orange" to "#FB8C00", "oranžová" to "#FB8C00", "oranzova" to "#FB8C00",
+        "yellow" to "#FDD835", "žlutá" to "#FDD835", "zluta" to "#FDD835",
+        "green" to "#43A047", "zelená" to "#43A047", "zelena" to "#43A047",
+        "blue" to "#1E88E5", "modrá" to "#1E88E5", "modra" to "#1E88E5",
+        "purple" to "#8E24AA", "fialová" to "#8E24AA", "fialova" to "#8E24AA",
+        "gray" to "#9E9E9E", "grey" to "#9E9E9E", "šedá" to "#9E9E9E", "seda" to "#9E9E9E",
+    )
+
+    /** A colour from #RGB, #RRGGBB, #AARRGGBB or a name (bílá, red…); empty = [default]. */
+    fun color(text: String, default: Int? = null): Int {
+        if (text.isBlank()) return default ?: throw BlockException(tr("barva není zadaná"))
+        return colorOrNull(text) ?: throw BlockException(tr("„%s“ není barva (např. červená, #FF9800)", text.trim()))
+    }
+
+    /** Like [color], null when the text is not a colour. */
+    fun colorOrNull(text: String): Int? {
+        val wanted = text.trim().lowercase()
+        var hex = colorNames[wanted] ?: wanted
+        if (!hex.startsWith("#") && hex.matches(Regex("[0-9a-f]{3,8}"))) hex = "#" + hex
+        if (hex.length == 4) hex = "#" + hex.drop(1).map { c -> "" + c + c }.joinToString("")
+        if (!hex.matches(Regex("#([0-9a-f]{6}|[0-9a-f]{8})"))) return null
+        val value = hex.drop(1).toLong(16)
+        return (if (hex.length == 7) value or 0xFF000000 else value).toInt()
+    }
+
+    /** Every visible pixel gets [color]; transparency (the shape) stays. */
+    fun tint(bitmap: Bitmap, color: Int): Bitmap {
+        val result = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            colorFilter = android.graphics.PorterDuffColorFilter(color, android.graphics.PorterDuff.Mode.SRC_IN)
+        }
+        android.graphics.Canvas(result).drawBitmap(bitmap, 0f, 0f, paint)
+        return result
+    }
+
+    /**
+     * Writes [text] into the image. [part] = share of the height the text takes.
+     * "below" keeps the size (the image shrinks above the text), "band" adds a strip under it.
+     */
+    fun withText(bitmap: Bitmap, text: String, position: String, color: Int, part: Float): Bitmap {
+        val w = bitmap.width
+        val h = bitmap.height
+        val textHeight = (h * part.coerceIn(0.05f, 0.9f)).coerceAtLeast(8f)
+        val outHeight = if (position == "band") (h + textHeight).toInt() else h
+        val result = Bitmap.createBitmap(w, outHeight, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(result)
+        val smooth = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG or android.graphics.Paint.ANTI_ALIAS_FLAG)
+        if (position == "below") {
+            // The image shrinks into the space above the text, centred.
+            val room = h - textHeight
+            val dw = w * (room / h)
+            val left = (w - dw) / 2f
+            canvas.drawBitmap(bitmap, null, android.graphics.RectF(left, 0f, left + dw, room), smooth)
+        } else {
+            canvas.drawBitmap(bitmap, 0f, 0f, smooth)
+        }
+        if (text.isEmpty()) return result
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            this.color = color
+            typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+            textAlign = android.graphics.Paint.Align.CENTER
+            textSize = textHeight * 0.9f
+            if (position == "overlay" || position == "center") setShadowLayer(textHeight * 0.08f, 0f, 0f, 0xAA000000.toInt())
+        }
+        // Shrink a long text until it fits the width.
+        val maxWidth = w * 0.96f
+        val measured = paint.measureText(text)
+        if (measured > maxWidth) paint.textSize *= maxWidth / measured
+        val metrics = paint.fontMetrics
+        val boxBottom = if (position == "center") (outHeight + textHeight) / 2f else outHeight.toFloat()
+        val boxTop = boxBottom - textHeight
+        val baseline = (boxTop + boxBottom) / 2f - (metrics.ascent + metrics.descent) / 2f
+        canvas.drawText(text, w / 2f, baseline, paint)
+        return result
     }
 
     fun transform(bitmap: Bitmap, change: Matrix.() -> Unit): Bitmap =

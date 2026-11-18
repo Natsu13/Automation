@@ -91,6 +91,85 @@ object NotificationBlock {
         )
     }
 
+    private val tapOptions = listOf(
+        ChoiceOption(Action.None.value, "Nic (jen se zavře)", "nic"),
+        ChoiceOption(Action.Run.value, "Spustit automatizaci", "spustit automatizaci"),
+        ChoiceOption(Action.Copy.value, "Kopírovat do schránky", "kopírovat"),
+        ChoiceOption(Action.Url.value, "Otevřít odkaz", "otevřít odkaz"),
+        ChoiceOption(Action.Share.value, "Sdílet text", "sdílet"),
+    )
+
+    private fun tapOf(values: Map<String, ParamValue>): Action =
+        Action.of((values["tap_action"] as? ParamValue.Choice)?.value ?: Action.None.value)
+
+    /** What a tap on the notification itself does – e.g. runs an automation that switches something. */
+    private fun tapParams(): List<ParamDef> {
+        fun hideUnless(vararg actions: Action): (Map<String, ParamValue>) -> Boolean = { tapOf(it) !in actions }
+        return listOf(
+            ParamDef.Choice("tap_action", "Po klepnutí na oznámení", tapOptions, default = Action.None.value).apply {
+                hiddenInSummaryWhen = { true }
+            },
+            ParamDef.Automation("tap_automation", "Automatizace").apply {
+                hiddenWhen = hideUnless(Action.Run)
+                hiddenInSummaryWhen = { true }
+            },
+            ParamDef.Text("tap_input", "Vstup pro automatizaci", placeholder = "nic").apply {
+                hiddenWhen = hideUnless(Action.Run)
+                hiddenInSummaryWhen = { true }
+            },
+            ParamDef.Text("tap_text", "Text", defaultRef = VarRef.Input).apply {
+                hiddenWhen = hideUnless(Action.Copy, Action.Share)
+                hiddenInSummaryWhen = { true }
+            },
+            ParamDef.Text("tap_url", "Adresa", placeholder = "https://…").apply {
+                hiddenWhen = hideUnless(Action.Url)
+                hiddenInSummaryWhen = { true }
+            },
+        )
+    }
+
+    /** What happens for an action of a button or of the tap; keys are [prefix]_text, [prefix]_automation… */
+    private suspend fun RunContext.pendingFor(
+        block: cz.natsu.automation.data.Block, prefix: String, action: Action, id: Int, requestCode: Int, label: String,
+    ): PendingIntent? = when (action) {
+        Action.Copy, Action.Dismiss -> PendingIntent.getBroadcast(
+            context, requestCode,
+            NotificationButtonReceiver.intent(
+                context, id, copy = if (action == Action.Copy) text(block, "${prefix}_text") else null
+            ),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        Action.Run -> {
+            val target = choice(block, "${prefix}_automation").toLongOrNull()
+                ?: throw BlockException(tr("u tlačítka „%s“ není vybraná automatizace", label))
+            activity(context, requestCode, TriggerActivity.notificationRunIntent(
+                context, id, target, text(block, "${prefix}_input")
+            ))
+        }
+        Action.Url -> {
+            var url = text(block, "${prefix}_url").trim()
+            if (url.isEmpty()) throw BlockException(tr("u tlačítka „%s“ chybí adresa", label))
+            if (!url.contains(":")) url = "https://$url"
+            activity(context, requestCode, TriggerActivity.notificationOpenIntent(context, id, url))
+        }
+        Action.Share -> activity(
+            context, requestCode,
+            TriggerActivity.notificationShareIntent(context, id, text(block, "${prefix}_text"))
+        )
+        Action.None -> null
+    }
+
+    /** At most 96 px: plenty for the status bar, and small to send to the system. */
+    private fun statusBarIcon(bitmap: android.graphics.Bitmap): androidx.core.graphics.drawable.IconCompat {
+        val scale = minOf(1f, 96f / maxOf(bitmap.width, bitmap.height))
+        val small = if (scale < 1f) {
+            android.graphics.Bitmap.createScaledBitmap(
+                bitmap, (bitmap.width * scale).toInt().coerceAtLeast(1), (bitmap.height * scale).toInt().coerceAtLeast(1), true
+            )
+        } else bitmap
+        return androidx.core.graphics.drawable.IconCompat.createWithBitmap(small)
+    }
+
     private fun noCountdown(values: Map<String, ParamValue>): Boolean =
         (values["countdown"] as? ParamValue.Rich)?.segments.isNullOrEmpty()
 
@@ -139,7 +218,8 @@ object NotificationBlock {
         title = "Oznámení s tlačítky",
         description = "Ukáže oznámení až se třemi tlačítky: zkopírovat text, spustit jinou automatizaci, " +
             "otevřít odkaz nebo sdílet text. Texty se doplní při zobrazení, takže tlačítko zkopíruje to, " +
-            "co automatizace spočítala. Může v něm běžet odpočet a po jeho doběhnutí se spustit automatizace.",
+            "co automatizace spočítala. Může v něm běžet odpočet a po jeho doběhnutí se spustit automatizace. " +
+            "Může mít i obrázek – vložený přímo do automatizace nebo vytvořený bloky Obrázky.",
         category = BlockCategory.Other,
         icon = Icons.Rounded.NotificationsActive,
         requirement = Requirement.PostNotifications,
@@ -147,6 +227,23 @@ object NotificationBlock {
             ParamDef.Text("title", "Nadpis", default = "Automatizace"),
             ParamDef.Text("text", "Text", defaultRef = VarRef.Input),
             ParamDef.Toggle("quiet", "Tiché (bez zvuku a vyskočení)", summaryWhenOn = " (tiché)"),
+            ParamDef.Text(
+                "image", "Obrázek", placeholder = "bez obrázku; vložený obrázek, soubor nebo https://", imagePicker = true,
+            ).apply { hiddenInSummaryWhen = { true } },
+            ParamDef.Choice(
+                "small_icon", "Ikona ve stavovém řádku", listOf(
+                    ChoiceOption("app", "Ikona aplikace"),
+                    ChoiceOption("same", "Stejný obrázek jako v oznámení"),
+                    ChoiceOption("other", "Jiný obrázek"),
+                ),
+            ).apply { hiddenInSummaryWhen = { true } },
+            ParamDef.Text(
+                "small_image", "Obrázek do stavového řádku",
+                placeholder = "vložený obrázek, soubor nebo https:// (Android z něj kreslí jen tvar)", imagePicker = true,
+            ).apply {
+                hiddenWhen = { (it["small_icon"] as? ParamValue.Choice)?.value != "other" }
+                hiddenInSummaryWhen = { true }
+            },
             ParamDef.Text("name", "Název oznámení", placeholder = "nepovinný – stejný název oznámení nahradí").apply {
                 hiddenInSummaryWhen = { true }
             },
@@ -161,7 +258,7 @@ object NotificationBlock {
                 hiddenWhen = ::noCountdown
                 hiddenInSummaryWhen = { true }
             },
-        ) + (1..BUTTONS).flatMap(::buttonParams),
+        ) + tapParams() + (1..BUTTONS).flatMap(::buttonParams),
     ) { block ->
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
             throw BlockException(tr("oznámení jsou pro aplikaci vypnutá"), Requirement.PostNotifications)
@@ -189,6 +286,20 @@ object NotificationBlock {
             builder.setContentText(body).setStyle(NotificationCompat.BigTextStyle().bigText(body))
         }
 
+        val image = text(block, "image").trim()
+        val large = if (image.isNotEmpty()) ImageTools.load(context, image).bitmap else null
+        // In colour next to the text; the status bar icon is always one colour (Android draws only its shape).
+        large?.let { builder.setLargeIcon(it) }
+        when (choice(block, "small_icon")) {
+            "same" -> large?.let { builder.setSmallIcon(statusBarIcon(it)) }
+            "other" -> text(block, "small_image").trim().takeIf { it.isNotEmpty() }?.let {
+                builder.setSmallIcon(statusBarIcon(ImageTools.load(context, it).bitmap))
+            }
+        }
+
+        val tap = Action.of(choice(block, "tap_action"))
+        pendingFor(block, "tap", tap, id, id * 4, tr("Po klepnutí na oznámení"))?.let { builder.setContentIntent(it) }
+
         val values = Blocks.get(TYPE)!!.params.associate { it.key to (block.params[it.key] ?: it.defaultValue()) }
         for (index in 1..BUTTONS) {
             if (buttonHidden(values, index)) break
@@ -201,34 +312,7 @@ object NotificationBlock {
                     ?.let { (context.applicationContext as AutomationApplication).repository.get(it)?.name }
                     ?: action.label
             }
-            val requestCode = id * 4 + index
-            val pending = when (action) {
-                Action.Copy, Action.Dismiss -> PendingIntent.getBroadcast(
-                    context, requestCode,
-                    NotificationButtonReceiver.intent(
-                        context, id, copy = if (action == Action.Copy) text(block, "b${index}_text") else null
-                    ),
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-                )
-                Action.Run -> {
-                    val target = choice(block, "b${index}_automation").toLongOrNull()
-                        ?: throw BlockException(tr("u tlačítka „%s“ není vybraná automatizace", label))
-                    activity(context, requestCode, TriggerActivity.notificationRunIntent(
-                        context, id, target, text(block, "b${index}_input")
-                    ))
-                }
-                Action.Url -> {
-                    var url = text(block, "b${index}_url").trim()
-                    if (url.isEmpty()) throw BlockException(tr("u tlačítka „%s“ chybí adresa", label))
-                    if (!url.contains(":")) url = "https://$url"
-                    activity(context, requestCode, TriggerActivity.notificationOpenIntent(context, id, url))
-                }
-                Action.Share -> activity(
-                    context, requestCode,
-                    TriggerActivity.notificationShareIntent(context, id, text(block, "b${index}_text"))
-                )
-                Action.None -> continue
-            }
+            val pending = pendingFor(block, "b$index", action, id, id * 4 + index, label) ?: continue
             builder.addAction(0, label, pending)
         }
 
