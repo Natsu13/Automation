@@ -392,6 +392,12 @@ object HttpBlocks {
     /** A file chosen with "Vybrat soubor" (content://), a saved download (file://) or a path. */
     fun openSource(context: Context, source: String): Source {
         if (source.isBlank()) throw BlockException(tr("soubor není zadaný"))
+        if (EmbeddedImage.isEmbedded(source)) {
+            // An image stored in the automation itself (data:image/png;base64,…).
+            val (bytes, mime) = EmbeddedImage.decode(source)
+            val extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(mime) ?: "png"
+            return Source("obrazek.$extension", mime) { java.io.ByteArrayInputStream(bytes) }
+        }
         val uri = if (source.startsWith("/")) Uri.fromFile(File(source)) else Uri.parse(source)
         return when (uri.scheme) {
             "content" -> {

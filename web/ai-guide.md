@@ -338,7 +338,7 @@ return "Total " & round(total, 2)
 | `source` | choice | `"custom"` | What to check · `"custom"` Custom value (text and variables), `"input"` Input, `"trigger"` Trigger type, `"wifi_name"` Wi-Fi name, `"network"` Connection type, `"battery"` Battery (%), `"charging"` Charging, `"bt_device"` Bluetooth device, `"dnd"` Do Not Disturb mode, `"notif_app"` Notification – app, `"notif_title"` Notification – title, `"notif_text"` Notification – text, `"notif_package"` Notification – app package, `"sms_sender"` SMS – sender, `"sms_text"` SMS – text, `"call_number"` Call – number, `"nfc_id"` NFC tag – ID, `"nfc_text"` NFC tag – text, `"app_package"` App – package, `"app_name"` App – name · *only when `mode` is "simple"* |
 | `left` | text | `input` | Value · *only when `mode` is "simple" and `source` is "custom"* |
 | `op` | choice | `"equals"` | Condition · `"equals"` is equal to, `"not_equals"` is not equal to, `"contains"` contains, `"not_contains"` does not contain, `"starts"` starts with, `"ends"` ends with, `"matches"` matches the regular expression, `"empty"` is empty, `"not_empty"` is not empty, `"greater"` is greater than, `"less"` is less than, `"greater_eq"` is greater than or equal to, `"less_eq"` is less than or equal to · *only when `mode` is "simple"* |
-| `right` | text | `""` | Compare with · e.g. hodnota · *only when `mode` is "simple" and `op` is "equals" / "not_equals" / "contains" / "not_contains" / "starts" / "ends" / "matches" / "greater" / "less" / "greater_eq" / "less_eq"* |
+| `right` | text | `""` | Compare with · e.g. value · *only when `mode` is "simple" and `op` is "equals" / "not_equals" / "contains" / "not_contains" / "starts" / "ends" / "matches" / "greater" / "less" / "greater_eq" / "less_eq"* |
 | `expression` | text | `""` | Expression · e.g. battery < 20 or state == "vip" · *only when `mode` is "expert"* |
 
 
@@ -369,8 +369,8 @@ Replaces occurrences of the searched text. Optionally as a regular expression ($
 | Parameter | Kind | Default | Values / notes |
 |---|---|---|---|
 | `source` | text | `input` | In text |
-| `find` | text | `""` | Find · e.g. co hledat |
-| `replacement` | text | `""` | Replace with · e.g. nic = smazat |
+| `find` | text | `""` | Find · e.g. what to find |
+| `replacement` | text | `""` | Replace with · e.g. nothing = delete |
 | `regex` | true/false | `false` | Regular expression |
 | `ignoreCase` | true/false | `true` | Ignore case |
 
@@ -554,7 +554,7 @@ Opens the Share sheet with a file or an image – an edited or downloaded one, s
 
 | Parameter | Kind | Default | Values / notes |
 |---|---|---|---|
-| `file` | text | `""` | File · e.g. výstup bloku Vybrat soubor, Upravit obrázek, stažený soubor nebo https:// adresa |
+| `file` | text | `""` | File · e.g. output of Choose file, Edit image, a downloaded file or an https:// address |
 | `text` | text | `""` | Text to share · e.g. optional |
 
 #### `save_file` – Save file / Uložit soubor
@@ -566,7 +566,7 @@ Saves a file to the Gallery (images, the Automation folder) or to Downloads. Ret
 
 | Parameter | Kind | Default | Values / notes |
 |---|---|---|---|
-| `file` | text | `""` | File · e.g. výstup bloku Vybrat soubor, Upravit obrázek, stažený soubor nebo https:// adresa |
+| `file` | text | `""` | File · e.g. output of Choose file, Edit image, a downloaded file or an https:// address |
 | `where` | choice | `"auto"` | Where · `"auto"` Images to the Gallery, the rest to Downloads, `"gallery"` Gallery (Pictures), `"downloads"` Downloads |
 | `name` | text | `""` | File name · e.g. keep the original |
 
@@ -666,7 +666,7 @@ Builds JSON from "key: value" lines (a dot in the key makes a nested object: use
 | Parameter | Kind | Default | Values / notes |
 |---|---|---|---|
 | `kind` | choice | `"object"` | Create · `"object"` Object from key: value lines, `"array"` Array – every line is one item |
-| `items` | text | `""` | Items · e.g. title: Ahoj ⏎ user.id: 42 |
+| `items` | text | `""` | Items · e.g. title: Hello ⏎ user.id: 42 |
 | `typed` | true/false | `true` | Numbers and true / false as values (not text) |
 
 <details><summary>Help</summary>
@@ -812,20 +812,36 @@ the server returns…” or put the step into a Try block.
 
 #### `image_edit` – Edit image / Upravit obrázek
 
-One image edit: shrink, rotate, flip, crop to a square, or convert to JPG / PNG / WEBP. Returns a new file – add another block for another edit.
+One image edit: shrink, rotate, flip, crop to a square, or convert to JPG / PNG / WEBP, or tint it one colour (an icon by state). Returns a new file – add another block for another edit.
 
-- Signature: `image_edit(source, op, max_size, angle, flip, format, quality)`
+- Signature: `image_edit(source, op, color, max_size, angle, flip, format, quality)`
 - Output: Edited image (e.g. `edited_image = …`)
 
 | Parameter | Kind | Default | Values / notes |
 |---|---|---|---|
-| `source` | text | `""` | Image · e.g. output of the Pick file block, a downloaded file or an https:// address |
-| `op` | choice | `"resize"` | Edit · `"resize"` Shrink, `"rotate"` Rotate, `"flip"` Flip (mirror), `"square"` Crop to a square (center), `"convert"` Convert format |
+| `source` | text | `""` | Image · e.g. stored image, output of Choose file, a downloaded file or an https:// address |
+| `op` | choice | `"resize"` | Edit · `"resize"` Shrink, `"rotate"` Rotate, `"flip"` Flip (mirror), `"square"` Crop to a square (center), `"convert"` Convert format, `"tint"` Tint (one colour, the shape stays) |
+| `color` | text | `""` | Colour · e.g. white, red, #FF9800… · *only when `op` is "tint"* |
 | `max_size` | number | `1600` | Longer side at most · 100–4000 px · *only when `op` is "resize"* |
 | `angle` | choice | `"90"` | Rotate by · `"90"` 90° right, `"180"` 180°, `"270"` 90° left · *only when `op` is "rotate"* |
 | `flip` | choice | `"horizontal"` | Direction · `"horizontal"` Horizontally (left to right), `"vertical"` Vertically (top to bottom) · *only when `op` is "flip"* |
 | `format` | choice | `"jpeg"` | Format · `"jpeg"` JPG, `"png"` PNG (lossless), `"webp"` WEBP · *only when `op` is "convert"* |
 | `quality` | number | `85` | Quality · 10–100 % · *only when `op` is "convert" and `format` is "jpeg" / "webp"* |
+
+#### `image_text` – Text into image / Text do obrázku
+
+Writes a short text into the image – under it, over its bottom or in the middle. For example “42 %” under an icon that is then shown in a notification. Returns a new image (PNG).
+
+- Signature: `image_text(source, text, position, color, size)`
+- Output: Image with text (e.g. `image_with_text = …`)
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `source` | text | `""` | Image · e.g. stored image, output of Choose file, a downloaded file or an https:// address |
+| `text` | text | `input` | Text |
+| `position` | choice | `"below"` | Where · `"below"` Under the image (the image shrinks, the size stays), `"band"` Add a strip under the image (it gets taller), `"overlay"` Over the bottom of the image, `"center"` In the middle of the image |
+| `color` | text | `""` | Text colour · e.g. white; white, red, #FF9800… |
+| `size` | number | `35` | Text height · 10–60 % |
 
 #### `image_info` – Image information / Informace o obrázku
 
@@ -836,7 +852,7 @@ Width, height, file size and type of an image – for an "is greater than" condi
 
 | Parameter | Kind | Default | Values / notes |
 |---|---|---|---|
-| `source` | text | `""` | Image · e.g. output of the Pick file block, a downloaded file or an https:// address |
+| `source` | text | `""` | Image · e.g. stored image, output of Choose file, a downloaded file or an https:// address |
 | `what` | choice | `"all"` | What to get · `"all"` Everything as JSON (width, height, bytes, type, name), `"width"` Width (px), `"height"` Height (px), `"bytes"` File size (bytes), `"kb"` File size (kB), `"type"` Type (image/jpeg…) |
 
 #### `take_photo` – Take a photo / Vyfotit
@@ -900,7 +916,7 @@ Shows a dialog with a text field. Cancelling the dialog ends the action.
 | Parameter | Kind | Default | Values / notes |
 |---|---|---|---|
 | `title` | text | `"Zadej text"` | Question |
-| `initial` | text | `""` | Prefilled · e.g. nic |
+| `initial` | text | `""` | Prefilled · e.g. nothing |
 | `multiline` | true/false | `false` | Multiple lines |
 
 #### `choose` – Choose from a list / Vybrat z nabídky
@@ -1095,7 +1111,7 @@ Runs the following steps only when the condition holds. It can have an Otherwise
 | `mode` | choice | `"simple"` | Notation · `"simple"` Simple – a value and a condition, `"expert"` Expression – and / or, numbers, functions |
 | `left` | text | `input` | Value · *only when `mode` is "simple"* |
 | `op` | choice | `"equals"` | Condition · `"equals"` is equal to, `"not_equals"` is not equal to, `"contains"` contains, `"not_contains"` does not contain, `"starts"` starts with, `"ends"` ends with, `"matches"` matches the regular expression, `"empty"` is empty, `"not_empty"` is not empty, `"greater"` is greater than, `"less"` is less than, `"greater_eq"` is greater than or equal to, `"less_eq"` is less than or equal to · *only when `mode` is "simple"* |
-| `right` | text | `""` | Compare with · e.g. hodnota · *only when `mode` is "simple" and `op` is "equals" / "not_equals" / "contains" / "not_contains" / "starts" / "ends" / "matches" / "greater" / "less" / "greater_eq" / "less_eq"* |
+| `right` | text | `""` | Compare with · e.g. value · *only when `mode` is "simple" and `op` is "equals" / "not_equals" / "contains" / "not_contains" / "starts" / "ends" / "matches" / "greater" / "less" / "greater_eq" / "less_eq"* |
 | `expression` | text | `""` | Expression · e.g. battery < 20 or state == "vip" · *only when `mode` is "expert"* |
 
 <details><summary>Help</summary>
@@ -1136,7 +1152,7 @@ Repeats the following steps while the condition holds.
 | `mode` | choice | `"simple"` | Notation · `"simple"` Simple – a value and a condition, `"expert"` Expression – and / or, numbers, functions |
 | `left` | text | `input` | Value · *only when `mode` is "simple"* |
 | `op` | choice | `"equals"` | Condition · `"equals"` is equal to, `"not_equals"` is not equal to, `"contains"` contains, `"not_contains"` does not contain, `"starts"` starts with, `"ends"` ends with, `"matches"` matches the regular expression, `"empty"` is empty, `"not_empty"` is not empty, `"greater"` is greater than, `"less"` is less than, `"greater_eq"` is greater than or equal to, `"less_eq"` is less than or equal to · *only when `mode` is "simple"* |
-| `right` | text | `""` | Compare with · e.g. hodnota · *only when `mode` is "simple" and `op` is "equals" / "not_equals" / "contains" / "not_contains" / "starts" / "ends" / "matches" / "greater" / "less" / "greater_eq" / "less_eq"* |
+| `right` | text | `""` | Compare with · e.g. value · *only when `mode` is "simple" and `op` is "equals" / "not_equals" / "contains" / "not_contains" / "starts" / "ends" / "matches" / "greater" / "less" / "greater_eq" / "less_eq"* |
 | `expression` | text | `""` | Expression · e.g. battery < 20 or state == "vip" · *only when `mode` is "expert"* |
 
 <details><summary>Help</summary>
@@ -1451,7 +1467,7 @@ Waits until the condition starts to hold – until the phone connects to Wi-Fi o
 |---|---|---|---|
 | `left` | text | `""` | Value · e.g. insert a variable that changes |
 | `op` | choice | `"equals"` | Condition · `"equals"` is equal to, `"not_equals"` is not equal to, `"contains"` contains, `"not_contains"` does not contain, `"empty"` is empty, `"not_empty"` is not empty, `"greater"` is greater than, `"less"` is less than, `"greater_eq"` is greater than or equal to, `"less_eq"` is less than or equal to |
-| `right` | text | `""` | Compare with · e.g. hodnota · *only when `op` is "equals" / "not_equals" / "contains" / "not_contains" / "greater" / "less" / "greater_eq" / "less_eq"* |
+| `right` | text | `""` | Compare with · e.g. value · *only when `op` is "equals" / "not_equals" / "contains" / "not_contains" / "greater" / "less" / "greater_eq" / "less_eq"* |
 | `timeout` | number | `60` | Wait at most · 5–600 s |
 | `interval` | number | `2` | Check every · 1–60 s |
 | `fail` | true/false | `false` | Error when it does not happen |
@@ -1749,6 +1765,17 @@ Waits for you to hold a tag to the phone and writes a text or a link on it. With
 | `content` | text | `""` | Text or link · e.g. may stay empty |
 | `open_here` | true/false | `true` | Add this app's mark |
 
+#### `storage` – Phone storage / Úložiště telefonu
+
+How much space is left or used on the phone – in percent or in GB.
+
+- Signature: `storage(info)`
+- Output: Storage (e.g. `storage_result = …`)
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `info` | choice | `"free_percent"` | Get · `"free_percent"` Free space (%), `"free_gb"` Free space (GB), `"used_percent"` Used space (%), `"total_gb"` Total size (GB) |
+
 ### App
 
 #### `open_app` – Open the app / Otevřít aplikaci
@@ -1848,9 +1875,9 @@ The current date in the chosen format (e.g. d. M. yyyy, HH:mm, EEEE).
 
 #### `notification` – Notification with buttons / Oznámení s tlačítky
 
-Shows a notification with up to three buttons: copy a text, run another automation, open a link or share a text. The texts are filled in when it is shown, so a button copies what the automation computed. A countdown can run in it and an automation can start when it ends.
+Shows a notification with up to three buttons: copy a text, run another automation, open a link or share a text. The texts are filled in when it is shown, so a button copies what the automation computed. A countdown can run in it and an automation can start when it ends. It can also have an image – stored right in the automation or made with the Images blocks.
 
-- Signature: `notification(title, text, quiet, name, countdown, end_automation, end_input, b1_action, b1_label, b1_text, b1_automation, b1_input, b1_url, b2_action, b2_label, b2_text, b2_automation, b2_input, b2_url, b3_action, b3_label, b3_text, b3_automation, b3_input, b3_url)`
+- Signature: `notification(title, text, quiet, image, small_icon, small_image, name, countdown, end_automation, end_input, tap_action, tap_automation, tap_input, tap_text, tap_url, b1_action, b1_label, b1_text, b1_automation, b1_input, b1_url, b2_action, b2_label, b2_text, b2_automation, b2_input, b2_url, b3_action, b3_label, b3_text, b3_automation, b3_input, b3_url)`
 - Requires: Notifications – The app must be allowed to show notifications.
 
 | Parameter | Kind | Default | Values / notes |
@@ -1858,27 +1885,35 @@ Shows a notification with up to three buttons: copy a text, run another automati
 | `title` | text | `"Automatizace"` | Title |
 | `text` | text | `input` | Text |
 | `quiet` | true/false | `false` | Quiet (no sound, no pop-up) |
+| `image` | text | `""` | Image · e.g. no image; stored image, file or https:// |
+| `small_icon` | choice | `"app"` | Status bar icon · `"app"` App icon, `"same"` Same image as in the notification, `"other"` Another image |
+| `small_image` | text | `""` | Status bar image · e.g. stored image, file or https:// (Android draws only its shape) · *only when `small_icon` is "other"* |
 | `name` | text | `""` | Notification name · e.g. optional – the same name replaces the notification |
 | `countdown` | text | `""` | Countdown · e.g. no countdown; seconds or 1:30 |
 | `end_automation` | automation id | `""` | Run when it ends · the number of another automation on the phone, "" = none · *only when `countdown` is filled in* |
-| `end_input` | text | `""` | Input for the automation · e.g. nic · *only when `countdown` is filled in* |
-| `b1_action` | choice | `"copy"` | 1. tlačítko · `"none"` No button, `"copy"` Copy to the clipboard, `"run"` Run automation, `"url"` Open link, `"share"` Share text, `"dismiss"` Only close the notification |
+| `end_input` | text | `""` | Input for the automation · e.g. nothing · *only when `countdown` is filled in* |
+| `tap_action` | choice | `"none"` | When the notification is tapped · `"none"` Nothing (it just closes), `"run"` Run automation, `"copy"` Copy to the clipboard, `"url"` Open link, `"share"` Share text |
+| `tap_automation` | automation id | `""` | Automations · the number of another automation on the phone, "" = none · *only when `tap_action` is "run"* |
+| `tap_input` | text | `""` | Input for the automation · e.g. nothing · *only when `tap_action` is "run"* |
+| `tap_text` | text | `input` | Text · *only when `tap_action` is "copy" / "share"* |
+| `tap_url` | text | `""` | Address · e.g. https://… · *only when `tap_action` is "url"* |
+| `b1_action` | choice | `"copy"` | Button 1 · `"none"` No button, `"copy"` Copy to the clipboard, `"run"` Run automation, `"url"` Open link, `"share"` Share text, `"dismiss"` Only close the notification |
 | `b1_label` | text | `"Kopírovat"` | Button label · e.g. empty = by the action · *only when `b1_action` is "copy" / "run" / "url" / "share" / "dismiss"* |
 | `b1_text` | text | `input` | Text · *only when `b1_action` is "copy" / "share"* |
 | `b1_automation` | automation id | `""` | Automations · the number of another automation on the phone, "" = none · *only when `b1_action` is "run"* |
-| `b1_input` | text | `""` | Input for the automation · e.g. nic · *only when `b1_action` is "run"* |
+| `b1_input` | text | `""` | Input for the automation · e.g. nothing · *only when `b1_action` is "run"* |
 | `b1_url` | text | `""` | Address · e.g. https://… · *only when `b1_action` is "url"* |
-| `b2_action` | choice | `"none"` | 2. tlačítko · `"none"` No button, `"copy"` Copy to the clipboard, `"run"` Run automation, `"url"` Open link, `"share"` Share text, `"dismiss"` Only close the notification · *only when `b1_action` is "copy" / "run" / "url" / "share" / "dismiss"* |
+| `b2_action` | choice | `"none"` | Button 2 · `"none"` No button, `"copy"` Copy to the clipboard, `"run"` Run automation, `"url"` Open link, `"share"` Share text, `"dismiss"` Only close the notification · *only when `b1_action` is "copy" / "run" / "url" / "share" / "dismiss"* |
 | `b2_label` | text | `""` | Button label · e.g. empty = by the action · *only when `b2_action` is "copy" / "run" / "url" / "share" / "dismiss" and `b1_action` is "copy" / "run" / "url" / "share" / "dismiss"* |
 | `b2_text` | text | `""` | Text · *only when `b2_action` is "copy" / "share" and `b1_action` is "copy" / "run" / "url" / "share" / "dismiss"* |
 | `b2_automation` | automation id | `""` | Automations · the number of another automation on the phone, "" = none · *only when `b2_action` is "run" and `b1_action` is "copy" / "run" / "url" / "share" / "dismiss"* |
-| `b2_input` | text | `""` | Input for the automation · e.g. nic · *only when `b2_action` is "run" and `b1_action` is "copy" / "run" / "url" / "share" / "dismiss"* |
+| `b2_input` | text | `""` | Input for the automation · e.g. nothing · *only when `b2_action` is "run" and `b1_action` is "copy" / "run" / "url" / "share" / "dismiss"* |
 | `b2_url` | text | `""` | Address · e.g. https://… · *only when `b2_action` is "url" and `b1_action` is "copy" / "run" / "url" / "share" / "dismiss"* |
-| `b3_action` | choice | `"none"` | 3. tlačítko · `"none"` No button, `"copy"` Copy to the clipboard, `"run"` Run automation, `"url"` Open link, `"share"` Share text, `"dismiss"` Only close the notification · *only when `b2_action` is "copy" / "run" / "url" / "share" / "dismiss" and `b1_action` is "copy" / "run" / "url" / "share" / "dismiss"* |
+| `b3_action` | choice | `"none"` | Button 3 · `"none"` No button, `"copy"` Copy to the clipboard, `"run"` Run automation, `"url"` Open link, `"share"` Share text, `"dismiss"` Only close the notification · *only when `b2_action` is "copy" / "run" / "url" / "share" / "dismiss" and `b1_action` is "copy" / "run" / "url" / "share" / "dismiss"* |
 | `b3_label` | text | `""` | Button label · e.g. empty = by the action · *only when `b2_action` is "copy" / "run" / "url" / "share" / "dismiss" and `b3_action` is "copy" / "run" / "url" / "share" / "dismiss" and `b1_action` is "copy" / "run" / "url" / "share" / "dismiss"* |
 | `b3_text` | text | `""` | Text · *only when `b2_action` is "copy" / "run" / "url" / "share" / "dismiss" and `b3_action` is "copy" / "share" and `b1_action` is "copy" / "run" / "url" / "share" / "dismiss"* |
 | `b3_automation` | automation id | `""` | Automations · the number of another automation on the phone, "" = none · *only when `b2_action` is "copy" / "run" / "url" / "share" / "dismiss" and `b3_action` is "run" and `b1_action` is "copy" / "run" / "url" / "share" / "dismiss"* |
-| `b3_input` | text | `""` | Input for the automation · e.g. nic · *only when `b2_action` is "copy" / "run" / "url" / "share" / "dismiss" and `b3_action` is "run" and `b1_action` is "copy" / "run" / "url" / "share" / "dismiss"* |
+| `b3_input` | text | `""` | Input for the automation · e.g. nothing · *only when `b2_action` is "copy" / "run" / "url" / "share" / "dismiss" and `b3_action` is "run" and `b1_action` is "copy" / "run" / "url" / "share" / "dismiss"* |
 | `b3_url` | text | `""` | Address · e.g. https://… · *only when `b2_action` is "copy" / "run" / "url" / "share" / "dismiss" and `b3_action` is "url" and `b1_action` is "copy" / "run" / "url" / "share" / "dismiss"* |
 
 #### `notification_cancel` – Cancel notification / Zrušit oznámení
@@ -2056,7 +2091,7 @@ API: you pick an image, it is shrunk and sent with a caption as a form (multipar
 # @name "Upload an image (multipart)"
 # @icon code
 picked_file = pick_file("image/*")
-edited_image = image_edit(picked_file, "resize", 1280)
+edited_image = image_edit({source: picked_file, op: "resize", max_size: 1280})
 entered_text = ask_text("Popisek obrázku", "Fotka z Automation")
 api_response = http_request({method: "POST", url: "https://httpbin.org/post", headers: "", body_type: "multipart", fields: "popisek=" & entered_text & "\nobrazek=@" & edited_image, only_body: false, save_file: false, fail: false})
 value_from_json = json_get(api_response, "status", "value")
@@ -2164,17 +2199,17 @@ A notification with a countdown and the buttons Pause, Continue and Cancel. The 
 if input == "pauza"
     seconds_left = notification_remaining("casovac")
     store_set("set", "casovac_zbyva", seconds_left, "own")
-    notification({title: "Timer", text: "Paused, seconds left: " & seconds_left, quiet: true, name: "casovac", countdown: "", b1_action: "run", b1_label: "Continue", b1_automation: "", b1_input: "pokracovat", b2_action: "run", b2_label: "Cancel", b2_automation: "", b2_input: "zrusit", b3_action: "none"})
+    notification({title: "Timer", text: "Paused, seconds left: " & seconds_left, quiet: true, image: "", small_icon: "app", name: "casovac", countdown: "", tap_action: "none", b1_action: "run", b1_label: "Continue", b1_automation: "", b1_input: "pokracovat", b2_action: "run", b2_label: "Cancel", b2_automation: "", b2_input: "zrusit", b3_action: "none"})
 else if input == "pokracovat"
     stored_value = store_get("casovac_zbyva", 60, "own")
-    notification({title: "Timer", text: "Running…", quiet: false, name: "casovac", countdown: stored_value, end_automation: "", end_input: "konec", b1_action: "run", b1_label: "Pause", b1_automation: "", b1_input: "pauza", b2_action: "run", b2_label: "Cancel", b2_automation: "", b2_input: "zrusit", b3_action: "none"})
+    notification({title: "Timer", text: "Running…", quiet: false, image: "", small_icon: "app", name: "casovac", countdown: stored_value, end_automation: "", end_input: "konec", tap_action: "none", b1_action: "run", b1_label: "Pause", b1_automation: "", b1_input: "pauza", b2_action: "run", b2_label: "Cancel", b2_automation: "", b2_input: "zrusit", b3_action: "none"})
 else if input == "zrusit"
     notification_cancel("casovac")
     toast("Timer cancelled")
 else if input == "konec"
-    notification({title: "Time is up", text: "The timer has finished.", quiet: false, name: "", countdown: "", b1_action: "dismiss", b1_label: "OK", b2_action: "none"})
+    notification({title: "Time is up", text: "The timer has finished.", quiet: false, image: "", small_icon: "app", name: "", countdown: "", tap_action: "none", b1_action: "dismiss", b1_label: "OK", b2_action: "none"})
 else
-    notification({title: "Timer", text: "Running…", quiet: false, name: "casovac", countdown: "5:00", end_automation: "", end_input: "konec", b1_action: "run", b1_label: "Pause", b1_automation: "", b1_input: "pauza", b2_action: "run", b2_label: "Cancel", b2_automation: "", b2_input: "zrusit", b3_action: "none"})
+    notification({title: "Timer", text: "Running…", quiet: false, image: "", small_icon: "app", name: "casovac", countdown: "5:00", end_automation: "", end_input: "konec", tap_action: "none", b1_action: "run", b1_label: "Pause", b1_automation: "", b1_input: "pauza", b2_action: "run", b2_label: "Cancel", b2_automation: "", b2_input: "zrusit", b3_action: "none"})
 end
 ```
 
@@ -2223,6 +2258,26 @@ Send intent: asks for a place and opens it in maps (action VIEW, data geo:).
 # @icon map
 entered_text = ask_text("Which place are you looking for?", "Praha")
 send_intent("activity", "", "", "android.intent.action.VIEW", "geo:0,0?q=" & entered_text)
+```
+
+### Free space icon
+
+Image in the automation: tints a disk icon by the free space (green, orange, red), writes the percent under it and shows it in a notification. Instead of the Phone storage block you can read the value from an API.
+
+```
+# @name "Free space icon"
+# @icon storage
+storage_result = storage("free_percent")
+if storage_result < 10
+    barva = "#E53935"
+else if storage_result < 25
+    barva = "#FB8C00"
+else
+    barva = "#43A047"
+end
+edited_image = image_edit("data:image/png;base64,", "tint", barva)
+image_with_text = image_text(edited_image, storage_result & " %", "below", barva)
+notification({title: "Free space", text: "Space left on the phone: " & storage_result & " %.", quiet: true, image: image_with_text, small_icon: "same", name: "volne_misto", countdown: "", tap_action: "none", b1_action: "none"})
 ```
 
 ### Wait for Wi-Fi

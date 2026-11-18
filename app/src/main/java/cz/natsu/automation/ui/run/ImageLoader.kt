@@ -38,6 +38,9 @@ object ImageLoader {
     }
 
     private fun read(context: Context, source: String): ByteArray? {
+        if (cz.natsu.automation.engine.EmbeddedImage.isEmbedded(source)) {
+            return cz.natsu.automation.engine.EmbeddedImage.decode(source).first
+        }
         val uri = if (source.startsWith("/")) Uri.fromFile(File(source)) else Uri.parse(source)
         return when (uri.scheme) {
             "content" -> context.contentResolver.openInputStream(uri)?.use { it.readBytes() }

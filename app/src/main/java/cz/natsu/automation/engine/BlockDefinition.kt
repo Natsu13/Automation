@@ -102,6 +102,13 @@ sealed class ParamDef(val key: String, val label: String) {
         val componentPicker: Boolean = false,
         /** Values offered as chips under the field. */
         val suggestions: List<String> = emptyList(),
+        /**
+         * Offers to put an image right into the automation (from the gallery or an icon),
+         * stored as a data:image/…;base64 text; a variable or a file still works too.
+         */
+        val imagePicker: Boolean = false,
+        /** A colour: shows it next to the field when it can be worked out, with a picker. */
+        val colorPicker: Boolean = false,
     ) : ParamDef(key, label) {
         override fun defaultValue(): ParamValue =
             if (defaultRef != null) richVar(defaultRef) else richText(default)
