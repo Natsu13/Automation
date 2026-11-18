@@ -63,6 +63,8 @@ object Examples {
         "Najít místo na mapě (intent)" to "Poslat intent: zeptá se na místo a otevře ho v mapách (akce VIEW, data geo:).",
         "Počkat na Wi-Fi" to "Počkat dokud + Zkusit: čeká až 30 s na Wi-Fi, jinak ohlásí, že se nedočkal.",
         "Nahrát obrázek (multipart)" to "API: vybereš obrázek, zmenší se a pošle se i s popiskem jako formulář (multipart).",
+        "Skript: kreslení do obrázku" to "Funkce img_… v bloku Skript: zmenšená ikona s lištou průběhu, kruhový " +
+            "průběh přes celý obrázek a ikona zbarvená zespodu podle procent. Lištu ukáže i v oznámení.",
         "Ikona volného místa" to "Obrázek v automatizaci: ikonu disku obarví podle volného místa (zelená, oranžová, " +
             "červená), napíše pod ni procenta a ukáže ji v oznámení. Místo bloku Úložiště telefonu můžeš číst hodnotu z API.",
     )
@@ -784,6 +786,50 @@ object Examples {
                         "name" to richText("volne_misto"),
                         "image" to richVar(VarRef.BlockOutput(labelled.id)),
                         "small_icon" to ParamValue.Choice("same"),
+                        "b1_action" to ParamValue.Choice("none"),
+                    ),
+                )
+            )
+        },
+
+        // Drawing into an image in the Script block: three ways to show progress
+        example("Skript: kreslení do obrázku", "brush") {
+            val free = block("storage", null, "info" to ParamValue.Choice("free_percent"))
+            val icon = block("image", null, "source" to richText(ExampleImages.STORAGE_ICON))
+            fun code(vararg parts: Any) = ParamValue.Rich(parts.map {
+                if (it is Block) Segment.Var(VarRef.BlockOutput(it.id)) else Segment.Text(it.toString())
+            })
+            val script = block(
+                "script", null,
+                "code" to code(
+                    "free = ", free, "\n",
+                    "icon = ", icon, "\n",
+                    "# " + tr("1) zmenšená ikona a pod ní lišta průběhu") + "\n",
+                    "bar = img_draw(img_new(192, 192), icon, 46, 0, 100)\n",
+                    "bar = img_bar(bar, 12, 116, 168, 64, free, \"#43A047\", \"#55FFFFFF\", 16)\n",
+                    "bar = img_text(bar, free & \" %\", 96, 148, 36, \"white\")\n",
+                    "# " + tr("2) poloprůhledný čtverec s kruhovým průběhem přes celý obrázek") + "\n",
+                    "ring = img_rect(icon, 0, 0, 192, 192, \"#AA000000\", 32)\n",
+                    "ring = img_arc(ring, 96, 96, 72, free, \"#FB8C00\", 16, \"#44FFFFFF\")\n",
+                    "ring = img_text(ring, free & \" %\", 96, 96, 40, \"white\")\n",
+                    "# " + tr("3) ikona zespodu v barvě podle procent, zbytek bílý") + "\n",
+                    "fill = img_fill(icon, free, \"#43A047\", \"up\", \"white\")\n",
+                    "return [bar, ring, fill]",
+                ),
+            )
+            Built(
+                listOf(
+                    free,
+                    icon,
+                    script,
+                    block("show_images", null, "title" to richText(tr("Tři způsoby průběhu")), "images" to richVar(VarRef.BlockOutput(script.id))),
+                    block(
+                        NotificationBlock.TYPE, null,
+                        "title" to richText(tr("Volné místo")),
+                        "text" to code(tr("V telefonu zbývá "), free, tr(" % místa.")),
+                        "quiet" to ParamValue.Bool(true),
+                        "name" to richText("kresleni_obrazku"),
+                        "image" to richVar(VarRef.Named("bar")),
                         "b1_action" to ParamValue.Choice("none"),
                     ),
                 )

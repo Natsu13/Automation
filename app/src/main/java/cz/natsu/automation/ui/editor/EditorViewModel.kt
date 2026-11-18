@@ -891,7 +891,9 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         // "Co kontrolovat" choice. In steps they come from blocks.
         if (isCondition(blockId)) return options
         val index = indexOf(blockId).let { if (it < 0) blocks.size else it }
-        val names = linkedSetOf<String>()
+        // Name -> where it comes from (the first step that sets it).
+        val names = linkedMapOf<String, String>()
+        fun source(i: Int, block: Block) = tr("Proměnná – nastaví krok %s: %s", i + 1, tr(Blocks.get(block.type)?.title ?: block.type))
         for (i in 0 until index) {
             val block = blocks[i]
             val def = Blocks.get(block.type) ?: continue
@@ -903,15 +905,23 @@ class EditorViewModel(application: Application, private val automationId: Long) 
                 )
             }
             if (block.type == Blocks.SET_VARIABLE || block.type == cz.natsu.automation.engine.ControlBlocks.CHANGE_VARIABLE) {
-                plainText(block.params["name"])?.takeIf { it.isNotBlank() }?.let { names += it.trim() }
+                plainText(block.params["name"])?.takeIf { it.isNotBlank() }?.let { names.putIfAbsent(it.trim(), source(i, block)) }
+            }
+            // What a Script block assigns is a variable of the automation too.
+            if (block.type == cz.natsu.automation.engine.ControlBlocks.SCRIPT) {
+                val code = (block.params["code"] as? ParamValue.Rich)?.segments.orEmpty()
+                    .joinToString("") { (it as? cz.natsu.automation.data.Segment.Text)?.text ?: "0" }
+                for (name in cz.natsu.automation.engine.ScriptWords.assigned(code)) names.putIfAbsent(name, source(i, block))
             }
             // A parallel loop saves the results of its rounds to a variable.
             if ((block.params["parallel"] as? ParamValue.Bool)?.value == true) {
-                plainText(block.params["collect"])?.takeIf { it.isNotBlank() }?.let { names += it.trim() }
+                plainText(block.params["collect"])?.takeIf { it.isNotBlank() }?.let {
+                    names.putIfAbsent(it.trim(), tr("Proměnná – výsledky souběžných kol kroku %s: %s", i + 1, tr(def.title)))
+                }
             }
         }
-        for (variable in names) {
-            options += VariableOption(VarRef.Named(variable), variable, tr("Proměnná"))
+        for ((variable, from) in names) {
+            options += VariableOption(VarRef.Named(variable), variable, from)
         }
         for (secret in cz.natsu.automation.data.SecretStore.names(getApplication())) {
             options += VariableOption(VarRef.Secret(secret), "🔑 $secret", tr("Tajná hodnota – v exportu se neukládá"))

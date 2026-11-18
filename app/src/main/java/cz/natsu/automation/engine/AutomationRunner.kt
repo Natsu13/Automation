@@ -237,6 +237,8 @@ class RunContext(
                 if (name == "secret" || name == "tajne") {
                     return kotlinx.coroutines.runBlocking { resolve(VarRef.Secret(Script.text(args.firstOrNull()))) }
                 }
+                // Drawing into images: img_new, img_rect, img_text… (each returns a new picture file).
+                ImageScript.call(context, name, args).let { if (it !== Script.MISSING) return it }
                 val explicit = name == "blok" || name == "block"
                 val type = if (explicit) Script.text(args.firstOrNull()) else name
                 val def = Blocks.get(type)

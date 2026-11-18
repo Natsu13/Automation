@@ -124,6 +124,37 @@ class DeviceBlocksTest {
     }
 
     @Test
+    fun scriptDrawsIntoImages() {
+        val example = cz.natsu.automation.ui.list.Examples.all.first { it.name == "Skript: kreslení do obrázku" }
+        val blocks = example.build().blocks.filter { it.type != "show_images" }
+        val script = blocks.first { it.type == "script" }
+        val result = run(*blocks.toTypedArray(), block("return", "text" to rich(VarRef.BlockOutput(script.id))))
+        assertNull(result.error)
+        val files = JsonTools.toList(result.output!!)
+        assertEquals(3, files.size)
+        val out = context.getExternalFilesDir(null)!!
+        for ((i, path) in files.withIndex()) {
+            val file = File(Uri.parse(path).path!!)
+            val bitmap = android.graphics.BitmapFactory.decodeFile(file.path)
+            assertEquals(192, bitmap.width)
+            file.copyTo(File(out, "script_image_$i.png"), overwrite = true)
+        }
+        // Every function by name, once.
+        val all = block("script", "code" to richText(
+            "p = img_new(100, 60, \"#202020\")\n" +
+                "p = img_border(p, \"red\", 4, 8)\n" +
+                "p = img_line(p, 0, 0, 100, 60, \"yellow\", 3)\n" +
+                "p = img_circle(p, 50, 30, 10, \"blue\")\n" +
+                "p = img_crop(img_resize(img_scale(p, 2), 100), 10, 10, 50, 20)\n" +
+                "p = obr_obarvi(p, \"zelená\")\n" +
+                "return img_size(p).width & \"x\" & img_size(p).height"
+        ))
+        val sizes = run(all, block("return", "text" to rich(VarRef.BlockOutput(all.id))))
+        assertNull(sizes.error)
+        assertEquals("50x20", sizes.output)
+    }
+
+    @Test
     fun storedValuesBelongToTheirAutomation() {
         ValueStore.removeAutomation(context, 901)
         ValueStore.removeAutomation(context, 902)

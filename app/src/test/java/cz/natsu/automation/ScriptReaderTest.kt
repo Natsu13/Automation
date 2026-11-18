@@ -22,6 +22,23 @@ class ScriptReaderTest {
     fun czech() = I18n.force(Language.Czech)
 
     @Test
+    fun namesAScriptAssigns() {
+        val code = """
+            bar = img_new(10, 10)
+            if x == 1
+                n += 1
+                osoba.vek = 3
+            end
+            for i in range(3)
+                total = total + i
+            end
+            x != 2
+            return bar
+        """.trimIndent()
+        assertEquals(listOf("bar", "n", "total"), cz.natsu.automation.engine.ScriptWords.assigned(code))
+    }
+
+    @Test
     fun everyExampleReadsBackToTheSameScript() {
         for (language in listOf(Language.Czech, Language.English)) {
             I18n.force(language)
@@ -32,6 +49,65 @@ class ScriptReaderTest {
                 assertEquals("${example.name} ($language)", written, ScriptWriter(read.blocks).write())
             }
         }
+    }
+
+    @Test
+    fun everyExampleReadsBackToTheSameBlocks() {
+        czech()
+        for (example in Examples.all) {
+            val blocks = example.build().blocks
+            val read = ScriptReader.read(ScriptWriter(blocks).write()).blocks
+            // Groups of steps and Script blocks come back as they were (plain steps may read as their equivalent).
+            fun groups(list: List<cz.natsu.automation.data.Block>) = list.map { it.type }.filter {
+                it == "script" || cz.natsu.automation.engine.Blocks.get(it)?.kind != cz.natsu.automation.engine.BlockKind.Normal
+            }
+            assertEquals(example.name, groups(blocks), groups(read))
+        }
+    }
+
+    @Test
+    fun groupsKeepTheirSettings() {
+        czech()
+        val text = """
+            error = try(3, 1.5, true)
+                lock("pocitadlo")
+                    script
+                        if x > 1
+                            return "big"
+                        end
+
+                        return "small"
+                    end
+                end
+            catch
+                parallel
+                    toast(error)
+                branch
+                    time_limit(20)
+                        vibrate(100)
+                    end
+                end
+            end
+            # script
+            #     return 1
+            # end
+        """.trimIndent()
+        val read = ScriptReader.read(text).blocks
+        assertEquals(
+            listOf("try", "lock", "script", "end_lock", "catch", "parallel", "toast", "parallel_branch", "time_limit",
+                "vibrate", "end_time_limit", "end_parallel", "end_try", "script"),
+            read.map { it.type },
+        )
+        val attempts = read[0].params
+        assertEquals(ParamValue.Number(3f), attempts["attempts"])
+        assertEquals(ParamValue.Number(1.5f), attempts["delay"])
+        assertEquals(ParamValue.Bool(true), attempts["backoff"])
+        assertEquals("pocitadlo", (read[1].params["name"] as ParamValue.Rich).segments.joinToString("") { (it as Segment.Text).text })
+        val code = (read[2].params["code"] as ParamValue.Rich).segments.joinToString("") { (it as Segment.Text).text }
+        assertEquals("if x > 1\n    return \"big\"\nend\n\nreturn \"small\"", code)
+        assertEquals(ParamValue.Number(20f), read[8].params["seconds"])
+        assertTrue(read.last().disabled)
+        assertEquals(text, ScriptWriter(read).write())
     }
 
     @Test

@@ -187,6 +187,30 @@ fun VariablePickerSheet(
                 Text(tr("Vybrat klepnutím na krok"))
             }
         }
+        // A variable by its name – e.g. one that a step only creates while it runs.
+        var custom by remember { mutableStateOf("") }
+        val customName = custom.trim()
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        ) {
+            // A placeholder instead of a label keeps the field exactly as tall as the button next to it.
+            OutlinedTextField(
+                value = custom,
+                onValueChange = { custom = it },
+                placeholder = { Text(tr("Proměnná podle názvu")) },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.weight(1f).height(56.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            FilledTonalButton(
+                onClick = { onPick(VariableOption(cz.natsu.automation.data.VarRef.Named(customName), customName, tr("Proměnná"))) },
+                enabled = customName.isNotEmpty(),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.height(56.dp),
+            ) { Text(tr("Vložit")) }
+        }
         LazyColumn {
             items(options) { option ->
                 val style = chipStyle(option.ref)

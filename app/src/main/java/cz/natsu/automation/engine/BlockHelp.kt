@@ -382,6 +382,39 @@ object BlockHelp {
         • kdyz(podminka, a, b), date("d. M. yyyy"), now()
         • var("název s mezerou") – proměnná, která nejde napsat jménem
 
+        Skupiny kroků (jako bloky Zkusit, Souběžně…)
+        • x = script … konec – vnořený skript; jeho vrat ukončí jen jeho
+        • chyba = try(pokusů, pauza, zdvojnásobit) … catch … konec
+        • parallel … branch … konec – ve skriptu běží větve po sobě
+        • lock("název") … konec, time_limit(10) … konec
+        Tak zapíše celou automatizaci i Zobrazit jako skript.
+
+        Funkce – obrázky
+        Každá nakreslí jednu věc a vrátí nový obrázek (soubor PNG), takže je
+        řetězíš a výsledek dáš do oznámení nebo jiného bloku. Obrázek je
+        vložený obrázek, soubor, https:// adresa nebo výstup kroku. Souřadnice
+        jsou v px od levého horního rohu, barvy jako jinde (zelená, #FF9800).
+        • img_new(š, v, barva) – prázdné plátno (bez barvy průhledné)
+        • img_size(obr) → {width, height}
+        • img_scale(obr, 0.7), img_resize(obr, š, v), img_crop(obr, x, y, š, v)
+        • img_draw(plátno, obr, x, y, š, v) – vloží obrázek (š, v nepovinné)
+        • img_rect(obr, x, y, š, v, barva, zaobleni) – vyplněný obdélník
+        • img_border(obr, barva, šířka, zaobleni) – rámeček kolem
+        • img_line(obr, x1, y1, x2, y2, barva, šířka)
+        • img_circle(obr, x, y, r, barva, šířka) – bez šířky vyplněný
+        • img_arc(obr, x, y, r, procent, barva, šířka, barva_pozadí) – kruhový průběh
+        • img_text(obr, text, x, y, velikost, barva, "left"/"center"/"right") – y je střed textu
+        • img_tint(obr, barva) – celý tvar jednou barvou
+        • img_fill(obr, procent, barva, směr, barva_zbytku) – část tvaru
+          v barvě podle procent; směr "up" (výchozí), "down", "left", "right"
+        • img_bar(obr, x, y, š, v, procent, barva, barva_pozadí, zaobleni) – lišta průběhu
+        Česky: obr_novy, obr_velikost, obr_zmen, obr_rozmer, obr_orizni,
+        obr_vloz, obr_obdelnik, obr_ramecek, obr_cara, obr_kruh, obr_oblouk,
+        obr_text, obr_obarvi, obr_vypln, obr_lista.
+        • ikona zmenšená a pod ní lišta:
+          p = img_draw(img_new(192, 192), obrazek, 36, 0, 120)
+          vrat img_bar(p, 16, 150, 160, 24, volno, "zelená")
+
         Bloky jako funkce
         Každý blok jde zavolat svým typem. Parametry napíšeš jménem v { },
         nebo jeden po druhém v pořadí, v jakém jsou v bloku.

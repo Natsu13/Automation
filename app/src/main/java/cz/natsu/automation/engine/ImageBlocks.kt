@@ -9,6 +9,7 @@ import android.graphics.Matrix
 import android.media.ExifInterface
 import android.net.Uri
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.ImageSearch
 import androidx.compose.material.icons.rounded.PhotoFilter
 import androidx.compose.material.icons.rounded.TextFields
@@ -124,6 +125,22 @@ object ImageBlocks {
                 }
             }
             BlockResult.Output(ImageTools.save(context, result, format, quality, image.name))
+        },
+
+        BlockDef(
+            type = "image",
+            summary = "Obrázek {source}",
+            title = "Obrázek",
+            description = "Obrázek uložený přímo v automatizaci (vložený obrázek nebo ikona), soubor nebo adresa. " +
+                    "Výstup použiješ ve skriptu (img_…), v oznámení nebo v dalších blocích obrázků.",
+            category = BlockCategory.Images,
+            icon = Icons.Rounded.Image,
+            params = listOf(ParamDef.Text("source", "Obrázek", placeholder = sourceHint, imagePicker = true)),
+            outputName = "Obrázek",
+        ) { block ->
+            val source = text(block, "source").trim()
+            if (source.isEmpty()) throw BlockException(tr("obrázek není zadaný"))
+            BlockResult.Output(source)
         },
 
         BlockDef(
@@ -305,7 +322,7 @@ object ImageTools {
     /** Like [color], null when the text is not a colour. */
     fun colorOrNull(text: String): Int? {
         val wanted = text.trim().lowercase()
-        var hex = colorNames[wanted] ?: wanted
+        var hex = (colorNames[wanted] ?: wanted).lowercase()
         if (!hex.startsWith("#") && hex.matches(Regex("[0-9a-f]{3,8}"))) hex = "#" + hex
         if (hex.length == 4) hex = "#" + hex.drop(1).map { c -> "" + c + c }.joinToString("")
         if (!hex.matches(Regex("#([0-9a-f]{6}|[0-9a-f]{8})"))) return null

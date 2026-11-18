@@ -387,6 +387,37 @@ internal object BlockHelpEn {
             • iif(condition, a, b), date("d. M. yyyy"), now()
             • var("name with a space") – a variable that cannot be written by name
 
+            Groups of steps (like the Try, Parallel… blocks)
+            • x = script … end – a nested script; its return ends only it
+            • error = try(attempts, pause, double) … catch … end
+            • parallel … branch … end – in a script the branches run one by one
+            • lock("name") … end, time_limit(10) … end
+            Show as script writes the whole automation like that.
+
+            Functions – images
+            Each draws one thing and returns a new picture (a PNG file), so they
+            chain and the result goes into a notification or another block. An
+            image is a stored image, a file, an https:// address or a step's
+            output. Coordinates are px from the top left; colours as elsewhere
+            (green, #FF9800).
+            • img_new(w, h, colour) – an empty canvas (transparent without a colour)
+            • img_size(img) → {width, height}
+            • img_scale(img, 0.7), img_resize(img, w, h), img_crop(img, x, y, w, h)
+            • img_draw(canvas, img, x, y, w, h) – puts a picture in (w, h optional)
+            • img_rect(img, x, y, w, h, colour, radius) – a filled rectangle
+            • img_border(img, colour, width, radius) – a frame around it
+            • img_line(img, x1, y1, x2, y2, colour, width)
+            • img_circle(img, x, y, r, colour, width) – filled without a width
+            • img_arc(img, x, y, r, percent, colour, width, back_colour) – a progress ring
+            • img_text(img, text, x, y, size, colour, "left"/"center"/"right") – y is the middle of the text
+            • img_tint(img, colour) – the whole shape one colour
+            • img_fill(img, percent, colour, direction, rest_colour) – part of the
+              shape in the colour by percent; direction "up" (default), "down", "left", "right"
+            • img_bar(img, x, y, w, h, percent, colour, back_colour, radius) – a progress bar
+            • a smaller icon with a bar under it:
+              p = img_draw(img_new(192, 192), picture, 36, 0, 120)
+              return img_bar(p, 16, 150, 160, 24, free, "green")
+
             Blocks as functions
             Every block can be called by its type. Write parameters by name in { },
             or one after another in the order they have in the block.

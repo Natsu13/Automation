@@ -46,6 +46,57 @@ class ScriptTest {
     // ---------- language ----------
 
     @Test
+    fun groupsOfSteps() {
+        // A script inside a script: its return ends only that step.
+        assertEquals("6|done", eval("""
+            x = script
+                a = 2
+                return a * 3
+            end
+            return x & "|done"
+        """.trimIndent()))
+        // try … catch: the value is the error text, the catch branch runs.
+        val failed = eval("""
+            err = try
+                y = 1 / nic_takove
+            catch
+                handled = true
+            end
+            return handled & "|" & (err != "")
+        """.trimIndent(), "nic_takove" to null)
+        assertEquals("true|true", failed)
+        // Passed: the value is empty and catch does not run.
+        assertEquals("|ok", eval("""
+            handled = "ok"
+            err = try
+                y = 1
+            catch
+                handled = "ne"
+            end
+            return err & "|" & handled
+        """.trimIndent()))
+        // parallel branches, lock and a time limit run their steps.
+        assertEquals("3", eval("""
+            n = 0
+            parallel
+                n += 1
+            branch
+                n += 1
+            end
+            lock("a")
+                n += 1
+            end
+            time_limit(5)
+                x = n
+            end
+            return x
+        """.trimIndent()))
+        assertTrue(fails("time_limit(0.001)\n    i = 0\n    while true\n        i += 1\n    end\nend").contains("časový limit"))
+        // Named like a block, but with something after the bracket it is still a call.
+        assertTrue(fails("x = try(1) + 1").isNotEmpty())
+    }
+
+    @Test
     fun expressions() {
         assertEquals("7", eval("1 + 2 * 3"))
         assertEquals("9", eval("(1 + 2) * 3"))

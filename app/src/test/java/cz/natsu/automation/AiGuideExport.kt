@@ -340,33 +340,47 @@ class AiGuideExport {
             """.trimIndent()
         )
         appendLine()
-        appendLine("### Groups that exist only as blocks")
+        appendLine("### Groups of steps")
         appendLine()
         appendLine(
-            "Try, parallel branches, one-at-a-time and time limits have no script keyword. Write their marker lines exactly " +
-                "(the title, two spaces, the note in parentheses) and indent the steps inside by 4 spaces. " +
-                "Their settings (retries, time limit, lock name) keep their defaults; the user can change them in the editor."
+            "Like `if` … `end`, with the steps inside indented by 4 spaces. A Script block is `script` … `end` too: " +
+                "its `return` ends only that step and gives its value (`total = script`), not the whole automation."
+        )
+        appendLine()
+        appendLine(
+            """
+            | Write | Block |
+            |---|---|
+            | `name = script` … `end` | **${title(ControlBlocks.SCRIPT)}** – the code inside, `name` is its result |
+            | `error = try` … `catch` … `end` | **${title(Blocks.TRY)}** / **${title(Blocks.CATCH)}** – `error` is the error text, "" when it passed |
+            | `try(3, 2, true)` | the same with 3 attempts, 2 s pause, the pause doubled each time |
+            | `parallel` … `branch` … `end` | **${title(ControlBlocks.PARALLEL)}** / **${title(ControlBlocks.BRANCH)}** – branches run at the same time |
+            | `lock` / `lock("name")` … `end` | **${title(ControlBlocks.LOCK)}** – one round at a time |
+            | `time_limit(10)` … `end` | **${title(ControlBlocks.TIME_LIMIT)}** – must finish in 10 s |
+            """.trimIndent()
         )
         appendLine()
         appendLine("```")
-        val note = "(only as blocks, not in a script)"
-        appendLine("# ${title(Blocks.TRY)}  $note")
+        appendLine("error = try(3, 2)")
         appendLine("    response = http_request({url: \"https://api.example.com/items\", only_body: true})")
-        appendLine("# ${title(Blocks.CATCH)}  $note")
-        appendLine("    toast(\"API not available\")")
-        appendLine("# ${title(Blocks.END_TRY)}  $note")
+        appendLine("catch")
+        appendLine("    toast(\"API not available: \" & error)")
+        appendLine("end")
         appendLine()
-        appendLine("# ${title(ControlBlocks.PARALLEL)}  $note")
+        appendLine("parallel")
         appendLine("    a = http_request({url: \"https://api.example.com/a\", only_body: true})")
-        appendLine("# ${title(ControlBlocks.BRANCH)}  $note")
+        appendLine("branch")
         appendLine("    b = http_request({url: \"https://api.example.com/b\", only_body: true})")
-        appendLine("# ${title(ControlBlocks.END_PARALLEL)}  $note")
-        appendLine("```")
+        appendLine("end")
         appendLine()
-        appendLine(
-            "Also: `# ${title(ControlBlocks.LOCK)}  $note` … `# ${title(ControlBlocks.END_LOCK)}  $note`, " +
-                "`# ${title(ControlBlocks.TIME_LIMIT)}  $note` … `# ${title(ControlBlocks.END_TIME_LIMIT)}  $note`."
-        )
+        appendLine("total = script")
+        appendLine("    sum = 0")
+        appendLine("    for item in a.items")
+        appendLine("        sum += item.price")
+        appendLine("    end")
+        appendLine("    return round(sum, 2)")
+        appendLine("end")
+        appendLine("```")
         appendLine()
         appendLine("### Choose by (switch)")
         appendLine()
@@ -489,7 +503,7 @@ class AiGuideExport {
         outputName(def)?.let { facts += "Output: ${en(def.outputName!!)} (e.g. `$it = …`)" }
         when (def.kind) {
             BlockKind.IfStart, BlockKind.WhileStart -> facts += "Group: the steps up to `end`"
-            BlockKind.TryStart, BlockKind.ParallelStart, BlockKind.Scope -> facts += "Group: marker lines, see *Groups that exist only as blocks*"
+            BlockKind.TryStart, BlockKind.ParallelStart, BlockKind.Scope -> facts += "Group: see *Groups of steps*"
             else -> {}
         }
         def.requirement?.let { facts += "Requires: ${en(it.title)} – ${en(it.description)}" }

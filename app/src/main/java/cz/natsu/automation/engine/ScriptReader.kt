@@ -14,11 +14,24 @@ import java.util.UUID
 
 /** Words of the script language shared by [cz.natsu.automation.ui.editor.ScriptWriter] and [ScriptReader]. */
 object ScriptWords {
+    private val assignment = Regex("""^\s*([\p{L}_][\p{L}\p{N}_]*)\s*[-+*/&]?=(?!=)""")
+
+    /**
+     * Names a script assigns (`bar = …`, `n += 1`, also inside if / for), in order. They become
+     * variables of the automation, so later steps can use them.
+     */
+    fun assigned(code: String): List<String> =
+        code.lines().mapNotNull { line -> assignment.find(line)?.groupValues?.get(1) }
+            .filter { it.lowercase() !in RESERVED }
+            .distinct()
+
     /** Words of the language and names the script already gives a meaning. */
     val RESERVED = setOf(
         "if", "pokud", "else", "jinak", "end", "konec", "while", "dokud", "for", "pro", "return", "vrat",
         "break", "ukonci", "continue", "pokracuj", "and", "or", "not", "nebo", "zaroven", "true", "false",
         "null", "nic", "ano", "input", "vstup", "clipboard", "trigger", "text", "date", "count", "list", "type",
+        "script", "skript", "try", "zkus", "catch", "kdyz_selze", "parallel", "soubezne", "branch", "vetev",
+        "lock", "postupne", "time_limit", "limit",
     )
 
     /** Built-in functions a variable should not be named after. */
@@ -183,6 +196,10 @@ class ScriptReader private constructor(private val text: String) {
     private val variables = mutableSetOf<String>()
     private val stack = ArrayDeque<Open>()
     private var script: Pair<Draft, Int>? = null              // Skript block being collected, its indent
+
+    /** The body of `script … end` being read: the step, the indent of its `script` line, commented out. */
+    private class Body(val draft: Draft, val indent: Int, val disabled: Boolean) { val lines = mutableListOf<String>() }
+    private var body: Body? = null
     private var comment: Draft? = null                        // Poznámka being collected
     /** How many steps got each default output name so far, to name them like ScriptWriter does. */
     private val defaultNames = mutableMapOf<String, Int>()
@@ -232,7 +249,9 @@ class ScriptReader private constructor(private val text: String) {
             when {
                 part.size == 1 && (part[0].t == T.Str || part[0].t == T.Num) -> if (part[0].v.isNotEmpty()) segments += Segment.Text(part[0].v)
                 part.size == 2 && part[0].v == "-" && part[1].t == T.Num -> segments += Segment.Text("-" + part[1].v)
-                part.size > 1 && part.any { it.v == "&" } -> segments += (richOf(part) ?: return null).segments
+                // Only an & that really splits it (an & inside f(a & b) does not, and would loop forever).
+                part.size > 1 && splitTop(part) { it.t == T.Op && it.v == "&" }.size > 1 ->
+                    segments += (richOf(part) ?: return null).segments
                 else -> segments += Segment.Var(refOf(part) ?: return null)
             }
         }
@@ -434,11 +453,16 @@ class ScriptReader private constructor(private val text: String) {
                 Blocks.IF -> Blocks.END_IF
                 ControlBlocks.SWITCH -> ControlBlocks.END_SWITCH
                 Blocks.WHILE, DataBlocks.FOR_EACH, DataBlocks.REPEAT -> Blocks.END_WHILE
+                Blocks.TRY -> Blocks.END_TRY
+                ControlBlocks.PARALLEL -> ControlBlocks.END_PARALLEL
+                ControlBlocks.LOCK -> ControlBlocks.END_LOCK
+                ControlBlocks.TIME_LIMIT -> ControlBlocks.END_TIME_LIMIT
                 else -> return false
             }
             emit(end)
             return true
         }
+        group(tokens, indent, disabled)?.let { return it }
         if (w == "for" && tokens.getOrNull(1)?.t == T.Id && tokens.getOrNull(2)?.v == "in") {
             val itemName = tokens[1].v
             val rest = tokens.drop(3)
@@ -500,6 +524,79 @@ class ScriptReader private constructor(private val text: String) {
         return true
     }
 
+    /**
+     * `[x =] script`, `[x =] try(3, 2, true)`, `catch`, `parallel`, `branch`, `lock("a")`, `time_limit(10)`;
+     * null when the line is none of them.
+     */
+    private fun group(tokens: List<Tok>, indent: Int, disabled: Boolean): Boolean? {
+        var target: String? = null
+        var rest = tokens
+        if (tokens.size >= 3 && tokens[0].t == T.Id && tokens[1].v == "=") { target = tokens[0].v; rest = tokens.drop(2) }
+        val word = rest.firstOrNull()?.takeIf { it.t == T.Id }?.v?.lowercase() ?: return null
+        val args: List<List<Tok>> = when {
+            rest.size == 1 -> emptyList()
+            wrapped(rest.drop(1)) -> rest.subList(2, rest.size - 1).let { inner ->
+                if (inner.isEmpty()) emptyList() else splitTop(inner) { it.v == "," }
+            }
+            else -> return null
+        }
+        fun values(type: String, keys: List<String>): Map<String, ParamValue>? {
+            val def = Blocks.get(type)!!
+            if (args.size > keys.size) return null
+            return keys.zip(args).associate { (key, arg) -> key to (valueFor(def.param(key), arg) ?: return null) }
+        }
+        val type = when (word) {
+            in Script.SCRIPT_WORDS -> ControlBlocks.SCRIPT
+            in Script.TRY_WORDS -> Blocks.TRY
+            in Script.CATCH_WORDS -> Blocks.CATCH
+            in Script.PARALLEL_WORDS -> ControlBlocks.PARALLEL
+            in Script.BRANCH_WORDS -> ControlBlocks.BRANCH
+            in Script.LOCK_WORDS -> ControlBlocks.LOCK
+            in Script.TIME_LIMIT_WORDS -> ControlBlocks.TIME_LIMIT
+            else -> return null
+        }
+        // Only a script and a try have a value to name.
+        if (target != null && type != ControlBlocks.SCRIPT && type != Blocks.TRY) return false
+        val params = when (type) {
+            ControlBlocks.SCRIPT, Blocks.CATCH, ControlBlocks.PARALLEL, ControlBlocks.BRANCH -> if (args.isEmpty()) emptyMap() else return false
+            Blocks.TRY -> values(type, listOf("attempts", "delay", "backoff")) ?: return false
+            ControlBlocks.LOCK -> values(type, listOf("name")) ?: return false
+            else -> values(type, listOf("seconds"))?.takeIf { it.isNotEmpty() } ?: return false
+        }
+        // A switched-off branch or "catch" cannot be written; the step stays code.
+        if (disabled && (type == Blocks.CATCH || type == ControlBlocks.BRANCH)) return false
+        val draft = emit(type, params, target, disabled, indent)
+        if (type == ControlBlocks.SCRIPT) body = Body(draft, indent, disabled)
+        return true
+    }
+
+    /** A line inside `script … end`; false when the body has ended (the line is read as usual then). */
+    private fun bodyLine(raw: String, current: Body): Boolean {
+        val lead = raw.length - raw.trimStart().length
+        var content = raw.trimStart()
+        if (current.disabled) {
+            if (content.isEmpty()) { current.lines += ""; return true }
+            if (!content.startsWith("#")) { closeBody(current); return false }
+            content = content.removePrefix("#").removePrefix(" ")
+            if (lead == current.indent && content.trim() == "end") { closeBody(current); return true }
+            current.lines += content.removePrefix("    ")
+            return true
+        }
+        if (content.isEmpty()) { current.lines += ""; return true }
+        if (lead <= current.indent) {
+            val ended = content == "end" && lead == current.indent
+            closeBody(current)
+            return ended
+        }
+        current.lines += raw.substring(minOf(lead, current.indent + 4))
+        return true
+    }
+
+    private fun closeBody(current: Body) {
+        current.draft.params["code"] = codeOf(current.lines.joinToString("\n").trimEnd('\n', ' '))
+        body = null
+    }
+
     /** "# Zkusit  (ve skriptu jen jako bloky)" – exact titles first, then key words in either language. */
     private fun markerOf(body: String): String? {
         val m = Regex("^(.*?)\\s*\\(([^()]*)\\)\\s*$").find(body) ?: return null
@@ -557,6 +654,7 @@ class ScriptReader private constructor(private val text: String) {
     }
 
     private fun line(raw: String) {
+        body?.let { if (bodyLine(raw.replace("\t", "    "), it)) return }
         val indent = raw.takeWhile { it == ' ' || it == '\t' }.replace("\t", "    ").length
         val trimmed = raw.trim()
         if (trimmed.isEmpty()) { comment = null; return }
@@ -618,6 +716,7 @@ class ScriptReader private constructor(private val text: String) {
 
     private fun read(fallbackName: String): ExportedAutomation {
         text.removePrefix("﻿").replace("\r", "").split("\n").forEach(::line)
+        body?.let(::closeBody)
         return ExportedAutomation(
             name = name?.takeIf { it.isNotBlank() } ?: fallbackName,
             icon = icon?.takeIf { Regex("[a-z0-9_]{1,40}").matches(it) } ?: AutomationIcons.DEFAULT,
