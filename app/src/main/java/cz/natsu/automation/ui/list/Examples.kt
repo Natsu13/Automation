@@ -8,10 +8,7 @@ import cz.natsu.automation.data.Segment
 import cz.natsu.automation.data.VarRef
 import cz.natsu.automation.data.richText
 import cz.natsu.automation.data.richVar
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Storage
 import cz.natsu.automation.engine.Blocks
-import cz.natsu.automation.engine.EmbeddedImage
 import cz.natsu.automation.engine.NotificationBlock
 import cz.natsu.automation.i18n.tr
 import java.util.UUID
@@ -752,12 +749,7 @@ object Examples {
             })
             fun color(value: String) = block("set_variable", null, "name" to richText("barva"), "value" to richText(value))
             val colorRef = richVar(VarRef.Named("barva"))
-            // Drawn on the phone; plain JVM tests have no real Bitmap, they get an empty image.
-            val icon = runCatching {
-                EmbeddedImage.encode(
-                    EmbeddedImage.fromIcon(Icons.Rounded.Storage, android.graphics.Color.WHITE), EmbeddedImage.ICON_SIZE
-                )
-            }.getOrDefault("data:image/png;base64,")
+            val icon = ExampleImages.STORAGE_ICON
             val tinted = block(
                 "image_edit", null,
                 "source" to richText(icon),

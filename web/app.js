@@ -108,6 +108,17 @@
     ],
     libHint: ["Klikni = přidat za vybraný krok · táhni = vložit kamkoli", "Click = add after the selected step · drag = drop anywhere"],
     noResults: ["Nic nenalezeno", "Nothing found"],
+    insertImage: ["Vložit obrázek", "Insert image"],
+    insertIcon: ["Vložit ikonu", "Insert icon"],
+    storedImage: ["Obrázek uložený v automatizaci", "Image stored in the automation"],
+    removeImage: ["Odebrat", "Remove"],
+    imageSummary: ["obrázek", "image"],
+    iconImage: ["Ikona do obrázku", "Icon as image"],
+    iconImageHint: ["Bílou ikonu můžeš v automatizaci obarvit blokem Upravit obrázek (Obarvit) podle stavu.", "A white icon can be tinted by state with the Edit image block (Tint)."],
+    imageFail: ["Obrázek nejde načíst.", "The image cannot be loaded."],
+    chooseColor: ["Vybrat barvu", "Choose colour"],
+    notColor: ["Není to barva", "Not a colour"],
+    colorAtRun: ["Barva se zjistí při běhu – vybrat jinou", "The colour is known when it runs – choose another"],
     output: ["Výstup", "Output"],
     noEvents: ["Žádné události – automatizace se spouští jen ručně.", "No events – the automation only runs manually."],
     invalidJson: ["Neplatný JSON", "Invalid JSON"],
@@ -472,6 +483,133 @@
     return wrap;
   }
 
+  // ---------- images stored in the automation, colours ----------
+  const isEmbedded = (text) => /^\s*data:image\//i.test(text || "");
+  /** The data:image text of a value that is just a stored image, else null. */
+  const embeddedOf = (value) => {
+    const segs = value?.type === "rich" ? value.segments : null;
+    return segs && segs.length === 1 && segs[0].type === "text" && isEmbedded(segs[0].text) ? segs[0].text : null;
+  };
+  const MAX_SIDE = 256, ICON_SIZE = 192;
+
+  /** Shrinks to 256 px and stores as PNG, or JPG when the picture has no transparency and JPG is smaller. */
+  function pictureToData(img) {
+    const scale = Math.min(1, MAX_SIDE / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
+    c.height = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
+    const ctx = c.getContext("2d");
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    const png = c.toDataURL("image/png");
+    const pixels = ctx.getImageData(0, 0, c.width, c.height).data;
+    let opaque = true;
+    for (let i = 3; i < pixels.length; i += 4) if (pixels[i] < 255) { opaque = false; break; }
+    if (opaque) { const jpg = c.toDataURL("image/jpeg", 0.88); if (jpg.length < png.length) return jpg; }
+    return png;
+  }
+
+  function fileToData(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => { try { resolve(pictureToData(img)); } catch (e) { reject(e); } finally { URL.revokeObjectURL(url); } };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("image")); };
+      img.src = url;
+    });
+  }
+
+  /**
+   * The filled icon font (a canvas cannot switch the editor's variable font to FILL 1),
+   * loaded once from Google Fonts; null when it cannot be loaded (then the outline one is used).
+   */
+  let filledFont;
+  function loadFilledFont() {
+    filledFont ??= (async () => {
+      try {
+        const css = await (await fetch("https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@48,400,1,0")).text();
+        const url = css.match(/url\((https:[^)]+)\)/)?.[1];
+        if (!url) return null;
+        const face = await new FontFace("Material Symbols Filled", `url(${url})`).load();
+        document.fonts.add(face);
+        return "Material Symbols Filled";
+      } catch (e) { return null; }
+    })();
+    return filledFont;
+  }
+
+  /** Draws a Material Symbols icon in one colour on a transparent square. */
+  async function iconToData(name, color) {
+    const family = (await loadFilledFont()) || "Material Symbols Rounded";
+    const font = `${Math.round(ICON_SIZE * 0.92)}px "${family}"`;
+    try { await document.fonts.load(font, name); } catch (e) { /* drawn with what is there */ }
+    const c = document.createElement("canvas");
+    c.width = c.height = ICON_SIZE;
+    const ctx = c.getContext("2d");
+    ctx.font = font;
+    ctx.fillStyle = color;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(name, ICON_SIZE / 2, ICON_SIZE / 2);
+    return c.toDataURL("image/png");
+  }
+
+  const COLOR_NAMES = {
+    white: "#FFFFFF", "bílá": "#FFFFFF", bila: "#FFFFFF", black: "#000000", "černá": "#000000", cerna: "#000000",
+    red: "#E53935", "červená": "#E53935", cervena: "#E53935", orange: "#FB8C00", "oranžová": "#FB8C00", oranzova: "#FB8C00",
+    yellow: "#FDD835", "žlutá": "#FDD835", zluta: "#FDD835", green: "#43A047", "zelená": "#43A047", zelena: "#43A047",
+    blue: "#1E88E5", "modrá": "#1E88E5", modra: "#1E88E5", purple: "#8E24AA", "fialová": "#8E24AA", fialova: "#8E24AA",
+    gray: "#9E9E9E", grey: "#9E9E9E", "šedá": "#9E9E9E", seda: "#9E9E9E",
+  };
+  /** Same rules as the app (ImageTools.colorOrNull): a name, #RGB, #RRGGBB or #AARRGGBB; returns CSS or null. */
+  function cssColor(text) {
+    let hex = (text || "").trim().toLowerCase();
+    hex = COLOR_NAMES[hex] || hex;
+    if (!hex.startsWith("#") && /^[0-9a-f]{3,8}$/.test(hex)) hex = "#" + hex;
+    if (hex.length === 4) hex = "#" + [...hex.slice(1)].map((c) => c + c).join("");
+    if (/^#[0-9a-f]{6}$/i.test(hex)) return hex.toUpperCase();
+    if (/^#[0-9a-f]{8}$/i.test(hex)) return "#" + hex.slice(3).toUpperCase() + hex.slice(1, 3).toUpperCase();
+    return null;
+  }
+
+  /** Colour of a field: "empty", "run" (has a variable), "bad", or a CSS colour. */
+  function fieldColor(value) {
+    const segs = value?.segments || [];
+    if (segs.some((s) => s.type === "var")) return "run";
+    const text = segs.map((s) => s.text).join("");
+    if (!text.trim()) return "empty";
+    return cssColor(text) || "bad";
+  }
+
+  const ICON_COLORS = ["#FFFFFF", "#000000", "#E53935", "#FB8C00", "#FDD835", "#43A047", "#1E88E5", "#8E24AA"];
+
+  function iconImageDialog(onPick) {
+    let query = "", color = "#FFFFFF";
+    const grid = h("div", { class: "icon-grid" });
+    const swatches = h("div", { class: "swatches" });
+    const drawSwatches = () => {
+      swatches.textContent = "";
+      for (const c of ICON_COLORS) swatches.append(h("button", {
+        class: "swatch" + (c === color ? " on" : ""), style: { background: c }, title: c,
+        onclick: () => { color = c; drawSwatches(); },
+      }));
+    };
+    const draw = () => {
+      grid.textContent = "";
+      const q = query.toLowerCase();
+      for (const i of C.icons) {
+        if (q && !(i.key + " " + i.words).toLowerCase().includes(q)) continue;
+        grid.append(h("button", { title: i.key, onclick: async () => { close(); onPick(await iconToData(i.icon, color)); } }, icon(i.icon, "fill")));
+      }
+    };
+    const input = h("input", { class: "input", placeholder: t("searchIcons"), oninput: () => { query = input.value; draw(); } });
+    const close = modal(t("iconImage"), h("div", null,
+      h("div", { class: "hint", style: { color: "var(--text-3)", fontSize: "13px", marginBottom: "8px" } }, t("iconImageHint")),
+      swatches, h("div", { class: "search" }, icon("search", "small"), input), grid));
+    drawSwatches();
+    draw();
+    setTimeout(() => input.focus(), 0);
+  }
+
   // ---------- summary ----------
   function summaryNodes(block, def, automation) {
     const values = {};
@@ -494,6 +632,7 @@
         let budget = 48;
         for (const s of segs) {
           if (s.type === "var") out.push(chip(s.ref, automation));
+          else if (isEmbedded(s.text)) out.push(h("span", { class: "pill img" }, h("img", { src: s.text, alt: "" }), t("imageSummary")));
           else if (budget > 0) {
             let shown = s.text.replace(/\s*\n\s*/g, " ⏎ ");
             if (shown.length > budget) shown = shown.slice(0, budget).trimEnd() + "…";
@@ -620,11 +759,52 @@
     const a = cur();
     switch (p.kind) {
       case "text": {
-        const rich = richField(value, {
+        const setValue = (v) => { block.params[p.key] = v; onHardChange(); };
+        const embedded = p.imagePicker ? embeddedOf(value) : null;
+        if (embedded) {
+          // A preview instead of the long base64 text.
+          const img = h("img", { src: embedded, alt: "" });
+          const size = h("div", { class: "d" }, Math.ceil(embedded.length / 1024) + " kB");
+          img.addEventListener("load", () => { size.textContent = `${img.naturalWidth} × ${img.naturalHeight} px · ${Math.ceil(embedded.length / 1024)} kB`; });
+          field.append(h("div", { class: "img-field" }, h("div", { class: "img-box" }, img),
+            h("div", { class: "img-info" }, h("div", { class: "t" }, t("storedImage")), size),
+            h("button", { class: "btn ghost small", onclick: () => setValue({ type: "rich", segments: [] }) }, icon("close", "small"), t("removeImage"))));
+        }
+        let swatch = null;
+        const rich = embedded ? null : richField(value, {
           placeholder: tx(p.placeholder), code: p.code, plain: p.plain, automation: a, index, listName: list,
-          onChange: (v) => { block.params[p.key] = v; onSoftChange(); commitSoon(); },
+          onChange: (v) => { block.params[p.key] = v; onSoftChange(); commitSoon(); swatch?.update(v); },
         });
-        field.append(rich);
+        if (rich) field.append(rich);
+        if (rich && p.colorPicker) {
+          // A native colour picker behind a round preview of the colour.
+          const picker = h("input", { type: "color", class: "color-input", oninput: () => rich.setValue({ type: "rich", segments: [{ type: "text", text: picker.value.toUpperCase() }] }) });
+          swatch = h("label", { class: "swatch big" }, picker, icon("palette", "small"));
+          swatch.update = (v) => {
+            const c = fieldColor(v);
+            const known = c !== "empty" && c !== "run" && c !== "bad";
+            swatch.style.background = known ? c : "";
+            swatch.classList.toggle("bad", c === "bad");
+            swatch.classList.toggle("known", known);
+            swatch.title = c === "bad" ? t("notColor") : c === "run" ? t("colorAtRun") : t("chooseColor");
+            swatch.querySelector(".ms").textContent = c === "bad" ? "priority_high" : "palette";
+            if (known) picker.value = c.toLowerCase();
+          };
+          swatch.update(value);
+          rich.append(swatch);
+        }
+        if (p.imagePicker) {
+          const file = h("input", { type: "file", accept: "image/*", style: { display: "none" }, onchange: async () => {
+            const f = file.files[0];
+            if (!f) return;
+            try { setValue({ type: "rich", segments: [{ type: "text", text: await fileToData(f) }] }); }
+            catch (e) { toast(t("imageFail")); }
+          } });
+          field.append(file, h("div", { class: "suggest" },
+            h("button", { onclick: () => file.click() }, icon("image", "tiny"), " ", t("insertImage")),
+            h("button", { onclick: () => iconImageDialog((data) => setValue({ type: "rich", segments: [{ type: "text", text: data }] })) },
+              icon("emoji_symbols", "tiny"), " ", t("insertIcon"))));
+        }
         if (p.suggestions?.length) field.append(h("div", { class: "suggest" }, p.suggestions.map((s) =>
           h("button", { onclick: () => rich.setValue({ type: "rich", segments: [{ type: "text", text: s }] }) }, s))));
         break;
