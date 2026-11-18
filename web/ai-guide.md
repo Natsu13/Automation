@@ -138,25 +138,40 @@ One step per line, indented by 4 spaces inside `if` / `for` / `while` / groups.
 | `matches(a, "regex")` | regular expression |
 | anything else, e.g. `x > 5 and contains(input, "a")` | an expression (and / or / not, functions) |
 
-### Groups that exist only as blocks
+### Groups of steps
 
-Try, parallel branches, one-at-a-time and time limits have no script keyword. Write their marker lines exactly (the title, two spaces, the note in parentheses) and indent the steps inside by 4 spaces. Their settings (retries, time limit, lock name) keep their defaults; the user can change them in the editor.
+Like `if` … `end`, with the steps inside indented by 4 spaces. A Script block is `script` … `end` too: its `return` ends only that step and gives its value (`total = script`), not the whole automation.
+
+| Write | Block |
+|---|---|
+| `name = script` … `end` | **Script** – the code inside, `name` is its result |
+| `error = try` … `catch` … `end` | **Try** / **On failure** – `error` is the error text, "" when it passed |
+| `try(3, 2, true)` | the same with 3 attempts, 2 s pause, the pause doubled each time |
+| `parallel` … `branch` … `end` | **In parallel** / **Meanwhile** – branches run at the same time |
+| `lock` / `lock("name")` … `end` | **One at a time** – one round at a time |
+| `time_limit(10)` … `end` | **Time limit** – must finish in 10 s |
 
 ```
-# Try  (only as blocks, not in a script)
+error = try(3, 2)
     response = http_request({url: "https://api.example.com/items", only_body: true})
-# On failure  (only as blocks, not in a script)
-    toast("API not available")
-# End of Try  (only as blocks, not in a script)
+catch
+    toast("API not available: " & error)
+end
 
-# In parallel  (only as blocks, not in a script)
+parallel
     a = http_request({url: "https://api.example.com/a", only_body: true})
-# Meanwhile  (only as blocks, not in a script)
+branch
     b = http_request({url: "https://api.example.com/b", only_body: true})
-# End of parallel branches  (only as blocks, not in a script)
-```
+end
 
-Also: `# One at a time  (only as blocks, not in a script)` … `# End of One at a time  (only as blocks, not in a script)`, `# Time limit  (only as blocks, not in a script)` … `# End of time limit  (only as blocks, not in a script)`.
+total = script
+    sum = 0
+    for item in a.items
+        sum += item.price
+    end
+    return round(sum, 2)
+end
+```
 
 ### Choose by (switch)
 
@@ -235,6 +250,37 @@ Functions – lists and others
 • json(text), tojson(value), type(x)
 • iif(condition, a, b), date("d. M. yyyy"), now()
 • var("name with a space") – a variable that cannot be written by name
+
+Groups of steps (like the Try, Parallel… blocks)
+• x = script … end – a nested script; its return ends only it
+• error = try(attempts, pause, double) … catch … end
+• parallel … branch … end – in a script the branches run one by one
+• lock("name") … end, time_limit(10) … end
+Show as script writes the whole automation like that.
+
+Functions – images
+Each draws one thing and returns a new picture (a PNG file), so they
+chain and the result goes into a notification or another block. An
+image is a stored image, a file, an https:// address or a step's
+output. Coordinates are px from the top left; colours as elsewhere
+(green, #FF9800).
+• img_new(w, h, colour) – an empty canvas (transparent without a colour)
+• img_size(img) → {width, height}
+• img_scale(img, 0.7), img_resize(img, w, h), img_crop(img, x, y, w, h)
+• img_draw(canvas, img, x, y, w, h) – puts a picture in (w, h optional)
+• img_rect(img, x, y, w, h, colour, radius) – a filled rectangle
+• img_border(img, colour, width, radius) – a frame around it
+• img_line(img, x1, y1, x2, y2, colour, width)
+• img_circle(img, x, y, r, colour, width) – filled without a width
+• img_arc(img, x, y, r, percent, colour, width, back_colour) – a progress ring
+• img_text(img, text, x, y, size, colour, "left"/"center"/"right") – y is the middle of the text
+• img_tint(img, colour) – the whole shape one colour
+• img_fill(img, percent, colour, direction, rest_colour) – part of the
+  shape in the colour by percent; direction "up" (default), "down", "left", "right"
+• img_bar(img, x, y, w, h, percent, colour, back_colour, radius) – a progress bar
+• a smaller icon with a bar under it:
+  p = img_draw(img_new(192, 192), picture, 36, 0, 120)
+  return img_bar(p, 16, 150, 160, 24, free, "green")
 
 Blocks as functions
 Every block can be called by its type. Write parameters by name in { },
@@ -828,6 +874,17 @@ One image edit: shrink, rotate, flip, crop to a square, or convert to JPG / PNG 
 | `format` | choice | `"jpeg"` | Format · `"jpeg"` JPG, `"png"` PNG (lossless), `"webp"` WEBP · *only when `op` is "convert"* |
 | `quality` | number | `85` | Quality · 10–100 % · *only when `op` is "convert" and `format` is "jpeg" / "webp"* |
 
+#### `image` – Image / Obrázek
+
+An image stored right in the automation (an inserted picture or icon), a file or an address. Use its output in a script (img_…), a notification or other image blocks.
+
+- Signature: `image(source)`
+- Output: Image (e.g. `image_result = …`)
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `source` | text | `""` | Image · e.g. stored image, output of Choose file, a downloaded file or an https:// address |
+
 #### `image_text` – Text into image / Text do obrázku
 
 Writes a short text into the image – under it, over its bottom or in the middle. For example “42 %” under an icon that is then shown in a notification. Returns a new image (PNG).
@@ -1187,7 +1244,7 @@ When a step inside fails (an API or the network, say), the action does not end: 
 
 - Signature: `try(attempts, delay, backoff)`
 - Output: Error (e.g. `error = …`)
-- Group: marker lines, see *Groups that exist only as blocks*
+- Group: see *Groups of steps*
 
 | Parameter | Kind | Default | Values / notes |
 |---|---|---|---|
@@ -1420,6 +1477,37 @@ Functions – lists and others
 • iif(condition, a, b), date("d. M. yyyy"), now()
 • var("name with a space") – a variable that cannot be written by name
 
+Groups of steps (like the Try, Parallel… blocks)
+• x = script … end – a nested script; its return ends only it
+• error = try(attempts, pause, double) … catch … end
+• parallel … branch … end – in a script the branches run one by one
+• lock("name") … end, time_limit(10) … end
+Show as script writes the whole automation like that.
+
+Functions – images
+Each draws one thing and returns a new picture (a PNG file), so they
+chain and the result goes into a notification or another block. An
+image is a stored image, a file, an https:// address or a step's
+output. Coordinates are px from the top left; colours as elsewhere
+(green, #FF9800).
+• img_new(w, h, colour) – an empty canvas (transparent without a colour)
+• img_size(img) → {width, height}
+• img_scale(img, 0.7), img_resize(img, w, h), img_crop(img, x, y, w, h)
+• img_draw(canvas, img, x, y, w, h) – puts a picture in (w, h optional)
+• img_rect(img, x, y, w, h, colour, radius) – a filled rectangle
+• img_border(img, colour, width, radius) – a frame around it
+• img_line(img, x1, y1, x2, y2, colour, width)
+• img_circle(img, x, y, r, colour, width) – filled without a width
+• img_arc(img, x, y, r, percent, colour, width, back_colour) – a progress ring
+• img_text(img, text, x, y, size, colour, "left"/"center"/"right") – y is the middle of the text
+• img_tint(img, colour) – the whole shape one colour
+• img_fill(img, percent, colour, direction, rest_colour) – part of the
+  shape in the colour by percent; direction "up" (default), "down", "left", "right"
+• img_bar(img, x, y, w, h, percent, colour, back_colour, radius) – a progress bar
+• a smaller icon with a bar under it:
+  p = img_draw(img_new(192, 192), picture, 36, 0, 120)
+  return img_bar(p, 16, 150, 160, 24, free, "green")
+
 Blocks as functions
 Every block can be called by its type. Write parameters by name in { },
 or one after another in the order they have in the block.
@@ -1488,14 +1576,14 @@ Runs one of the When it is branches by a value. Clearer than a row of If / Other
 The branches inside run at the same time and the run goes on when all are done – two API calls instead of waiting for one after the other, say. An error in a branch is an error of the whole block.
 
 - Signature: `parallel()`
-- Group: marker lines, see *Groups that exist only as blocks*
+- Group: see *Groups of steps*
 
 #### `lock` – One at a time / Jeden po druhém
 
 The steps inside are done by one round or branch at a time – the others wait for their turn. Put "read the variable, compute, save" here when rounds run in parallel, otherwise they overwrite it.
 
 - Signature: `lock(name)`
-- Group: marker lines, see *Groups that exist only as blocks*
+- Group: see *Groups of steps*
 
 | Parameter | Kind | Default | Values / notes |
 |---|---|---|---|
@@ -1539,7 +1627,7 @@ Change variable block is enough – it needs no lock.
 The steps inside have to finish within the given time, otherwise they fail. A Try block can catch that – e.g. "try this for 10 s at most, otherwise do something else".
 
 - Signature: `time_limit(seconds)`
-- Group: marker lines, see *Groups that exist only as blocks*
+- Group: see *Groups of steps*
 
 | Parameter | Kind | Default | Values / notes |
 |---|---|---|---|
@@ -2067,7 +2155,7 @@ Try + Store value: gets the newest post from an API and reports it only when it 
 ```
 # @name "Watch an API for news"
 # @icon code
-# Try  (only as blocks, not in a script)
+error = try(2, 3)
     api_response = http_request("GET", "https://jsonplaceholder.typicode.com/posts?_sort=id&_order=desc&_limit=1")
     value_from_json = json_get(api_response, "body[0].id", "value")
     value_from_json2 = json_get(api_response, "body[0].title", "value")
@@ -2078,9 +2166,9 @@ Try + Store value: gets the newest post from an API and reports it only when it 
     else
         toast("Nic nového")
     end
-# On failure  (only as blocks, not in a script)
+catch
     toast("API nedostupné: " & error)
-# End of Try  (only as blocks, not in a script)
+end
 ```
 
 ### Upload an image (multipart)
@@ -2108,16 +2196,18 @@ Script: a list, a loop, a condition and a calculation in a few lines of code ins
 # @name "Script: cart total"
 # @icon code
 # The whole calculation is in one Script block. Open it and change the numbers.
-# A list of objects, a loop, a calculation and building a text
-items = [{name: "Bread", price: 42}, {name: "Cheese", price: 89.9}, {name: "Wine", price: 219}]
-total = 0
-for item in items
-    total += item.price
+script_result = script
+    # A list of objects, a loop, a calculation and building a text
+    items = [{name: "Bread", price: 42}, {name: "Cheese", price: 89.9}, {name: "Wine", price: 219}]
+    total = 0
+    for item in items
+        total += item.price
+    end
+    if total > 300
+        total = total * 0.9   # 10 % off
+    end
+    return "Items: " & len(items) & ", total " & round(total, 2)
 end
-if total > 300
-    total = total * 0.9   # 10 % off
-end
-return "Items: " & len(items) & ", total " & round(total, 2)
 show_text("Cart", script_result)
 ```
 
@@ -2146,14 +2236,16 @@ In parallel: sends two requests at once and joins them into one sentence with a 
 ```
 # @name "In parallel: two APIs at once"
 # @icon sync
-# In parallel  (only as blocks, not in a script)
+parallel
     api_response = http_request({method: "GET", url: "https://jsonplaceholder.typicode.com/posts/1", headers: "", only_body: true})
-# Meanwhile  (only as blocks, not in a script)
+branch
     api_response2 = http_request({method: "GET", url: "https://jsonplaceholder.typicode.com/users/1", headers: "", only_body: true})
-# End of parallel branches  (only as blocks, not in a script)
-post = api_response
-user = api_response2
-return user.name & ": " & post.title
+end
+script_result = script
+    post = api_response
+    user = api_response2
+    return user.name & ": " & post.title
+end
 show_text("Both responses", script_result)
 ```
 
@@ -2170,7 +2262,9 @@ for item in "1\n2\n3\n4\n5"  # in parallel
     position = loop_index()
     text_result = position & ". " & value_from_json
 end
-return join(radky, "\n")
+script_result = script
+    return join(radky, "\n")
+end
 show_text("Post titles", script_result)
 ```
 
@@ -2280,6 +2374,34 @@ image_with_text = image_text(edited_image, storage_result & " %", "below", barva
 notification({title: "Free space", text: "Space left on the phone: " & storage_result & " %.", quiet: true, image: image_with_text, small_icon: "same", name: "volne_misto", countdown: "", tap_action: "none", b1_action: "none"})
 ```
 
+### Script: drawing into an image
+
+The img_… functions in the Script block: a smaller icon with a progress bar, a progress ring over the whole image and an icon coloured from the bottom by percent. The bar is also shown in a notification.
+
+```
+# @name "Script: drawing into an image"
+# @icon brush
+storage_result = storage("free_percent")
+image_result = image("data:image/png;base64,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")
+script_result = script
+    free = storage_result
+    icon = image_result
+    # 1) a smaller icon with a progress bar under it
+    bar = img_draw(img_new(192, 192), icon, 46, 0, 100)
+    bar = img_bar(bar, 12, 116, 168, 64, free, "#43A047", "#55FFFFFF", 16)
+    bar = img_text(bar, free & " %", 96, 148, 36, "white")
+    # 2) a see-through square with a progress ring over the whole image
+    ring = img_rect(icon, 0, 0, 192, 192, "#AA000000", 32)
+    ring = img_arc(ring, 96, 96, 72, free, "#FB8C00", 16, "#44FFFFFF")
+    ring = img_text(ring, free & " %", 96, 96, 40, "white")
+    # 3) the icon coloured from the bottom by percent, the rest white
+    fill = img_fill(icon, free, "#43A047", "up", "white")
+    return [bar, ring, fill]
+end
+show_images("Three ways to show progress", script_result)
+notification({title: "Free space", text: "Space left on the phone: " & storage_result & " %.", quiet: true, image: bar, small_icon: "app", name: "kresleni_obrazku", countdown: "", tap_action: "none", b1_action: "none"})
+```
+
 ### Wait for Wi-Fi
 
 Wait until + Try: waits up to 30 s for Wi-Fi, otherwise reports that it did not happen.
@@ -2287,11 +2409,11 @@ Wait until + Try: waits up to 30 s for Wi-Fi, otherwise reports that it did not 
 ```
 # @name "Wait for Wi-Fi"
 # @icon wifi
-# Try  (only as blocks, not in a script)
+try
     wait_until(event("network"), "equals", "wifi", 30, 2, true)
     toast("Wi-Fi is connected ✔")
-# On failure  (only as blocks, not in a script)
+catch
     toast("Wi-Fi did not connect within 30 s.")
-# End of Try  (only as blocks, not in a script)
+end
 ```
 

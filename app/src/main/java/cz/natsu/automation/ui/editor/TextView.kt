@@ -47,8 +47,9 @@ import java.text.Normalizer
  * ```
  *
  * A step with an output becomes `name = …`, a step without one a call of its block.
- * The text can be pasted into a Script block; the few things the language has no
- * word for (Try, parallel branches) are written as comments.
+ * The text can be pasted into a Script block: groups of steps have words too
+ * (`script … end`, `try … catch … end`, `parallel … branch … end`, `lock … end`,
+ * `time_limit(10) … end`), so the whole automation reads back into the same blocks.
  */
 class ScriptWriter(private val blocks: List<Block>) {
     private val structure = Structure.analyze(blocks)
@@ -86,7 +87,9 @@ class ScriptWriter(private val blocks: List<Block>) {
             val text = if (def == null) "# ? ${block.type}" else statement(block, def)
             for (line in text.split("\n")) {
                 // A switched-off step is skipped by the run, so it is a comment here.
-                lines += indent + (if (block.disabled && !line.startsWith("#")) "# " else "") + line
+                // An empty line of a script gets no trailing spaces.
+                lines += if (line.isEmpty() && !block.disabled) "" else
+                    indent + (if (block.disabled && !line.startsWith("#")) "# " else "") + line
             }
         }
         return lines.joinToString("\n")
@@ -114,7 +117,9 @@ class ScriptWriter(private val blocks: List<Block>) {
         DataBlocks.LOOP_CONTROL -> if (choice(block, def, "action") == "continue") "continue" else "break"
         "return" -> "return " + expr(block, def, "text")
         "comment" -> "# " + plain(block.params["text"]).orEmpty().replace("\n", "\n# ")
-        ControlBlocks.SCRIPT -> code(block.params["code"])
+        // Its own group: a "return" inside ends only this step, as in the app.
+        ControlBlocks.SCRIPT -> assign(block, "script") + "\n" +
+            code(block.params["code"]).lines().joinToString("\n") { if (it.isBlank()) "" else "    $it" } + "\nend"
         "text" -> assign(block, expr(block, def, "text"))
         "math" -> assign(
             block,
@@ -131,9 +136,19 @@ class ScriptWriter(private val blocks: List<Block>) {
             val options = plainOrExpr(block, def, "value")
             (if (first) "if " else "else if ") + options.joinToString(" or ") { "$value == $it" }
         }
-        Blocks.TRY, Blocks.CATCH, Blocks.END_TRY, ControlBlocks.PARALLEL, ControlBlocks.BRANCH, ControlBlocks.END_PARALLEL,
-        ControlBlocks.LOCK, ControlBlocks.END_LOCK, ControlBlocks.TIME_LIMIT, ControlBlocks.END_TIME_LIMIT ->
-            "# " + tr(def.title) + "  (" + tr("ve skriptu jen jako bloky") + ")"
+        Blocks.TRY -> {
+            val attempts = (param(block, def, "attempts") as? ParamValue.Number)?.value ?: 1f
+            val backoff = (param(block, def, "backoff") as? ParamValue.Bool)?.value == true
+            val args = if (attempts <= 1f) "" else
+                "(" + expr(block, def, "attempts") + ", " + expr(block, def, "delay") + (if (backoff) ", true" else "") + ")"
+            assign(block, "try$args")
+        }
+        Blocks.CATCH -> "catch"
+        ControlBlocks.PARALLEL -> "parallel"
+        ControlBlocks.BRANCH -> "branch"
+        ControlBlocks.LOCK -> plain(block.params["name"]).orEmpty().trim().let { if (it.isEmpty()) "lock" else "lock(${quote(it)})" }
+        ControlBlocks.TIME_LIMIT -> "time_limit(${expr(block, def, "seconds")})"
+        Blocks.END_TRY, ControlBlocks.END_PARALLEL, ControlBlocks.END_LOCK, ControlBlocks.END_TIME_LIMIT -> "end"
         else -> if (def.kind == BlockKind.Normal) assign(block, call(block, def)) else "# " + tr(def.title)
     }
 
@@ -293,8 +308,8 @@ fun AutomationTextDialog(viewModel: EditorViewModel, onDismiss: () -> Unit) {
         text = {
             Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
                 Text(
-                    tr("Stejné kroky zapsané jazykem bloku Skript. Text jde zkopírovat a vložit do bloku Skript; " +
-                            "co jazyk neumí (Zkusit, souběžné větve), je jako poznámka za #."),
+                    tr("Stejné kroky zapsané jazykem bloku Skript. Text jde zkopírovat a vložit do bloku Skript, " +
+                            "nebo z něj automatizaci zase vytvořit (Importovat / Aktualizovat ze skriptu)."),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

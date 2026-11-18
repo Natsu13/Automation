@@ -3303,5 +3303,39 @@ object English {
             "{mode} in {source}",
         "title: Ahoj\nuser.id: 42" to
             "title: Hello\nuser.id: 42",
+        "zvětšení má být větší než 0 a nejvýš 20" to
+            "the scale must be above 0 and at most 20",
+        "počet hodnot v závorce má být %s, je %s" to
+            "the number of values in brackets must be %s, it is %s",
+        "„%s“ není číslo" to
+            "“%s” is not a number",
+        "rozměr má být 1 až 4096 px, je %s" to
+            "the size must be 1 to 4096 px, it is %s",
+        "Obrázek {source}" to
+            "Image {source}",
+        "Obrázek uložený přímo v automatizaci (vložený obrázek nebo ikona), soubor nebo adresa. Výstup použiješ ve skriptu (img_…), v oznámení nebo v dalších blocích obrázků." to
+            "An image stored right in the automation (an inserted picture or icon), a file or an address. Use its output in a script (img_…), a notification or other image blocks.",
+        "Skript: kreslení do obrázku" to
+            "Script: drawing into an image",
+        "Funkce img_… v bloku Skript: zmenšená ikona s lištou průběhu, kruhový průběh přes celý obrázek a ikona zbarvená zespodu podle procent. Lištu ukáže i v oznámení." to
+            "The img_… functions in the Script block: a smaller icon with a progress bar, a progress ring over the whole image and an icon coloured from the bottom by percent. The bar is also shown in a notification.",
+        "1) zmenšená ikona a pod ní lišta průběhu" to
+            "1) a smaller icon with a progress bar under it",
+        "2) poloprůhledný čtverec s kruhovým průběhem přes celý obrázek" to
+            "2) a see-through square with a progress ring over the whole image",
+        "3) ikona zespodu v barvě podle procent, zbytek bílý" to
+            "3) the icon coloured from the bottom by percent, the rest white",
+        "Tři způsoby průběhu" to
+            "Three ways to show progress",
+        "Vložit" to
+            "Insert",
+        "Proměnná podle názvu" to
+            "Variable by name",
+        "Proměnná – nastaví krok %s: %s" to
+            "Variable – set by step %s: %s",
+        "Proměnná – výsledky souběžných kol kroku %s: %s" to
+            "Variable – results of the parallel rounds of step %s: %s",
+        "Stejné kroky zapsané jazykem bloku Skript. Text jde zkopírovat a vložit do bloku Skript, nebo z něj automatizaci zase vytvořit (Importovat / Aktualizovat ze skriptu)." to
+            "The same steps written in the Script block's language. Copy the text into a Script block, or make the automation from it again (Import / Update from a script).",
     )
 }

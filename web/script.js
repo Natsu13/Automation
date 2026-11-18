@@ -17,7 +17,14 @@
     "if", "pokud", "else", "jinak", "end", "konec", "while", "dokud", "for", "pro", "return", "vrat",
     "break", "ukonci", "continue", "pokracuj", "and", "or", "not", "nebo", "zaroven", "true", "false",
     "null", "nic", "ano", "input", "vstup", "clipboard", "trigger", "text", "date", "count", "list", "type",
+    "script", "skript", "try", "zkus", "catch", "kdyz_selze", "parallel", "soubezne", "branch", "vetev",
+    "lock", "postupne", "time_limit", "limit",
   ]);
+  // Words of the groups of steps, as Script.kt has them.
+  const GROUP = {
+    script: ["script", "skript"], try: ["try", "zkus"], catch: ["catch", "kdyz_selze"], parallel: ["parallel", "soubezne"],
+    parallel_branch: ["branch", "vetev"], lock: ["lock", "postupne"], time_limit: ["time_limit", "limit"],
+  };
   const OPPOSITE = {
     equals: "not_equals", not_equals: "equals", contains: "not_contains", not_contains: "contains",
     empty: "not_empty", not_empty: "empty", greater: "less_eq", less_eq: "greater", less: "greater_eq", greater_eq: "less",
@@ -202,7 +209,21 @@
         case "loop_control": return choice(block, def, "action") === "continue" ? "continue" : "break";
         case "return": return "return " + expr(block, def, "text");
         case "comment": return "# " + (plain(block.params.text) ?? "").replace(/\n/g, "\n# ");
-        case "script": return code(block.params.code);
+        // Its own group: a "return" inside ends only this step, as in the app.
+        case "script": return assign(block, "script") + "\n" +
+          code(block.params.code).split("\n").map((l) => (l.trim() ? "    " + l : "")).join("\n") + "\nend";
+        case "try": {
+          const attempts = param(block, def, "attempts")?.value ?? 1;
+          const backoff = param(block, def, "backoff")?.value === true;
+          const args = attempts <= 1 ? "" : "(" + expr(block, def, "attempts") + ", " + expr(block, def, "delay") + (backoff ? ", true" : "") + ")";
+          return assign(block, "try" + args);
+        }
+        case "catch": return "catch";
+        case "parallel": return "parallel";
+        case "parallel_branch": return "branch";
+        case "lock": { const n = (plain(block.params.name) ?? "").trim(); return n ? `lock(${quote(n)})` : "lock"; }
+        case "time_limit": return `time_limit(${expr(block, def, "seconds")})`;
+        case "end_try": case "end_parallel": case "end_lock": case "end_time_limit": return "end";
         case "text": return assign(block, expr(block, def, "text"));
         case "math": return assign(block, choice(block, def, "mode") === "expert"
           ? `calc(${expr(block, def, "expression")})`
@@ -226,7 +247,8 @@
       const def = M.blockDefs.get(block.type);
       const indent = "    ".repeat(structure.depth[index] || 0);
       const text = def ? statement(block, def, index) : "# ? " + block.type;
-      for (const line of text.split("\n")) lines.push(indent + (block.disabled && !line.startsWith("#") ? "# " : "") + line);
+      // An empty line of a script gets no trailing spaces.
+      for (const line of text.split("\n")) lines.push(!line && !block.disabled ? "" : indent + (block.disabled && !line.startsWith("#") ? "# " : "") + line);
     });
     return lines.join("\n");
   }
@@ -305,6 +327,7 @@
     const defaultNames = {};        // how many steps got each default output name so far
     const stack = [];               // open groups
     let script = null;              // the Skript block being collected
+    let body = null;                // the body of `script … end` being read
     let comment = null;             // the Poznámka block being collected
 
     // ---- values ----
@@ -339,7 +362,8 @@
         while (wrapped(part)) part = part.slice(1, -1);
         if (part.length === 1 && (part[0].t === "str" || part[0].t === "num")) { if (part[0].v !== "") add({ type: "text", text: part[0].v }); continue; }
         if (part.length === 2 && part[0].v === "-" && part[1].t === "num") { add({ type: "text", text: "-" + part[1].v }); continue; }
-        if (part.length > 1 && part.some((tk) => tk.v === "&")) { const r = richOf(part); if (!r) return null; r.segments.forEach(add); continue; }
+        // Only an & that really splits it (one inside f(a & b) does not, and would loop forever).
+        if (part.length > 1 && splitTop(part, (tk) => tk.t === "op" && tk.v === "&").length > 1) { const r = richOf(part); if (!r) return null; r.segments.forEach(add); continue; }
         const ref = refOf(part);
         if (!ref) return null;
         add({ type: "var", ref });
@@ -527,11 +551,14 @@
       }
       if (w === "end" && tokens.length === 1) {
         if (disabled || !top) return false;
-        const endType = { if: "end_if", switch: "end_switch", while: "end_while", for_each: "end_while", repeat: "end_while" }[top.type];
+        const endType = { if: "end_if", switch: "end_switch", while: "end_while", for_each: "end_while", repeat: "end_while",
+          try: "end_try", parallel: "end_parallel", lock: "end_lock", time_limit: "end_time_limit" }[top.type];
         if (!endType) return false;
         emit(endType);
         return true;
       }
+      const grouped = group(tokens, indent, disabled);
+      if (grouped !== null) return grouped;
       if (w === "for" && tokens[1]?.t === "id" && tokens[2]?.v === "in") {
         const name = tokens[1].v, rest = tokens.slice(3);
         const parallel = note && (note === PARALLEL.cs || note === PARALLEL.en) ? { type: "bool", value: true } : { type: "bool", value: false };
@@ -661,7 +688,7 @@
     const lines = text.replace(/\r/g, "").split("\n");
     for (let n = 0; n < lines.length; n++) {
       const pad = lines[n].match(/^[ \t]*/)[0];
-      const known = oldScripts.find((sc) => !usedOld.has(sc.block.id) && sc.lines.length <= lines.length - n &&
+      const known = !body && oldScripts.find((sc) => !usedOld.has(sc.block.id) && sc.lines.length <= lines.length - n &&
         (sc.lines.length > 1 || sc.lines[0].trim()) &&
         sc.lines.every((l, k) => (pad + l).trimEnd() === lines[n + k].trimEnd()));
       if (known) {
@@ -672,7 +699,71 @@
       }
       line(lines[n], n);
     }
+    /** `[x =] script`, `[x =] try(3, 2, true)`, `catch`, `parallel`, `branch`, `lock("a")`, `time_limit(10)`; null = none. */
+    function group(tokens, indent, disabled) {
+      let target = null, rest = tokens;
+      if (tokens.length >= 3 && tokens[0].t === "id" && tokens[1].v === "=") { target = tokens[0].v; rest = tokens.slice(2); }
+      const word = rest[0]?.t === "id" ? rest[0].v.toLowerCase() : null;
+      const type = word && Object.keys(GROUP).find((k) => GROUP[k].includes(word));
+      if (!type) return null;
+      let args = [];
+      if (rest.length > 1) {
+        if (!wrapped(rest.slice(1))) return null;
+        const inner = rest.slice(2, -1);
+        args = inner.length ? splitTop(inner, (tk) => tk.v === ",") : [];
+      }
+      if (target && type !== "script" && type !== "try") return false;
+      const d = def(type);
+      const values = (keys) => {
+        if (args.length > keys.length) return null;
+        const out = {};
+        for (let i = 0; i < args.length; i++) {
+          const v = valueFor(d.params.find((p) => p.key === keys[i]), args[i]);
+          if (!v) return null;
+          out[keys[i]] = v;
+        }
+        return out;
+      };
+      let params;
+      if (["script", "catch", "parallel", "parallel_branch"].includes(type)) { if (args.length) return false; params = {}; }
+      else if (type === "try") params = values(["attempts", "delay", "backoff"]);
+      else if (type === "lock") params = values(["name"]);
+      else { params = values(["seconds"]); if (params && !Object.keys(params).length) params = null; }
+      if (!params) return false;
+      if (disabled && (type === "catch" || type === "parallel_branch")) return false;
+      const block = emit(type, params, { name: target || undefined, disabled, indent, keepAll: type === "script" });
+      if (type === "script") body = { block, indent, disabled, lines: [] };
+      return true;
+    }
+
+    /** A line inside `script … end`; false when the body has ended (the line is read as usual then). */
+    function bodyLine(raw) {
+      const lead = raw.length - raw.trimStart().length;
+      let content = raw.trimStart();
+      if (!content) { body.lines.push(""); return true; }
+      if (body.disabled) {
+        if (!content.startsWith("#")) { closeBody(); return false; }
+        content = content.replace(/^#\s?/, "");
+        if (lead === body.indent && content.trim() === "end") { closeBody(); return true; }
+        body.lines.push(content.replace(/^ {4}/, ""));
+        return true;
+      }
+      if (lead <= body.indent) {
+        const ended = content === "end" && lead === body.indent;
+        closeBody();
+        return ended;
+      }
+      body.lines.push(raw.slice(Math.min(lead, body.indent + 4)));
+      return true;
+    }
+
+    function closeBody() {
+      body.block.params.code = codeOf(body.lines.join("\n").replace(/[\n ]+$/, ""));
+      body = null;
+    }
+
     function line(raw, n) {
+      if (body && bodyLine(raw.replace(/\t/g, "    "))) return;
       const lineNo = n + 1;
       const indent = raw.match(/^[ \t]*/)[0].replace(/\t/g, "    ").length;
       const trimmed = raw.trim();
@@ -771,12 +862,14 @@
       }
       return false;
     }
+    if (body) closeBody();
     return { blocks: out.map((o) => o.block), meta };
   }
 
   // ---------- highlighting ----------
   const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const KEYWORDS = new Set(["if", "else", "end", "while", "for", "in", "return", "break", "continue", "and", "or", "not"]);
+  const KEYWORDS = new Set(["if", "else", "end", "while", "for", "in", "return", "break", "continue", "and", "or", "not",
+    "script", "try", "catch", "parallel", "branch", "lock", "time_limit"]);
   function highlight(text) {
     let out = "";
     const re = /("(?:\\.|[^"\\\n])*"?|'(?:\\.|[^'\\\n])*'?|#[^\n]*|\b\d+(?:\.\d+)?\b|[\p{L}_][\p{L}\p{N}_]*|[^"'#\p{L}_\d]+|.)/gu;

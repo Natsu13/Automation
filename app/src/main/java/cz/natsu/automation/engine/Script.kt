@@ -340,6 +340,18 @@ object Script {
     private class Return(line: Int, val value: Expr?) : Stmt(line)
     private class Jump(line: Int, val exit: Boolean) : Stmt(line)
 
+    /** `x = script … end`: a Script step; its `return` ends only the step and gives its value. */
+    private class Nested(line: Int, val target: Expr?, val body: List<Stmt>) : Stmt(line)
+
+    /** `chyba = try(pokusů, pauza, zdvojnásobit) … catch … end`: the value is the error text ("" when it passed). */
+    private class Try(line: Int, val target: Expr?, val args: List<Expr>, val body: List<Stmt>, val failed: List<Stmt>?) : Stmt(line)
+
+    /** `parallel … branch … end`: a script runs the branches one after another. */
+    private class Parallel(line: Int, val branches: List<List<Stmt>>) : Stmt(line)
+
+    /** `lock("název") … end` (one at a time) and `time_limit(s) … end`. */
+    private class Scope(line: Int, val limit: Expr?, val body: List<Stmt>) : Stmt(line)
+
     // ---------- parser ----------
 
     private val IF = setOf("if", "pokud")
@@ -355,6 +367,16 @@ object Script {
     private val OR = setOf("or", "nebo")
     private val NOT = setOf("not")
     private val ASSIGN_OPS = setOf("=", "+=", "-=", "*=", "/=")
+
+    // Groups of steps (the blocks Skript, Zkusit, Souběžně, Jeden po druhém, Časový limit).
+    val SCRIPT_WORDS = setOf("script", "skript")
+    val TRY_WORDS = setOf("try", "zkus")
+    val CATCH_WORDS = setOf("catch", "kdyz_selze")
+    val PARALLEL_WORDS = setOf("parallel", "soubezne")
+    val BRANCH_WORDS = setOf("branch", "vetev")
+    val LOCK_WORDS = setOf("lock", "postupne")
+    val TIME_LIMIT_WORDS = setOf("time_limit", "limit")
+    private val GROUP_WORDS = SCRIPT_WORDS + TRY_WORDS + PARALLEL_WORDS + LOCK_WORDS + TIME_LIMIT_WORDS
 
     private class Parser(private val tokens: List<Token>) {
         private var pos = 0
@@ -385,7 +407,8 @@ object Script {
         private fun endOfStatement() {
             val token = peek()
             // "pokud x vrat 1 konec" on one line is fine too.
-            if (token.type != T.NewLine && token.type != T.End && !isWord(END) && !isWord(ELSE)) {
+            if (token.type != T.NewLine && token.type != T.End && !isWord(END) && !isWord(ELSE) &&
+                !isWord(CATCH_WORDS) && !isWord(BRANCH_WORDS)) {
                 error(token, tr("nečekané \"%s\" (chybí operátor nebo nový řádek?)", token.text))
             }
         }
@@ -401,7 +424,7 @@ object Script {
         private fun block(): List<Stmt> {
             val statements = mutableListOf<Stmt>()
             skipNewLines()
-            while (peek().type != T.End && !isWord(END) && !isWord(ELSE)) {
+            while (peek().type != T.End && !isWord(END) && !isWord(ELSE) && !isWord(CATCH_WORDS) && !isWord(BRANCH_WORDS)) {
                 statements += statement()
                 skipNewLines()
             }
@@ -413,8 +436,91 @@ object Script {
             pos++
         }
 
+        /**
+         * `[x =] script`, `[x =] try(…)`, `parallel`, `lock(…)`, `time_limit(…)` at the start of a line:
+         * the name written before `=`, the word and the values in brackets; null when it is not one.
+         */
+        private fun groupHeader(): Triple<Expr?, Token, List<Expr>>? {
+            var p = pos
+            var target: Expr? = null
+            if (tokens[p].type == T.Ident && tokens.getOrNull(p + 1)?.let { it.type == T.Op && it.text == "=" } == true) {
+                target = Variable(tokens[p].line, tokens[p].text)
+                p += 2
+            }
+            val word = tokens.getOrNull(p) ?: return null
+            if (word.type != T.Ident || word.text.lowercase() !in GROUP_WORDS) return null
+            val after = tokens.getOrNull(p + 1) ?: return null
+            val opens = after.type == T.Op && after.text == "("
+            if (!opens && after.type != T.NewLine && after.type != T.End && !(after.type == T.Op && after.text == ":")) return null
+            // "x = try(…)" with something after the bracket is a call, not a group.
+            if (opens) {
+                var depth = 0
+                var q = p + 1
+                while (q < tokens.size) {
+                    val t = tokens[q]
+                    if (t.type == T.Op && t.text in setOf("(", "[", "{")) depth++
+                    if (t.type == T.Op && t.text in setOf(")", "]", "}")) depth--
+                    if (depth == 0) break
+                    q++
+                }
+                val next = tokens.getOrNull(q + 1) ?: return null
+                if (next.type != T.NewLine && next.type != T.End && !(next.type == T.Op && next.text == ":")) return null
+            }
+            pos = p + 1
+            val args = mutableListOf<Expr>()
+            if (takeOp("(")) {
+                if (!isOp(")")) do { args += expression() } while (takeOp(","))
+                expectOp(")")
+            }
+            takeOp(":")
+            return Triple(target, word, args)
+        }
+
+        private fun group(target: Expr?, word: Token, args: List<Expr>): Stmt {
+            val name = word.text.lowercase()
+            return when (name) {
+                in SCRIPT_WORDS -> Nested(word.line, target, block()).also { expectEnd(word) }
+                in TRY_WORDS -> {
+                    val body = block()
+                    var failed: List<Stmt>? = null
+                    if (isWord(CATCH_WORDS)) {
+                        next()
+                        takeOp(":")
+                        failed = block()
+                    }
+                    expectEnd(word)
+                    Try(word.line, target, args, body, failed)
+                }
+                in PARALLEL_WORDS -> {
+                    val branches = mutableListOf(block())
+                    while (isWord(BRANCH_WORDS)) {
+                        next()
+                        takeOp(":")
+                        branches += block()
+                    }
+                    expectEnd(word)
+                    Parallel(word.line, branches)
+                }
+                in TIME_LIMIT_WORDS -> {
+                    val limit = args.firstOrNull() ?: error(word, tr("%s: chybí počet sekund – time_limit(10)", word.text))
+                    Scope(word.line, limit, block()).also { expectEnd(word) }
+                }
+                else -> Scope(word.line, null, block()).also { expectEnd(word) }
+            }.also {
+                if (target != null && name !in SCRIPT_WORDS && name !in TRY_WORDS) {
+                    error(word, tr("„%s“ nemá výsledek, nejde ho přiřadit", word.text))
+                }
+            }
+        }
+
         private fun statement(): Stmt {
             val token = peek()
+            val header = groupHeader()
+            if (header != null) {
+                val statement = group(header.first, header.second, header.third)
+                endOfStatement()
+                return statement
+            }
             val statement: Stmt = when {
                 isWord(IF) -> ifStatement()
                 isWord(WHILE) -> {
@@ -668,9 +774,28 @@ object Script {
             fail("ukonci / pokracuj jde použít jen uvnitř opakování")
         }
 
+        /** Ends of the time limits the script is inside (ms), the innermost last. */
+        private val deadlines = ArrayDeque<Pair<Long, Double>>()
+
         private fun tick() {
             if (++steps > MAX_STEPS) fail(tr("skript udělal přes 5 milionů kroků (nekonečné opakování?)"))
             if (steps % 1000 == 0 && !host.active()) throw CancellationException("Zastaveno")
+            checkDeadline()
+        }
+
+        private fun checkDeadline() {
+            for ((end, seconds) in deadlines) {
+                if (System.currentTimeMillis() > end) fail(tr("kroky nedoběhly do %s s (časový limit)", formatNumber(seconds)))
+            }
+        }
+
+        /** Waits [ms], but stops when the run is stopped. */
+        private fun pause(ms: Long) {
+            val end = System.currentTimeMillis() + ms
+            while (System.currentTimeMillis() < end) {
+                if (!host.active()) throw CancellationException("Zastaveno")
+                Thread.sleep(minOf(100L, end - System.currentTimeMillis()).coerceAtLeast(1L))
+            }
         }
 
         private fun exec(statements: List<Stmt>) {
@@ -736,6 +861,55 @@ object Script {
                 }
                 is Return -> throw ReturnSignal(statement.value?.let { eval(it) })
                 is Jump -> throw JumpSignal(statement.exit)
+                is Nested -> {
+                    last = null
+                    val value = try {
+                        exec(statement.body)
+                        last
+                    } catch (signal: ReturnSignal) {
+                        signal.value
+                    }
+                    statement.target?.let { assign(it, value) }
+                    last = value
+                }
+                is Try -> {
+                    val attempts = statement.args.getOrNull(0)?.let { number(eval(it)) }?.toInt()?.coerceIn(1, 10) ?: 1
+                    var delay = ((statement.args.getOrNull(1)?.let { number(eval(it)) } ?: 2.0) * 1000).toLong().coerceIn(0, 60_000)
+                    val backoff = statement.args.getOrNull(2)?.let { truthy(eval(it)) } ?: false
+                    var error: String? = null
+                    for (attempt in 1..attempts) {
+                        error = try {
+                            exec(statement.body)
+                            null
+                        } catch (e: BlockException) {
+                            e.message ?: "?"
+                        }
+                        if (error == null) break
+                        if (attempt < attempts) {
+                            pause(delay)
+                            if (backoff) delay *= 2
+                        }
+                    }
+                    statement.target?.let { assign(it, error ?: "") }
+                    if (error != null) {
+                        // Without "catch" a failed try just goes on, like the block with an empty branch.
+                        statement.failed?.let { exec(it) }
+                    }
+                }
+                is Parallel -> for (branch in statement.branches) exec(branch)
+                is Scope -> {
+                    val limit = statement.limit
+                    if (limit == null) exec(statement.body) else {
+                        val seconds = number(eval(limit)) ?: fail(tr("časový limit musí být počet sekund"))
+                        deadlines.addLast(System.currentTimeMillis() + (seconds * 1000).toLong() to seconds)
+                        try {
+                            exec(statement.body)
+                            checkDeadline()
+                        } finally {
+                            deadlines.removeLast()
+                        }
+                    }
+                }
             }
         }
 

@@ -103,8 +103,8 @@
     dropFile: ["Pusť soubor pro import", "Drop the file to import"],
     sideNote: ["Ukládá se automaticky v tomto prohlížeči. Do telefonu se dostaneš přes <b>Export</b> → v aplikaci <b>Import</b>.", "Saved automatically in this browser. To get it to the phone use <b>Export</b> → <b>Import</b> in the app."],
     codeHelp: [
-      "Stejný zápis jako <b>Zobrazit jako skript</b> v aplikaci (jazyk bloku Skript). Krok s výstupem je <code>jmeno = blok(…)</code>, výstup se dál používá jménem. Hodnoty: <code>input</code> <code>trigger</code> <code>clipboard</code> <code>date()</code>, proměnné jménem, tajné <code>secret(\"nazev\")</code>, text se skládá přes <code>&amp;</code>. Podmínky <code>if</code> / <code>else if</code> / <code>else</code> / <code>end</code>, smyčky <code>for x in …</code>, <code>while</code>. Bloky s názvem funkce: <code>block(\"replace\", …)</code>. Vypnutý krok je zakomentovaný <code>#</code>. Řádek, který není blok, se stane blokem Skript.",
-      "The same notation as <b>View as script</b> in the app (the Script block's language). A step with an output is <code>name = block(…)</code> and is used by that name. Values: <code>input</code> <code>trigger</code> <code>clipboard</code> <code>date()</code>, variables by name, secrets <code>secret(\"name\")</code>, text is joined with <code>&amp;</code>. Conditions <code>if</code> / <code>else if</code> / <code>else</code> / <code>end</code>, loops <code>for x in …</code>, <code>while</code>. Blocks named like a function: <code>block(\"replace\", …)</code>. A switched-off step is commented out with <code>#</code>. A line that is not a block becomes a Script block.",
+      "Stejný zápis jako <b>Zobrazit jako skript</b> v aplikaci (jazyk bloku Skript). Krok s výstupem je <code>jmeno = blok(…)</code>, výstup se dál používá jménem. Hodnoty: <code>input</code> <code>trigger</code> <code>clipboard</code> <code>date()</code>, proměnné jménem, tajné <code>secret(\"nazev\")</code>, text se skládá přes <code>&amp;</code>. Podmínky <code>if</code> / <code>else if</code> / <code>else</code> / <code>end</code>, smyčky <code>for x in …</code>, <code>while</code>. Bloky s názvem funkce: <code>block(\"replace\", …)</code>. Vypnutý krok je zakomentovaný <code>#</code>. Skupiny kroků: <code>x = script</code> … <code>end</code> (blok Skript, jeho <code>return</code> ukončí jen jeho), <code>try</code> … <code>catch</code> … <code>end</code>, <code>parallel</code> … <code>branch</code> … <code>end</code>, <code>lock</code> … <code>end</code>, <code>time_limit(10)</code> … <code>end</code>. Řádek, který není blok, se stane blokem Skript.",
+      "The same notation as <b>View as script</b> in the app (the Script block's language). A step with an output is <code>name = block(…)</code> and is used by that name. Values: <code>input</code> <code>trigger</code> <code>clipboard</code> <code>date()</code>, variables by name, secrets <code>secret(\"name\")</code>, text is joined with <code>&amp;</code>. Conditions <code>if</code> / <code>else if</code> / <code>else</code> / <code>end</code>, loops <code>for x in …</code>, <code>while</code>. Blocks named like a function: <code>block(\"replace\", …)</code>. A switched-off step is commented out with <code>#</code>. Groups of steps: <code>x = script</code> … <code>end</code> (a Script block, its <code>return</code> ends only it), <code>try</code> … <code>catch</code> … <code>end</code>, <code>parallel</code> … <code>branch</code> … <code>end</code>, <code>lock</code> … <code>end</code>, <code>time_limit(10)</code> … <code>end</code>. A line that is not a block becomes a Script block.",
     ],
     libHint: ["Klikni = přidat za vybraný krok · táhni = vložit kamkoli", "Click = add after the selected step · drag = drop anywhere"],
     noResults: ["Nic nenalezeno", "Nothing found"],
@@ -150,6 +150,8 @@
     dateD: ["Datum a čas spuštění", "Date and time of the start"],
     stepOutput: ["Výstup kroku", "Output of step"],
     variable: ["Proměnná", "Variable"],
+    varSetBy: ["Nastaví krok %1: %2", "Set by step %1: %2"],
+    varCollectedBy: ["Výsledky souběžných kol kroku %1: %2", "Results of the parallel rounds of step %1: %2"],
     secretD: ["Tajná hodnota – v exportu se neukládá", "Secret – not saved in exports"],
   };
 
@@ -391,13 +393,18 @@
         }
       }
       // Variables set by earlier steps, and the results a parallel loop collects.
-      const variables = new Set();
-      for (const b of a.blocks.slice(0, index)) {
-        if (b.type === "set_variable" || b.type === "change_variable") { const n = M.richToPlain(b.params.name).trim(); if (n) variables.add(n); }
-        if (b.params.parallel?.value === true) { const n = M.richToPlain(b.params.collect).trim(); if (n) variables.add(n); }
-      }
+      // Name -> where it comes from (the first step that sets it).
+      const variables = new Map();
+      a.blocks.slice(0, index).forEach((b, i) => {
+        const title = tx(M.blockDefs.get(b.type)?.title) || b.type;
+        const add = (n, key) => { if (n && !variables.has(n)) variables.set(n, t(key, i + 1, title)); };
+        if (b.type === "set_variable" || b.type === "change_variable") add(M.richToPlain(b.params.name).trim(), "varSetBy");
+        if (b.params.parallel?.value === true) add(M.richToPlain(b.params.collect).trim(), "varCollectedBy");
+        // What a Script block assigns (bar = …) is a variable of the automation too.
+        if (b.type === "script") for (const n of scriptAssigned(b.params.code)) add(n, "varSetBy");
+      });
       content.push(h("div", { class: "pop-group" }, t("variables")));
-      for (const name of variables) content.push(popItem("data_object", name, t("variable"), pick({ type: "variable", name })));
+      for (const [name, from] of variables) content.push(popItem("data_object", name, from, pick({ type: "variable", name })));
       content.push(newNameInput(t("newVar"), (name) => onPick({ type: "variable", name })));
       // Secrets live on the phone; here the ones the automation already uses, or a new name.
       content.push(h("div", { class: "pop-group" }, t("secrets")));
@@ -406,6 +413,22 @@
     }
     popover(anchor, content);
     openPopover.addEventListener("mouseleave", () => highlightStep(null));
+  }
+
+  // Same as ScriptWords in the app: words of the language and names that already mean something.
+  const SCRIPT_RESERVED = new Set(["if", "pokud", "else", "jinak", "end", "konec", "while", "dokud", "for", "pro", "return", "vrat",
+    "break", "ukonci", "continue", "pokracuj", "and", "or", "not", "nebo", "zaroven", "true", "false",
+    "null", "nic", "ano", "input", "vstup", "clipboard", "trigger", "text", "date", "count", "list", "type"]);
+
+  /** Names a script assigns (`bar = …`, `n += 1`), like ScriptWords.assigned in the app. */
+  function scriptAssigned(code) {
+    const text = (code?.segments || []).map((s) => (s.type === "text" ? s.text : "0")).join("");
+    const names = [];
+    for (const line of text.split("\n")) {
+      const m = line.match(/^\s*([\p{L}_][\p{L}\p{N}_]*)\s*[-+*/&]?=(?!=)/u);
+      if (m && !SCRIPT_RESERVED.has(m[1].toLowerCase()) && !names.includes(m[1])) names.push(m[1]);
+    }
+    return names;
   }
 
   function newNameInput(placeholder, onPick) {
