@@ -1,6 +1,10 @@
 package cz.natsu.automation.engine
 
 import cz.natsu.automation.i18n.tr
+import cz.natsu.automation.data.HomeCards
+import cz.natsu.automation.data.LastRun
+import cz.natsu.automation.data.RunRegistry
+import kotlinx.coroutines.ensureActive
 
 import android.content.ClipboardManager
 import android.content.Context
@@ -95,6 +99,8 @@ class RunContext(
     val automationId: Long? = null,
     /** How deep this run is in "Spustit automatizaci" calls (0 = started directly). */
     val depth: Int = 0,
+    /** Identifies the run: cards on the home screen belong to it and their buttons can stop it. */
+    val runId: String = java.util.UUID.randomUUID().toString(),
 ) {
     // Branches of "Souběžně" run at the same time, so the state of a run is thread-safe.
     var variables: MutableMap<String, String> = ConcurrentHashMap()
@@ -110,7 +116,7 @@ class RunContext(
      * and secrets are shared with the run; step outputs and loop positions are a copy, so
      * every round has its own item and position and the rounds do not overwrite each other.
      */
-    fun fork(): RunContext = RunContext(context, input, ui, trigger, event, automationId, depth).also {
+    fun fork(): RunContext = RunContext(context, input, ui, trigger, event, automationId, depth, runId).also {
         it.variables = variables
         it.secretValues = secretValues
         it.locks = locks
@@ -383,8 +389,23 @@ object AutomationRunner {
         }
         ctx.loopOf = structure.loopOf.entries.associate { (step, loop) -> blocks[step].id to blocks[loop].id }
 
+        automationId?.let { LastRun.mark(ctx.context, it) }
         val run = Run(blocks, ctx, structure, onStep, afterStep)
-        val outcome = run.execute(0, blocks.size)
+        // Registered, so a button of a card on the home screen can stop the run.
+        val outcome = kotlinx.coroutines.coroutineScope {
+            val work = async { run.execute(0, blocks.size) }
+            RunRegistry.register(ctx.runId, work)
+            try {
+                work.await()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // Stopped from outside (the Stop button of the editor): pass it on; stopped by a card: a cancelled run.
+                ensureActive()
+                Outcome.Cancelled
+            } finally {
+                RunRegistry.unregister(ctx.runId)
+                HomeCards.runEnded(ctx.context, ctx.runId)
+            }
+        }
         val log = synchronized(run.log) { run.log.toList() }
         when (outcome) {
             Outcome.Done -> RunResult(null, log)
@@ -771,10 +792,12 @@ object AutomationRunner {
         input: String?,
         trigger: RunTrigger,
         event: EventInfo? = null,
+        /** The automation the conditions belong to ("Hodin od posledního spuštění"). */
+        automationId: Long? = null,
     ): Boolean = withContext(Dispatchers.Default) {
         val active = conditions.filterNot { it.disabled }
         if (active.isEmpty()) return@withContext true
-        val ctx = RunContext(context.applicationContext, input, null, trigger, event)
+        val ctx = RunContext(context.applicationContext, input, null, trigger, event, automationId)
         val results = active.map { condition ->
             try {
                 Blocks.evaluateCondition(ctx, condition)

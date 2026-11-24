@@ -437,6 +437,11 @@ private fun ParamEditor(
                     Spacer(Modifier.width(8.dp))
                     ColorSwatchButton(segments) { onChange(cz.natsu.automation.data.richText(it)) }
                 }
+                if (param.iconPicker) {
+                    Spacer(Modifier.width(8.dp))
+                    val key = segments.joinToString("") { (it as? cz.natsu.automation.data.Segment.Text)?.text ?: " " }
+                    cz.natsu.automation.ui.common.IconFieldButton(key) { onChange(cz.natsu.automation.data.richText(it)) }
+                }
             }
         }
 

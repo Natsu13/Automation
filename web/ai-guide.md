@@ -237,6 +237,7 @@ Functions – text
 • split(text, separator), join(list, separator)
 • substr(text, from, length), find(text, what)
 • match(text, regex), matches(text, regex)
+• newer_version("v2.10", "2.9") → true, version_compare(a, b) → -1 / 0 / 1
 
 Functions – numbers
 • round(x, places), floor(x), ceil(x), abs(x), sqrt(x)
@@ -351,6 +352,7 @@ return "Total " & round(total, 2)
 | `notification` | Incoming notification – When any app shows a notification. Input = text; the app and title come from the Event data block, filter them in Launch conditions. | – | notification text | notification access (system settings) |
 | `app_opened` | App opened – When another app comes to the screen. Input = its package (e.g. com.spotify.music); choose the app you want in Launch conditions. | – | app package | the app's accessibility service switched on |
 | `boot` | After the phone starts – Once after the phone boots. | – | – | – |
+| `this_app_opened` | Opening this app – When you open Automation. With the launch condition “Hours since the last run”, e.g. only once a day. | – | – | – |
 
 ### Event values
 
@@ -381,10 +383,10 @@ return "Total " & round(total, 2)
 | Parameter | Kind | Default | Values / notes |
 |---|---|---|---|
 | `mode` | choice | `"simple"` | Notation · `"simple"` Simple – a value and a condition, `"expert"` Expression – and / or, numbers, functions |
-| `source` | choice | `"custom"` | What to check · `"custom"` Custom value (text and variables), `"input"` Input, `"trigger"` Trigger type, `"wifi_name"` Wi-Fi name, `"network"` Connection type, `"battery"` Battery (%), `"charging"` Charging, `"bt_device"` Bluetooth device, `"dnd"` Do Not Disturb mode, `"notif_app"` Notification – app, `"notif_title"` Notification – title, `"notif_text"` Notification – text, `"notif_package"` Notification – app package, `"sms_sender"` SMS – sender, `"sms_text"` SMS – text, `"call_number"` Call – number, `"nfc_id"` NFC tag – ID, `"nfc_text"` NFC tag – text, `"app_package"` App – package, `"app_name"` App – name · *only when `mode` is "simple"* |
+| `source` | choice | `"custom"` | What to check · `"custom"` Custom value (text and variables), `"input"` Input, `"trigger"` Trigger type, `"wifi_name"` Wi-Fi name, `"network"` Connection type, `"battery"` Battery (%), `"charging"` Charging, `"bt_device"` Bluetooth device, `"dnd"` Do Not Disturb mode, `"notif_app"` Notification – app, `"notif_title"` Notification – title, `"notif_text"` Notification – text, `"notif_package"` Notification – app package, `"sms_sender"` SMS – sender, `"sms_text"` SMS – text, `"call_number"` Call – number, `"nfc_id"` NFC tag – ID, `"nfc_text"` NFC tag – text, `"app_package"` App – package, `"app_name"` App – name, `"hours_since_run"` Hours since the last run · *only when `mode` is "simple"* |
 | `left` | text | `input` | Value · *only when `mode` is "simple" and `source` is "custom"* |
-| `op` | choice | `"equals"` | Condition · `"equals"` is equal to, `"not_equals"` is not equal to, `"contains"` contains, `"not_contains"` does not contain, `"starts"` starts with, `"ends"` ends with, `"matches"` matches the regular expression, `"empty"` is empty, `"not_empty"` is not empty, `"greater"` is greater than, `"less"` is less than, `"greater_eq"` is greater than or equal to, `"less_eq"` is less than or equal to · *only when `mode` is "simple"* |
-| `right` | text | `""` | Compare with · e.g. value · *only when `mode` is "simple" and `op` is "equals" / "not_equals" / "contains" / "not_contains" / "starts" / "ends" / "matches" / "greater" / "less" / "greater_eq" / "less_eq"* |
+| `op` | choice | `"equals"` | Condition · `"equals"` is equal to, `"not_equals"` is not equal to, `"contains"` contains, `"not_contains"` does not contain, `"starts"` starts with, `"ends"` ends with, `"matches"` matches the regular expression, `"empty"` is empty, `"not_empty"` is not empty, `"greater"` is greater than, `"less"` is less than, `"greater_eq"` is greater than or equal to, `"less_eq"` is less than or equal to, `"newer_version"` is a newer version than · *only when `mode` is "simple"* |
+| `right` | text | `""` | Compare with · e.g. value · *only when `mode` is "simple" and `op` is "equals" / "not_equals" / "contains" / "not_contains" / "starts" / "ends" / "matches" / "greater" / "less" / "greater_eq" / "less_eq" / "newer_version"* |
 | `expression` | text | `""` | Expression · e.g. battery < 20 or state == "vip" · *only when `mode` is "expert"* |
 
 
@@ -590,6 +592,21 @@ Downloads a page from the internet. It can also expand a shortened link (bit.ly,
 |---|---|---|---|
 | `url` | text | `input` | Address |
 | `what` | choice | `"final_url"` | What to return · `"final_url"` Target address (after redirects), `"title"` Page title, `"text"` Page text (without HTML), `"raw"` Source code |
+
+#### `download_file` – Download file / Stáhnout soubor
+
+Downloads a file from an address into the app and returns it (for Install APK, Share file, Save file…). It can show the progress on a home screen card; stopping the run stops the download.
+
+- Signature: `download_file(url, name, headers, show_card, card)`
+- Output: Downloaded file (e.g. `downloaded_file = …`)
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `url` | text | `""` | Address · e.g. https://… |
+| `name` | text | `""` | File name · e.g. from the address |
+| `headers` | text | `""` | Headers (key: value per line) · e.g. Authorization: Bearer … |
+| `show_card` | true/false | `false` | Show the progress on a home screen card |
+| `card` | text | `"karta"` | Card name (id) · *only when `show_card` is true* |
 
 #### `share_file` – Share file / Sdílet soubor
 
@@ -1042,6 +1059,115 @@ Opens a web page in a window right in the app and waits until you close it. The 
 | `title` | text | `""` | Title · e.g. optional |
 | `script` | code | `""` | JavaScript after the page loads · e.g. if (location.pathname == '/hotovo') done(document.title) |
 
+#### `home_card` – Home screen card / Karta na úvodu
+
+Shows a card with a text, progress and up to two buttons on the app's home screen. The same name (id) changes the card – moves its progress, say. The card goes when the run ends, unless you keep it. It can count down a time ({left} in the text); plan what should happen during the countdown with the block Plan a run.
+
+- Signature: `home_card(id, title, text, progress, percent, icon, button1, action1, automation1, input1, button2, action2, automation2, input2, countdown, countdown_value, end_remove, closable, keep)`
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `id` | text | `"karta"` | Card name (id) · e.g. update |
+| `title` | text | `""` | Title · e.g. {left} = the time left of the countdown |
+| `text` | text | `""` | Text · e.g. optional; {left} = the time left of the countdown |
+| `progress` | choice | `"none"` | Progress · `"none"` No progress, `"percent"` Percent, `"busy"` Indeterminate (working) · *only when `countdown` is "none"* |
+| `percent` | text | `0` | Done (0–100 %) · *only when `progress` is "percent" and `countdown` is "none"* |
+| `icon` | text | `""` | Icon · e.g. the automation's icon |
+| `button1` | text | `""` | Button 1 · e.g. no button |
+| `action1` | choice | `"wait"` | What button 1 does · `"wait"` Answer (block Wait for a card button), `"stop"` Stop this run, `"run"` Run automation, `"close"` Just close the card · *only when `button1` is filled in* |
+| `automation1` | automation id | `""` | Automation for button 1 · the number of another automation on the phone, "" = none · *not shown (kept for older versions)* |
+| `input1` | text | `""` | Input for the automation (button 1) · e.g. the button's text · *not shown (kept for older versions)* |
+| `button2` | text | `""` | Button 2 · e.g. no button |
+| `action2` | choice | `"wait"` | What button 2 does · `"wait"` Answer (block Wait for a card button), `"stop"` Stop this run, `"run"` Run automation, `"close"` Just close the card · *only when `button2` is filled in* |
+| `automation2` | automation id | `""` | Automation for button 2 · the number of another automation on the phone, "" = none · *not shown (kept for older versions)* |
+| `input2` | text | `""` | Input for the automation (button 2) · e.g. the button's text · *not shown (kept for older versions)* |
+| `countdown` | choice | `"none"` | Countdown · `"none"` No countdown, `"in"` For a time (seconds, 1:30 or 1:00:00), `"at"` Until a time (18:30) |
+| `countdown_value` | text | `""` | How long / until when · e.g. 45:00 or 18:30 · *only when `countdown` is "in" / "at"* |
+| `end_remove` | true/false | `false` | Remove the card when it ends · *only when `countdown` is "in" / "at"* |
+| `closable` | true/false | `true` | Can be closed with × |
+| `keep` | true/false | `false` | Keep after the run ends · *only when `countdown` is "none"* |
+
+<details><summary>Help</summary>
+
+```text
+A card on the app's home screen: title, text, icon, progress and up to two buttons. A card with the same name (id) is replaced.
+
+The time left in the text
+• {left} (or {zbyva}) in the title or text becomes the time left of the countdown: “1 h 5 min”, “20 min”, “45 s”
+• example: Done in {left}
+
+Countdown
+• For a time: 90, 1:30 or 1:00:00
+• Until a time: 18:30 (tomorrow when it has passed today)
+• the card shows a bar and “19:59 left” and stays after the run ends – with a countdown even after the app is closed
+• Remove the card when it ends – it goes by itself at the end
+
+What happens during the countdown (Plan a run)
+The card only counts down. Add actions with Plan a run blocks after this one – each block is one run, so you can have as many milestones as you like:
+• When the card has left 20:00 → an automation with a warning
+• At a progress of the card's countdown 90 → another one
+• When the card has left 0 → what happens at the end
+
+The automation that runs gets the Input you give the block – the card's name, say, so it can change the card with Edit card (“Hurry, only {left} left!”), or a text for a notification. The plans belong to the card: closing it, removing it or showing it with another countdown cancels them.
+
+Buttons
+• Answer – the block Wait for a card button returns its text
+• Stop this run – Cancel of a download, say
+• Run an automation – with the given Input (empty = the button's text); works also after the run ended
+• Just close the card
+```
+
+</details>
+
+#### `home_card_edit` – Edit card / Upravit kartu
+
+Changes only the filled-in parts of a home screen card – title, text, icon or progress. The countdown, buttons and planned runs stay. {left} in the text shows the time left of the countdown.
+
+- Signature: `home_card_edit(id, title, text, icon, progress, percent)`
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `id` | text | `"karta"` | Card name (id) |
+| `title` | text | `""` | Title · e.g. unchanged |
+| `text` | text | `""` | Text · e.g. unchanged; {left} = the time left of the countdown |
+| `icon` | text | `""` | Icon · e.g. unchanged |
+| `progress` | choice | `"keep"` | Progress · `"keep"` Unchanged, `"none"` No progress, `"percent"` Percent, `"busy"` Indeterminate (working) |
+| `percent` | text | `0` | Done (0–100 %) · *only when `progress` is "percent"* |
+
+<details><summary>Help</summary>
+
+```text
+Changes only what you fill in – title, text, icon or progress. An empty field keeps the old value. The card's countdown, buttons and planned runs stay.
+
+• {left} (or {zbyva}) in the title or text shows the time left of the card's countdown
+• typical use: an automation started by Plan a run gets the card's name as Input and puts the Input variable into Card name
+
+Example: Text = Hurry, only {left} left!, Icon = warning
+```
+
+</details>
+
+#### `home_card_wait` – Wait for a card button / Počkat na tlačítko karty
+
+Waits until you tap a button of the home screen card that answers. The output is its text (empty when you close the card with ×).
+
+- Signature: `home_card_wait(id)`
+- Output: Tapped button (e.g. `tapped_button = …`)
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `id` | text | `"karta"` | Card name (id) |
+
+#### `home_card_remove` – Remove card / Odebrat kartu
+
+Removes a card from the home screen (also one that was to stay).
+
+- Signature: `home_card_remove(id)`
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `id` | text | `"karta"` | Card name (id) |
+
 #### `pick_save_file` – File to write to / Soubor pro zápis
 
 Asks where to write: create a new file (CSV, JSON or text) or pick an existing one. The format of a new file can be set in advance (csv, json, txt – a variable works too), otherwise it asks. The app may write into the chosen file later as well – keep the output with the Store value block, take it with Load value next time and there is no need to ask again. The output goes into the blocks Write to file and Add record to file.
@@ -1167,8 +1293,8 @@ Runs the following steps only when the condition holds. It can have an Otherwise
 |---|---|---|---|
 | `mode` | choice | `"simple"` | Notation · `"simple"` Simple – a value and a condition, `"expert"` Expression – and / or, numbers, functions |
 | `left` | text | `input` | Value · *only when `mode` is "simple"* |
-| `op` | choice | `"equals"` | Condition · `"equals"` is equal to, `"not_equals"` is not equal to, `"contains"` contains, `"not_contains"` does not contain, `"starts"` starts with, `"ends"` ends with, `"matches"` matches the regular expression, `"empty"` is empty, `"not_empty"` is not empty, `"greater"` is greater than, `"less"` is less than, `"greater_eq"` is greater than or equal to, `"less_eq"` is less than or equal to · *only when `mode` is "simple"* |
-| `right` | text | `""` | Compare with · e.g. value · *only when `mode` is "simple" and `op` is "equals" / "not_equals" / "contains" / "not_contains" / "starts" / "ends" / "matches" / "greater" / "less" / "greater_eq" / "less_eq"* |
+| `op` | choice | `"equals"` | Condition · `"equals"` is equal to, `"not_equals"` is not equal to, `"contains"` contains, `"not_contains"` does not contain, `"starts"` starts with, `"ends"` ends with, `"matches"` matches the regular expression, `"empty"` is empty, `"not_empty"` is not empty, `"greater"` is greater than, `"less"` is less than, `"greater_eq"` is greater than or equal to, `"less_eq"` is less than or equal to, `"newer_version"` is a newer version than · *only when `mode` is "simple"* |
+| `right` | text | `""` | Compare with · e.g. value · *only when `mode` is "simple" and `op` is "equals" / "not_equals" / "contains" / "not_contains" / "starts" / "ends" / "matches" / "greater" / "less" / "greater_eq" / "less_eq" / "newer_version"* |
 | `expression` | text | `""` | Expression · e.g. battery < 20 or state == "vip" · *only when `mode` is "expert"* |
 
 <details><summary>Help</summary>
@@ -1208,8 +1334,8 @@ Repeats the following steps while the condition holds.
 |---|---|---|---|
 | `mode` | choice | `"simple"` | Notation · `"simple"` Simple – a value and a condition, `"expert"` Expression – and / or, numbers, functions |
 | `left` | text | `input` | Value · *only when `mode` is "simple"* |
-| `op` | choice | `"equals"` | Condition · `"equals"` is equal to, `"not_equals"` is not equal to, `"contains"` contains, `"not_contains"` does not contain, `"starts"` starts with, `"ends"` ends with, `"matches"` matches the regular expression, `"empty"` is empty, `"not_empty"` is not empty, `"greater"` is greater than, `"less"` is less than, `"greater_eq"` is greater than or equal to, `"less_eq"` is less than or equal to · *only when `mode` is "simple"* |
-| `right` | text | `""` | Compare with · e.g. value · *only when `mode` is "simple" and `op` is "equals" / "not_equals" / "contains" / "not_contains" / "starts" / "ends" / "matches" / "greater" / "less" / "greater_eq" / "less_eq"* |
+| `op` | choice | `"equals"` | Condition · `"equals"` is equal to, `"not_equals"` is not equal to, `"contains"` contains, `"not_contains"` does not contain, `"starts"` starts with, `"ends"` ends with, `"matches"` matches the regular expression, `"empty"` is empty, `"not_empty"` is not empty, `"greater"` is greater than, `"less"` is less than, `"greater_eq"` is greater than or equal to, `"less_eq"` is less than or equal to, `"newer_version"` is a newer version than · *only when `mode` is "simple"* |
+| `right` | text | `""` | Compare with · e.g. value · *only when `mode` is "simple" and `op` is "equals" / "not_equals" / "contains" / "not_contains" / "starts" / "ends" / "matches" / "greater" / "less" / "greater_eq" / "less_eq" / "newer_version"* |
 | `expression` | text | `""` | Expression · e.g. battery < 20 or state == "vip" · *only when `mode` is "expert"* |
 
 <details><summary>Help</summary>
@@ -1394,6 +1520,49 @@ Inside a loop: ends the whole loop, or skips the rest of the steps and continues
 |---|---|---|---|
 | `action` | choice | `"break"` | What to do · `"break"` End the loop, `"continue"` Continue with the next round |
 
+#### `schedule_run` – Plan a run / Naplánovat spuštění
+
+Runs an automation later with the given Input – after a time, at a time, or at a point of a home screen card's countdown (when 20:00 is left, at 90 %). Works with the app closed too. More milestones = more of these blocks. A plan tied to a card goes with it. The output is the time of the run.
+
+- Signature: `schedule_run(automation, when, value, card, input, name)`
+- Output: Run time (e.g. `run_time = …`)
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `automation` | automation id | `""` | Run automation · the number of another automation on the phone, "" = none |
+| `when` | choice | `"in"` | When · `"in"` For a time (seconds, 1:30 or 1:00:00), `"at"` At a time (18:30), `"card_left"` When the card has left (20:00), `"card_percent"` At a progress of the card's countdown (%) |
+| `value` | text | `""` | Value · e.g. 20:00, 18:30 or 90 |
+| `card` | text | `"karta"` | Card name (id) · *only when `when` is "card_left" / "card_percent"* |
+| `input` | text | `""` | Input for the automation · e.g. empty |
+| `name` | text | `""` | Plan name · e.g. optional – the same name replaces the plan |
+
+<details><summary>Help</summary>
+
+```text
+Runs the chosen automation later, even while the app is closed. When:
+• After a time – 90, 1:30 or 1:00:00 from now
+• At a time – 18:30 (today, or tomorrow when it has passed)
+• When the card has left – 20:00 before the card's countdown ends
+• At a progress of the card's countdown – 90 = when 90 % of the time is gone
+
+The Input for the automation becomes its Input variable (the card's name, say, or a text for a notification). The trigger type is “Planned run”.
+
+More milestones = more of these blocks. A plan tied to a card goes when you close or remove the card or give it another countdown. The plan name is optional: a plan with the same name replaces the old one, and Cancel a planned run cancels it by it. The output is the time the automation will run.
+```
+
+</details>
+
+#### `schedule_cancel` – Cancel a planned run / Zrušit naplánované spuštění
+
+Cancels a run planned by the block Plan a run, by the plan's name. Returns true when there was such a plan.
+
+- Signature: `schedule_cancel(name)`
+- Output: Cancelled (e.g. `cancelled = …`)
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `name` | text | `""` | Plan name |
+
 #### `loop_index` – Loop position / Pořadí v opakování
 
 Which round of the nearest loop (For each item, Repeat, Repeat while) is running right now.
@@ -1463,6 +1632,7 @@ Functions – text
 • split(text, separator), join(list, separator)
 • substr(text, from, length), find(text, what)
 • match(text, regex), matches(text, regex)
+• newer_version("v2.10", "2.9") → true, version_compare(a, b) → -1 / 0 / 1
 
 Functions – numbers
 • round(x, places), floor(x), ceil(x), abs(x), sqrt(x)
@@ -1866,6 +2036,30 @@ How much space is left or used on the phone – in percent or in GB.
 
 ### App
 
+#### `app_version` – App version / Verze aplikace
+
+Returns the version of an installed app – this one, or another by its package. Compare it with the condition “is a newer version than”.
+
+- Signature: `app_version(package, what)`
+- Output: Version (e.g. `version = …`)
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `package` | text | `""` | App package · e.g. this app · an app name or package |
+| `what` | choice | `"name"` | What to return · `"name"` Version name (e.g. 2.1), `"code"` Build number (versionCode) |
+
+#### `install_apk` – Install APK / Nainstalovat APK
+
+Offers to install an app from an APK file (a downloaded one, say). Android always asks whether to install. Updating this app closes it after the installation and the new version opens.
+
+- Signature: `install_apk(file)`
+- Output: Installed package (e.g. `installed_package = …`)
+- Requires: Install unknown apps – Without it the app may not offer to install an APK (its own update, say).
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `file` | text | `""` | APK file · e.g. output of the Download file block |
+
 #### `open_app` – Open the app / Otevřít aplikaci
 
 Starts an installed app – like tapping its icon. A name (Spotify) or a package (com.spotify.music) is enough.
@@ -2028,6 +2222,41 @@ How many seconds are left of the countdown in the notification of that name (0 w
 ## 6. Examples from the app
 
 Real automations that ship with the app, written by the app itself.
+
+### Update from GitHub
+
+Once a day when the app opens, it looks up the latest release on GitHub. If it is newer, it downloads the APK with the progress on a home screen card (button Cancel) and then offers Install. Set another repository in the first step; without a network or a release it quietly ends.
+
+```
+# @name "Update from GitHub"
+# @icon download
+# @event this_app_opened
+releases = "https://api.github.com/repos/Natsu13/Automation/releases/latest"
+try
+    api_response = http_request({method: "GET", url: releases, headers: "", only_body: true, save_file: false, fail: false})
+    value_from_json = json_get(api_response, "tag_name", "value")
+end
+version = app_version("", "name")
+if newer_version(value_from_json, version)
+    value_from_json2 = json_get(api_response, "assets[*].browser_download_url", "value")
+    apk = ""
+    for item in value_from_json2
+        if ends(item, ".apk")
+            apk = item
+        end
+    end
+    if apk != ""
+        home_card({id: "update", title: "Downloading version " & value_from_json, text: "", progress: "percent", percent: 0, icon: "download", button1: "Cancel", action1: "stop", button2: "", countdown: "none", closable: false})
+        downloaded_file = download_file(apk, "", "", true, "update")
+        home_card({id: "update", title: "Version " & value_from_json & " is downloaded", text: "You have " & version, progress: "none", icon: "download", button1: "Later", action1: "close", button2: "Install", action2: "wait", countdown: "none"})
+        tapped_button = home_card_wait("update")
+        if tapped_button == "Install"
+            home_card({id: "update", title: "Installing version " & value_from_json, text: "", progress: "busy", icon: "download", button1: "", button2: "", countdown: "none", closable: false})
+            install_apk(downloaded_file)
+        end
+    end
+end
+```
 
 ### UPPER CASE
 

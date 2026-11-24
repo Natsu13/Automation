@@ -51,7 +51,10 @@ fun BlockSummary(
     val emptyStyle = ChipStyle("", scheme.surfaceContainerHighest, scheme.onSurfaceVariant)
 
     val ranges = mutableListOf<Pair<TextRange, Color>>()
-    val text = buildSummary(block, def, chipStyle, valueStyle, emptyStyle, outputLabel, outputStyle, ranges)
+    val automations = LocalAutomations.current
+    val text = buildSummary(block, def, chipStyle, valueStyle, emptyStyle, outputLabel, outputStyle, ranges) { id ->
+        automations.firstOrNull { it.id.toString() == id }?.name
+    }
 
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     val radius = with(LocalDensity.current) { 6.dp.toPx() }
@@ -79,6 +82,8 @@ private fun buildSummary(
     outputLabel: String?,
     outputStyle: ChipStyle?,
     ranges: MutableList<Pair<TextRange, Color>>,
+    /** The name of an automation by its id (a parameter that picks an automation). */
+    automationName: (String) -> String? = { null },
 ): AnnotatedString {
     val builder = AnnotatedString.Builder()
 
@@ -129,6 +134,12 @@ private fun buildSummary(
                 }
             }
             is ParamValue.Choice -> {
+                if (param is ParamDef.Automation) {
+                    val name = automationName(value.value)
+                    if (name != null) pill(name, valueStyle, keepTogether = name.length <= 24)
+                    else pill(if (value.value.isEmpty()) tr("Vybrat automatizaci") else tr("Smazaná automatizace"), emptyStyle, keepTogether = true, italic = true)
+                    return
+                }
                 val label = (param as? ParamDef.Choice)?.shortOf(value.value)?.let { tr(it) } ?: value.value
                 pill(label, valueStyle, keepTogether = true)
             }

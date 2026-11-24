@@ -181,7 +181,12 @@ enum class EventType(
                 "kterou aplikaci chceš, nastav v Podmínkách spuštění.",
         EventGroup.Other, needsService = false, permission = EventPermission.Accessibility, input = "balíček aplikace",
     ),
-    Boot("boot", "Po zapnutí telefonu", "Jednou po startu telefonu.", EventGroup.Other, needsService = false);
+    Boot("boot", "Po zapnutí telefonu", "Jednou po startu telefonu.", EventGroup.Other, needsService = false),
+    ThisAppOpened(
+        "this_app_opened", "Otevření této aplikace",
+        "Když otevřeš Automatizace. S podmínkou spuštění „Hodin od posledního spuštění“ třeba jen jednou denně.",
+        EventGroup.Other, needsService = false,
+    );
 
     companion object {
         private val byKey = entries.associateBy { it.key }

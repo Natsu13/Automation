@@ -44,6 +44,8 @@ data class AutomationEntity(
      * 0 = the general tile shared by all, 1..5 = a tile of its own (see TileSlots).
      */
     @ColumnInfo(name = "tile_slot", defaultValue = "0") val tileSlot: Int = 0,
+    /** Shown at the top of the home screen. */
+    @ColumnInfo(name = "pinned", defaultValue = "0") val pinned: Boolean = false,
 ) {
     val blocks: List<Block> get() = BlockJson.decode(blocksJson)
     val conditions: List<Block> get() = BlockJson.decode(conditionsJson)
@@ -72,13 +74,24 @@ interface AutomationDao {
 
     @Query("DELETE FROM automations WHERE id = :id")
     suspend fun delete(id: Long)
+
+    /** Pinning does not count as a change (the order by last change stays). */
+    @Query("UPDATE automations SET pinned = :pinned WHERE id = :id")
+    suspend fun setPinned(id: Long, pinned: Boolean)
 }
 
-@Database(entities = [AutomationEntity::class], version = 9, exportSchema = true)
+@Database(entities = [AutomationEntity::class], version = 10, exportSchema = true)
 abstract class AutomationDatabase : RoomDatabase() {
     abstract fun automationDao(): AutomationDao
 
     companion object {
+        /** 9 -> 10: pinned automations. */
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE automations ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         /** 8 -> 9: an automation can have a quick settings tile of its own. */
         private val MIGRATION_8_9 = object : Migration(8, 9) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -117,7 +130,7 @@ abstract class AutomationDatabase : RoomDatabase() {
 
         fun build(context: Context): AutomationDatabase =
             Room.databaseBuilder(context, AutomationDatabase::class.java, "database")
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
                 // Versions 1-3 only contained the old "demo" prototype project.
                 .fallbackToDestructiveMigrationFrom(1, 2, 3)
                 .build()

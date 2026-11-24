@@ -1138,6 +1138,9 @@ object Script {
                     regex(str(1)).find(str(0))?.let { it.groupValues.getOrNull(1) ?: it.value }
                 }
                 "matches", "odpovida", "odpovídá" -> need(2..2).let { regex(str(1)).containsMatchIn(str(0)) }
+                // Versions: "2.10" is newer than "2.9", a leading "v" is ignored.
+                "newer_version", "novejsi_verze" -> need(2..2).let { Versions.isNewer(str(0), str(1)) }
+                "version_compare", "porovnej_verze" -> need(2..2).let { Integer.signum(Versions.compare(str(0), str(1))).toDouble() }
                 "str", "text" -> need(1..1).let { str(0) }
 
                 // --- numbers ---

@@ -3337,5 +3337,311 @@ object English {
             "Variable – results of the parallel rounds of step %s: %s",
         "Stejné kroky zapsané jazykem bloku Skript. Text jde zkopírovat a vložit do bloku Skript, nebo z něj automatizaci zase vytvořit (Importovat / Aktualizovat ze skriptu)." to
             "The same steps written in the Script block's language. Copy the text into a Script block, or make the automation from it again (Import / Update from a script).",
+        "Automatizace pro tlačítko 1" to
+            "Automation for button 1",
+        "Automatizace pro tlačítko 2" to
+            "Automation for button 2",
+        "Bez průběhu" to
+            "No progress",
+        "Co tlačítko 1 udělá" to
+            "What button 1 does",
+        "Co tlačítko 2 udělá" to
+            "What button 2 does",
+        "Hodin od posledního spuštění" to
+            "Hours since the last run",
+        "Hodin od spuštění" to
+            "Hours since run",
+        "Hotovo (0–100 %)" to
+            "Done (0–100 %)",
+        "Jde zavřít křížkem" to
+            "Can be closed with ×",
+        "Jen zavřít kartu" to
+            "Just close the card",
+        "Karta na úvodu" to
+            "Home screen card",
+        "Nabídne instalaci aplikace ze souboru APK (třeba staženého). Android se vždy zeptá, jestli instalovat. Aktualizace této aplikace ji po instalaci zavře a otevře novou verzi." to
+            "Offers to install an app from an APK file (a downloaded one, say). Android always asks whether to install. Updating this app closes it after the installation and the new version opens.",
+        "Nainstalovaný balíček" to
+            "Installed package",
+        "Nainstalovat APK" to
+            "Install APK",
+        "Nainstalovat {file}" to
+            "Install {file}",
+        "Nechat i po skončení běhu" to
+            "Keep after the run ends",
+        "Neurčitý (pracuje se)" to
+            "Indeterminate (working)",
+        "Název karty (id)" to
+            "Card name (id)",
+        "Název verze (např. 2.1)" to
+            "Version name (e.g. 2.1)",
+        "Odebere kartu z úvodní obrazovky (i takovou, která měla zůstat)." to
+            "Removes a card from the home screen (also one that was to stay).",
+        "Odebrat kartu" to
+            "Remove card",
+        "Odebrat kartu {id}" to
+            "Remove card {id}",
+        "Odpovědět (blok Počkat na tlačítko karty)" to
+            "Answer (block Wait for a card button)",
+        "Počkat na tlačítko karty" to
+            "Wait for a card button",
+        "Počkat na tlačítko karty {id}" to
+            "Wait for a button of card {id}",
+        "Počká, až na kartě na úvodu klepneš na tlačítko, které odpovídá. Výstupem je jeho text (prázdný, když kartu zavřeš křížkem)." to
+            "Waits until you tap a button of the home screen card that answers. The output is its text (empty when you close the card with ×).",
+        "Procenta" to
+            "Percent",
+        "Soubor APK" to
+            "APK file",
+        "Stažený soubor" to
+            "Downloaded file",
+        "Stisknuté tlačítko" to
+            "Tapped button",
+        "Stáhne soubor z adresy do aplikace a vrátí ho (pro Nainstalovat APK, Sdílet soubor, Uložit soubor…). Průběh může ukazovat na kartě na úvodu; Zastavit stahování přeruší." to
+            "Downloads a file from an address into the app and returns it (for Install APK, Share file, Save file…). It can show the progress on a home screen card; stopping the run stops the download.",
+        "Stáhnout soubor" to
+            "Download file",
+        "Stáhnout {url}{show_card}" to
+            "Download {url}{show_card}",
+        "Ukázat průběh na kartě na úvodu" to
+            "Show the progress on a home screen card",
+        " (průběh na kartě)" to
+            " (progress on a card)",
+        "Tlačítko 1" to
+            "Button 1",
+        "Tlačítko 2" to
+            "Button 2",
+        "Verze" to
+            "Version",
+        "Verze aplikace" to
+            "App version",
+        "Verze aplikace {package}" to
+            "App version {package}",
+        "Vrátí verzi nainstalované aplikace – této, nebo jiné podle balíčku. Porovnat ji jde podmínkou „je novější verze než“." to
+            "Returns the version of an installed app – this one, or another by its package. Compare it with the condition “is a newer version than”.",
+        "Zastavit tento běh" to
+            "Stop this run",
+        "bez tlačítka" to
+            "no button",
+        "ikona automatizace" to
+            "the automation's icon",
+        "je novější verze než" to
+            "is a newer version than",
+        "např. aktualizace" to
+            "e.g. update",
+        "název" to
+            "name",
+        "odpověď" to
+            "answer",
+        "podle adresy" to
+            "from the address",
+        "pracuje se" to
+            "working",
+        "průběh" to
+            "progress",
+        "spustí automatizaci" to
+            "runs an automation",
+        "tato aplikace" to
+            "this app",
+        "výstup bloku Stáhnout soubor" to
+            "output of the Download file block",
+        "zastaví běh" to
+            "stops the run",
+        "zavře kartu" to
+            "closes the card",
+        "Číslo sestavení (versionCode)" to
+            "Build number (versionCode)",
+        "číslo sestavení" to
+            "build number",
+        "tlačítko %s nemá vybranou automatizaci" to
+            "button %s has no automation chosen",
+        "karta nemá název (id)" to
+            "the card has no name (id)",
+        "\"Hotovo\" není číslo" to
+            "\"Done\" is not a number",
+        "karta \"%s\" není na úvodu" to
+            "card \"%s\" is not on the home screen",
+        "karta \"%s\" nemá tlačítko, které odpovídá" to
+            "card \"%s\" has no button that answers",
+        "aplikace %s není nainstalovaná" to
+            "app %s is not installed",
+        "aplikace nesmí instalovat – povol Instalaci neznámých aplikací" to
+            "the app may not install – allow Install unknown apps",
+        "stahování se přerušilo" to
+            "the download was interrupted",
+        "stahování selhalo (%s)" to
+            "the download failed (%s)",
+        "soubor není platné APK" to
+            "the file is not a valid APK",
+        "APK je starší verze (%s) než nainstalovaná (%s)" to
+            "the APK is an older version (%s) than the installed one (%s)",
+        "APK je podepsané jiným klíčem než nainstalovaná aplikace – Android ho přes ni nenainstaluje" to
+            "the APK is signed with another key than the installed app – Android will not install it over it",
+        "APK nejde připravit k instalaci (%s)" to
+            "the APK cannot be prepared for installation (%s)",
+        "instalace se nepovedla: aplikace je podepsaná jinak nebo jde o starší verzi" to
+            "the installation failed: the app is signed differently or it is an older version",
+        "instalace se nepovedla: málo místa" to
+            "the installation failed: not enough space",
+        "instalace se nepovedla: APK není pro tento telefon" to
+            "the installation failed: the APK is not for this phone",
+        "instalace se nepovedla (%s)" to
+            "the installation failed (%s)",
+        "Aktualizace je připravená" to
+            "The update is ready",
+        "Klepni a nainstaluj ji." to
+            "Tap to install it.",
+        "Instalace neznámých aplikací" to
+            "Install unknown apps",
+        "Bez něj aplikace nesmí nabídnout instalaci APK (třeba své aktualizace)." to
+            "Without it the app may not offer to install an APK (its own update, say).",
+        "Otevření této aplikace" to
+            "Opening this app",
+        "Když otevřeš Automatizace. S podmínkou spuštění „Hodin od posledního spuštění“ třeba jen jednou denně." to
+            "When you open Automation. With the launch condition “Hours since the last run”, e.g. only once a day.",
+        "Připnuté" to
+            "Pinned",
+        "Odepnout" to
+            "Unpin",
+        "Připnout nahoru" to
+            "Pin to the top",
+        "Přidáno: %s" to
+            "Added: %s",
+        "Automatizace tlačítka není dostupná" to
+            "The button's automation is not available",
+        "Tlačítko karty" to
+            "Card button",
+        "Nově: automatická aktualizace" to
+            "New: automatic update",
+        "Ukázková automatizace jednou denně po otevření aplikace zkontroluje GitHub, stáhne novou verzi s průběhem na kartě tady nahoře a nabídne ji k instalaci." to
+            "An example automation checks GitHub once a day when you open the app, downloads a new version with its progress on a card up here and offers to install it.",
+        "Přidat automatizaci" to
+            "Add the automation",
+        "Karty a připnuté automatizace" to
+            "Cards and pinned automations",
+        "Automatizace teď můžou na úvod přidat kartu s průběhem a tlačítky (blok Karta na úvodu). Automatizaci připneš nahoru v jejím menu ⋮." to
+            "Automations can now put a card with progress and buttons up here (block Home screen card). Pin an automation to the top in its ⋮ menu.",
+        "Aktualizováno na verzi %s" to
+            "Updated to version %s",
+        "Aplikace se aktualizovala. Přehled změn najdeš u vydání na GitHubu." to
+            "The app was updated. The changes are listed with the release on GitHub.",
+        "Aktualizace z GitHubu" to
+            "Update from GitHub",
+        "Jednou denně po otevření aplikace zjistí na GitHubu nejnovější vydání. Je-li novější, stáhne APK s průběhem na kartě na úvodu (tlačítko Zrušit) a pak nabídne Nainstalovat. Jiný repozitář nastavíš v prvním kroku; bez sítě nebo vydání tiše skončí." to
+            "Once a day when the app opens, it looks up the latest release on GitHub. If it is newer, it downloads the APK with the progress on a home screen card (button Cancel) and then offers Install. Set another repository in the first step; without a network or a release it quietly ends.",
+        "Stahuji verzi " to
+            "Downloading version ",
+        "Verze " to
+            "Version ",
+        " je stažená" to
+            " is downloaded",
+        "Teď máš " to
+            "You have ",
+        "Později" to
+            "Later",
+        "Nainstalovat" to
+            "Install",
+        "Instaluji verzi " to
+            "Installing version ",
+        "Nabízí instalaci aplikací ze souborů APK" to
+            "Offers to install apps from APK files",
+        "Karta {id}: {title} {countdown}" to
+            "Card {id}: {title} {countdown}",
+        "Bez odpočtu" to
+            "No countdown",
+        "Za dobu (sekundy, 1:30 nebo 1:00:00)" to
+            "For a time (seconds, 1:30 or 1:00:00)",
+        "odpočet" to
+            "countdown",
+        "Do času (18:30)" to
+            "Until a time (18:30)",
+        "odpočet do času" to
+            "countdown to a time",
+        "Jak dlouho / do kdy" to
+            "How long / until when",
+        "např. 45:00 nebo 18:30" to
+            "e.g. 45:00 or 18:30",
+        "Po doběhnutí kartu odebrat" to
+            "Remove the card when it ends",
+        "„%s“ není čas (např. 18:30)" to
+            "“%s” is not a time (e.g. 18:30)",
+        "zbývá %s" to
+            "%s left",
+        "Odpočet doběhl" to
+            "The countdown is over",
+        "Ukáže na úvodní obrazovce aplikace kartu s textem, průběhem a až dvěma tlačítky. Stejný název (id) kartu změní – třeba posune průběh. Karta zmizí, až běh skončí, pokud ji nenecháš. Může odpočítávat čas ({zbyva} v textu); co se má při odpočtu stát, naplánuj blokem Naplánovat spuštění." to
+            "Shows a card with a text, progress and up to two buttons on the app's home screen. The same name (id) changes the card – moves its progress, say. The card goes when the run ends, unless you keep it. It can count down a time ({left} in the text); plan what should happen during the countdown with the block Plan a run.",
+        "Vstup pro automatizaci (tlačítko 1)" to
+            "Input for the automation (button 1)",
+        "Vstup pro automatizaci (tlačítko 2)" to
+            "Input for the automation (button 2)",
+        "text tlačítka" to
+            "the button's text",
+        "Upravit kartu" to
+            "Edit card",
+        "Upravit kartu {id}: {title}" to
+            "Edit card {id}: {title}",
+        "Změní jen vyplněné části karty na úvodu – nadpis, text, ikonu nebo průběh. Odpočet, tlačítka a naplánovaná spuštění zůstanou. {zbyva} v textu ukazuje zbývající čas odpočtu." to
+            "Changes only the filled-in parts of a home screen card – title, text, icon or progress. The countdown, buttons and planned runs stay. {left} in the text shows the time left of the countdown.",
+        "beze změny" to
+            "unchanged",
+        "Beze změny" to
+            "Unchanged",
+        "Naplánovat spuštění" to
+            "Plan a run",
+        "Spustit {automation} {when} {value}" to
+            "Run {automation} {when} {value}",
+        "Spustí automatizaci později se zvoleným Vstupem – za dobu, v čase, nebo v bodě odpočtu karty na úvodu (když zbývá 20:00, při 90 %). Funguje i se zavřenou aplikací. Víc milníků = víc těchto bloků. Plán svázaný s kartou zmizí s ní. Výstupem je čas spuštění." to
+            "Runs an automation later with the given Input – after a time, at a time, or at a point of a home screen card's countdown (when 20:00 is left, at 90 %). Works with the app closed too. More milestones = more of these blocks. A plan tied to a card goes with it. The output is the time of the run.",
+        "Kdy" to
+            "When",
+        "za" to
+            "in",
+        "V čase (18:30)" to
+            "At a time (18:30)",
+        "v" to
+            "at",
+        "Když na kartě zbývá (20:00)" to
+            "When the card has left (20:00)",
+        "když na kartě zbývá" to
+            "when the card has left",
+        "Při průběhu odpočtu karty (%)" to
+            "At a progress of the card's countdown (%)",
+        "při % karty" to
+            "at % of the card",
+        "např. 20:00, 18:30 nebo 90" to
+            "e.g. 20:00, 18:30 or 90",
+        "prázdný" to
+            "empty",
+        "Název plánu" to
+            "Plan name",
+        "nepovinný – stejný název plán nahradí" to
+            "optional – the same name replaces the plan",
+        "Čas spuštění" to
+            "Run time",
+        "Zrušit naplánované spuštění" to
+            "Cancel a planned run",
+        "Zrušit plán {name}" to
+            "Cancel plan {name}",
+        "Zruší spuštění naplánované blokem Naplánovat spuštění podle názvu plánu. Vrací true, když takový plán byl." to
+            "Cancels a run planned by the block Plan a run, by the plan's name. Returns true when there was such a plan.",
+        "karta \"%s\" nemá odpočet" to
+            "card \"%s\" has no countdown",
+        "„%s“ není doba (sekundy, 1:30 nebo 1:00:00)" to
+            "“%s” is not a duration (seconds, 1:30 or 1:00:00)",
+        "„%s“ není průběh v procentech (0–100)" to
+            "“%s” is not progress in percent (0–100)",
+        "chybí název plánu" to
+            "the plan name is missing",
+        "Naplánované spuštění" to
+            "Planned run",
+        "Vybrat ikonu" to
+            "Choose an icon",
+        "{zbyva} = zbývající čas odpočtu" to
+            "{left} = the time left of the countdown",
+        "nepovinný; {zbyva} = zbývající čas odpočtu" to
+            "optional; {left} = the time left of the countdown",
+        "beze změny; {zbyva} = zbývající čas odpočtu" to
+            "unchanged; {left} = the time left of the countdown",
     )
 }

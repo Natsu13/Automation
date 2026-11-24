@@ -117,6 +117,7 @@
     iconImageHint: ["Bílou ikonu můžeš v automatizaci obarvit blokem Upravit obrázek (Obarvit) podle stavu.", "A white icon can be tinted by state with the Edit image block (Tint)."],
     imageFail: ["Obrázek nejde načíst.", "The image cannot be loaded."],
     chooseColor: ["Vybrat barvu", "Choose colour"],
+    chooseIcon: ["Vybrat ikonu", "Choose an icon"],
     notColor: ["Není to barva", "Not a colour"],
     colorAtRun: ["Barva se zjistí při běhu – vybrat jinou", "The colour is known when it runs – choose another"],
     output: ["Výstup", "Output"],
@@ -633,6 +634,24 @@
     setTimeout(() => input.focus(), 0);
   }
 
+  /** Picks the key of an icon (for a field that stores an icon by name). */
+  function iconKeyDialog(selected, onPick) {
+    let query = "";
+    const grid = h("div", { class: "icon-grid" });
+    const draw = () => {
+      grid.textContent = "";
+      const q = query.toLowerCase();
+      for (const i of C.icons) {
+        if (q && !(i.key + " " + i.words).toLowerCase().includes(q)) continue;
+        grid.append(h("button", { title: i.key, class: i.key === selected ? "on" : "", onclick: () => { close(); onPick(i.key); } }, icon(i.icon, "fill")));
+      }
+    };
+    const input = h("input", { class: "input", placeholder: t("searchIcons"), oninput: () => { query = input.value; draw(); } });
+    const close = modal(t("chooseIcon"), h("div", null, h("div", { class: "search" }, icon("search", "small"), input), grid));
+    draw();
+    setTimeout(() => input.focus(), 0);
+  }
+
   // ---------- summary ----------
   function summaryNodes(block, def, automation) {
     const values = {};
@@ -793,10 +812,10 @@
             h("div", { class: "img-info" }, h("div", { class: "t" }, t("storedImage")), size),
             h("button", { class: "btn ghost small", onclick: () => setValue({ type: "rich", segments: [] }) }, icon("close", "small"), t("removeImage"))));
         }
-        let swatch = null;
+        let swatch = null, iconBtn = null;
         const rich = embedded ? null : richField(value, {
           placeholder: tx(p.placeholder), code: p.code, plain: p.plain, automation: a, index, listName: list,
-          onChange: (v) => { block.params[p.key] = v; onSoftChange(); commitSoon(); swatch?.update(v); },
+          onChange: (v) => { block.params[p.key] = v; onSoftChange(); commitSoon(); swatch?.update(v); iconBtn?.update(v); },
         });
         if (rich) field.append(rich);
         if (rich && p.colorPicker) {
@@ -815,6 +834,17 @@
           };
           swatch.update(value);
           rich.append(swatch);
+        }
+        if (rich && p.iconPicker) {
+          // The key of an icon: the icon itself next to the field (a generic one for an unknown key), and a picker.
+          const keyOf = (v) => (v?.segments || []).map((x) => x.type === "text" ? x.text : " ").join("").trim();
+          iconBtn = h("button", { class: "swatch big", title: t("chooseIcon"), onclick: () => iconKeyDialog(keyOf(block.params[p.key]), (key) => rich.setValue({ type: "rich", segments: [{ type: "text", text: key }] })) }, icon("interests", "small"));
+          iconBtn.update = (v) => {
+            const found = C.icons.find((i) => i.key === keyOf(v));
+            iconBtn.querySelector(".ms").textContent = found ? found.icon : "interests";
+          };
+          iconBtn.update(value);
+          rich.append(iconBtn);
         }
         if (p.imagePicker) {
           const file = h("input", { type: "file", accept: "image/*", style: { display: "none" }, onchange: async () => {

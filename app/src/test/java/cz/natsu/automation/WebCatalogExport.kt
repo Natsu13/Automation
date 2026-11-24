@@ -157,6 +157,7 @@ class WebCatalogExport {
                 if (p.appPicker) put("appPicker", true)
                 if (p.imagePicker) put("imagePicker", true)
                 if (p.colorPicker) put("colorPicker", true)
+                if (p.iconPicker) put("iconPicker", true)
                 if (p.suggestions.isNotEmpty()) putJsonArray("suggestions") { p.suggestions.forEach { add(JsonPrimitive(it)) } }
             }
             is ParamDef.Choice -> {

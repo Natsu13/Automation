@@ -65,6 +65,8 @@ object Examples {
         "Nahrát obrázek (multipart)" to "API: vybereš obrázek, zmenší se a pošle se i s popiskem jako formulář (multipart).",
         "Skript: kreslení do obrázku" to "Funkce img_… v bloku Skript: zmenšená ikona s lištou průběhu, kruhový " +
             "průběh přes celý obrázek a ikona zbarvená zespodu podle procent. Lištu ukáže i v oznámení.",
+        News.UPDATE_EXAMPLE to "Jednou denně po otevření aplikace zjistí na GitHubu nejnovější vydání. Je-li novější, " +
+            "stáhne APK s průběhem na kartě na úvodu (tlačítko Zrušit) a pak nabídne Nainstalovat. Jiný repozitář nastavíš v prvním kroku; bez sítě nebo vydání tiše skončí.",
         "Ikona volného místa" to "Obrázek v automatizaci: ikonu disku obarví podle volného místa (zelená, oranžová, " +
             "červená), napíše pod ni procenta a ukáže ji v oznámení. Místo bloku Úložiště telefonu můžeš číst hodnotu z API.",
     )
@@ -86,7 +88,54 @@ object Examples {
         return chosen.size
     }
 
+    /** The update from GitHub, written as a script (texts of the card in the language of the app). */
+    private fun updateScript(): String {
+        fun q(text: String) = "\"" + tr(text).replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+        return """
+            # @name "${News.UPDATE_EXAMPLE}"
+            # @icon download
+            # @event this_app_opened
+            # @condition launch_condition({source: "${cz.natsu.automation.data.LastRun.HOURS_SINCE_RUN}", op: "greater_eq", right: "20"})
+            releases = "https://api.github.com/repos/Natsu13/Automation/releases/latest"
+            error = try
+                release = http_request({url: releases, only_body: true, fail: false})
+                latest = json_get(release, "tag_name", "value", "")
+            end
+            current = app_version()
+            if newer_version(latest, current)
+                urls = json_get(release, "assets[*].browser_download_url", "value")
+                apk = ""
+                for url in urls
+                    if ends(url, ".apk")
+                        apk = url
+                    end
+                end
+                if apk != ""
+                    home_card({id: "update", title: ${q("Stahuji verzi ")} & latest, progress: "percent", percent: "0", icon: "download", button1: ${q("Zrušit")}, action1: "stop", closable: false})
+                    file = download_file({url: apk, show_card: true, card: "update"})
+                    home_card({id: "update", title: ${q("Verze ")} & latest & ${q(" je stažená")}, text: ${q("Teď máš ")} & current, icon: "download", button1: ${q("Později")}, action1: "close", button2: ${q("Nainstalovat")}, action2: "wait"})
+                    answer = home_card_wait("update")
+                    if answer == ${q("Nainstalovat")}
+                        home_card({id: "update", title: ${q("Instaluji verzi ")} & latest, progress: "busy", icon: "download", closable: false})
+                        install_apk(file)
+                    end
+                end
+            end
+        """.trimIndent()
+    }
+
     val all: List<Example> = listOf(
+        example(News.UPDATE_EXAMPLE, "download") {
+            val read = cz.natsu.automation.engine.ScriptReader.read(updateScript())
+            Built(read.blocks) {
+                it.copy(
+                    eventsJson = cz.natsu.automation.data.EventJson.encode(read.events),
+                    conditionsJson = cz.natsu.automation.data.BlockJson.encode(read.conditions),
+                    conditionsAny = read.conditionsAny,
+                )
+            }
+        },
+
         // 1) Selected text -> UPPER CASE (replaces the selection)
         example("VELKÁ PÍSMENA", "text") {
             val upper = block("change_case", null, "source" to richVar(VarRef.Input), "mode" to ParamValue.Choice("upper"))

@@ -39,6 +39,7 @@ object ScriptWords {
         "len", "upper", "lower", "trim", "contains", "starts", "ends", "substr", "str", "num", "int",
         "round", "floor", "ceil", "abs", "sqrt", "min", "max", "sum", "avg", "calc", "range", "keys",
         "values", "push", "tojson", "iif", "now", "event", "secret", "block", "exact", "matches",
+        "newer_version", "version_compare",
     )
 
     /** Blocks named like a built-in function of the language: reached through block("type", …). */
@@ -329,7 +330,7 @@ class ScriptReader private constructor(private val text: String) {
             val inner = simple(tokens.subList(2, tokens.size - 1)) ?: return null
             return opposite[inner.op]?.let { Simple(it, inner.left, inner.right) }
         }
-        if (tokens[0].t == T.Id && tokens[0].v in setOf("contains", "starts", "ends", "matches") && wrapped(tokens.drop(1))) {
+        if (tokens[0].t == T.Id && tokens[0].v in setOf("contains", "starts", "ends", "matches", "newer_version") && wrapped(tokens.drop(1))) {
             val args = splitTop(tokens.subList(2, tokens.size - 1)) { it.v == "," }
             if (args.size != 2) return null
             return Simple(tokens[0].v, richOf(args[0]) ?: return null, richOf(args[1]) ?: return null)

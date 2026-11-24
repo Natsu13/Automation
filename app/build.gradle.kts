@@ -15,6 +15,15 @@ kotlin {
     }
 }
 
+// The version comes from the release tag on CI (-PappVersion=2.1); the build number follows from it,
+// so a newer version always has a higher versionCode (2.1 -> 20100, 2.1.3 -> 20103).
+val appVersion: String = (findProperty("appVersion") as String?)?.removePrefix("v")?.takeIf { it.isNotBlank() } ?: "2.0"
+val appVersionCode: Int = appVersion.substringBefore('-').split('.').map { it.toIntOrNull() ?: 0 }
+    .let { (it.getOrElse(0) { 0 } * 10_000) + (it.getOrElse(1) { 0 } * 100) + it.getOrElse(2) { 0 } }
+
+// Release signing from the environment (GitHub secrets); without it the release build is unsigned.
+val signingStore: String? = System.getenv("SIGNING_STORE_FILE")?.takeIf { it.isNotBlank() && file(it).exists() }
+
 android {
     namespace = "cz.natsu.automation"
     compileSdk = 37
@@ -23,8 +32,8 @@ android {
         applicationId = "cz.natsu.automation"
         minSdk = 28
         targetSdk = 37
-        versionCode = 2
-        versionName = "2.0"
+        versionCode = appVersionCode
+        versionName = appVersion
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -32,8 +41,20 @@ android {
         }
     }
 
+    signingConfigs {
+        if (signingStore != null) {
+            create("release") {
+                storeFile = file(signingStore)
+                storePassword = System.getenv("SIGNING_STORE_PASSWORD")
+                keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+                keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (signingStore != null) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

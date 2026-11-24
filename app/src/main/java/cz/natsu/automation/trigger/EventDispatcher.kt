@@ -103,7 +103,7 @@ object EventDispatcher {
 
     private suspend fun runIfConditions(context: Context, automation: AutomationEntity, input: String, event: EventInfo) {
         val ok = AutomationRunner.conditionsMet(
-            context, automation.conditions, automation.conditionsAny, input, RunTrigger.Event, event
+            context, automation.conditions, automation.conditionsAny, input, RunTrigger.Event, event, automation.id
         )
         EventLog.decided(context, event.label, automation.name, ok)
         if (!ok) return

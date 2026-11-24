@@ -46,7 +46,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         val openId = intent.getLongExtra(EXTRA_OPEN_AUTOMATION, -1L)
-        if (savedInstanceState == null) handleImport(intent)
+        if (savedInstanceState == null) {
+            handleImport(intent)
+            cz.natsu.automation.trigger.EventDispatcher.fire(this, cz.natsu.automation.data.EventType.ThisAppOpened)
+            cz.natsu.automation.ui.list.News.noteVersion(this)
+        }
 
         setContent {
             AutomationTheme {
