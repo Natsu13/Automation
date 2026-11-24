@@ -10,6 +10,11 @@ class AutomationApplication : Application() {
     companion object {
         lateinit var instance: AutomationApplication
             private set
+
+        private var started = 0
+
+        /** Some window of the app is on screen (it may open other windows then). */
+        val visible: Boolean get() = started > 0
     }
 
     val repository: AutomationRepository by lazy {
@@ -20,6 +25,17 @@ class AutomationApplication : Application() {
         super.onCreate()
         instance = this
         cz.natsu.automation.i18n.I18n.load(this)
+        cz.natsu.automation.data.HomeCards.load(this)
+        cz.natsu.automation.data.ScheduledRuns.rescheduleAll(this)
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            override fun onActivityStarted(activity: android.app.Activity) { started++ }
+            override fun onActivityStopped(activity: android.app.Activity) { started = (started - 1).coerceAtLeast(0) }
+            override fun onActivityCreated(activity: android.app.Activity, state: android.os.Bundle?) = Unit
+            override fun onActivityResumed(activity: android.app.Activity) = Unit
+            override fun onActivityPaused(activity: android.app.Activity) = Unit
+            override fun onActivitySaveInstanceState(activity: android.app.Activity, state: android.os.Bundle) = Unit
+            override fun onActivityDestroyed(activity: android.app.Activity) = Unit
+        })
 
         DynamicColors.applyToActivitiesIfAvailable(this)
         repository.appScope.launch {

@@ -37,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -292,7 +293,7 @@ class TriggerActivity : ComponentActivity() {
     /** Automations whose launch conditions hold for the current input. */
     private suspend fun matching(options: List<AutomationEntity>): List<AutomationEntity> =
         options.filter {
-            AutomationRunner.conditionsMet(this, it.conditions, it.conditionsAny, input, runTrigger)
+            AutomationRunner.conditionsMet(this, it.conditions, it.conditionsAny, input, runTrigger, automationId = it.id)
         }
 
     private fun emptyMessage(type: TriggerType) = when (type) {
@@ -416,6 +417,30 @@ private fun TriggerContent(
                 .padding(24.dp),
             contentAlignment = Alignment.BottomCenter
         ) {
+          // The window covers the home screen, so the cards of the running automation are shown here too.
+          val context = androidx.compose.ui.platform.LocalContext.current
+          val allCards by cz.natsu.automation.data.HomeCards.cards.collectAsState()
+          val cards = allCards.filter { it.automationId == state.automation.id }
+          androidx.compose.foundation.layout.Column(
+              horizontalAlignment = Alignment.CenterHorizontally,
+              verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
+          ) {
+            for (card in cards) {
+                cz.natsu.automation.ui.list.HomeCardView(
+                    card,
+                    onButton = { button ->
+                        cz.natsu.automation.data.HomeCards.press(context, card, button) { id, label ->
+                            val app = context.applicationContext as cz.natsu.automation.AutomationApplication
+                            app.repository.appScope.launch {
+                                app.repository.get(id)?.takeIf { !it.needsReview }?.let {
+                                    EventDispatcher.runNow(app, it, label, "Tlačítko karty")
+                                }
+                            }
+                        }
+                    },
+                    onClose = { cz.natsu.automation.data.HomeCards.remove(context, card.id) },
+                )
+            }
             Surface(
                 shape = RoundedCornerShape(28.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -432,6 +457,7 @@ private fun TriggerContent(
                     CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                 }
             }
+          }
         }
 
         is TriggerUiState.Pick -> ModalBottomSheet(onDismissRequest = onDismiss) {

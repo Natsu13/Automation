@@ -45,6 +45,7 @@ import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material.icons.rounded.Wifi
 import cz.natsu.automation.data.Block
+import cz.natsu.automation.data.LastRun
 import cz.natsu.automation.data.ParamValue
 import cz.natsu.automation.data.VarRef
 import kotlinx.coroutines.Dispatchers
@@ -96,6 +97,7 @@ object Blocks {
         ChoiceOption("less", "je menší než"),
         ChoiceOption("greater_eq", "je větší nebo rovno"),
         ChoiceOption("less_eq", "je menší nebo rovno"),
+        ChoiceOption("newer_version", "je novější verze než"),
     )
 
     /**
@@ -124,6 +126,7 @@ object Blocks {
         ChoiceOption("nfc_text", "NFC štítek – text", "Text štítku"),
         ChoiceOption("app_package", "Aplikace – balíček", "Balíček aplikace"),
         ChoiceOption("app_name", "Aplikace – název", "Název aplikace"),
+        ChoiceOption(LastRun.HOURS_SINCE_RUN, "Hodin od posledního spuštění", "Hodin od spuštění"),
     )
 
     /** The source of a launch condition; null for "Pokud" and older conditions with a custom value. */
@@ -158,6 +161,7 @@ object Blocks {
             null -> ctx.text(block, "left")
             "input" -> ctx.resolve(VarRef.Input)
             "trigger" -> ctx.resolve(VarRef.Trigger)
+            LastRun.HOURS_SINCE_RUN -> LastRun.hoursSince(ctx.context, ctx.automationId)
             else -> ctx.resolve(VarRef.Event(source))
         }
         val right = ctx.text(block, "right")
@@ -174,6 +178,7 @@ object Blocks {
             } catch (e: Exception) {
                 throw BlockException(tr("neplatný regulární výraz"))
             }
+            "newer_version" -> Versions.isNewer(left, right)
             "empty" -> left.isBlank()
             "not_empty" -> left.isNotBlank()
             "greater", "less", "greater_eq", "less_eq" -> {
@@ -846,7 +851,7 @@ object Blocks {
             }
             BlockResult.Output(value)
         },
-    ) + MoreBlocks.all + DataBlocks.all + HttpBlocks.all + ImageBlocks.all + ExtraBlocks.all + NotificationBlock.def + NotificationBlock.more + FileBlocks.all +
+    ) + MoreBlocks.all + DataBlocks.all + HttpBlocks.all + InstallBlocks.all + CardBlocks.all + ScheduleBlocks.all + ImageBlocks.all + ExtraBlocks.all + NotificationBlock.def + NotificationBlock.more + FileBlocks.all +
             ControlBlocks.all + AppBlocks.all + DeviceBlocks.all
 
     private val byType = all.associateBy { it.type }

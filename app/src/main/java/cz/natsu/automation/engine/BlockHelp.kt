@@ -9,6 +9,55 @@ object BlockHelp {
         (if (cz.natsu.automation.i18n.I18n.english) BlockHelpEn.texts[type] else null) ?: texts[type]
 
     private val texts = mapOf(
+        "home_card" to """
+            Karta na úvodní obrazovce aplikace: nadpis, text, ikona, průběh a až dvě tlačítka. Karta se stejným názvem (id) se přepíše.
+
+            Zbývající čas v textu
+            • {zbyva} (anglicky {left}) v nadpisu nebo textu se nahradí zbývajícím časem odpočtu: „1 h 5 min“, „20 min“, „45 s“
+            • příklad: Hotovo za {zbyva}
+
+            Odpočet
+            • Za dobu: 90, 1:30 nebo 1:00:00
+            • Do času: 18:30 (když už dnes prošel, je to zítra)
+            • karta ukazuje lištu a „zbývá 19:59“ a zůstává i po skončení běhu, s odpočtem i po zavření aplikace
+            • Po doběhnutí kartu odebrat – na konci karta sama zmizí
+
+            Co se má při odpočtu stát (Naplánovat spuštění)
+            Karta jen odpočítává. Akce v průběhu přidáš bloky Naplánovat spuštění za tímto blokem – každý blok jedno spuštění, takže milníků může být kolik chceš:
+            • Když na kartě zbývá 20:00 → automatizace s upozorněním
+            • Při průběhu odpočtu karty 90 → jiná automatizace
+            • Když na kartě zbývá 0 → co se stane na konci
+
+            Spuštěná automatizace dostane Vstup, který bloku zadáš – třeba název karty, aby ji blokem Upravit kartu změnila („Bacha, zbývá jen {zbyva}!“), nebo text do oznámení. Plány patří kartě: když kartu zavřeš, odebereš nebo zobrazíš s jiným odpočtem, zruší se.
+
+            Tlačítka
+            • Odpovědět – blok Počkat na tlačítko karty vrátí jeho text
+            • Zastavit tento běh – třeba Zrušit u stahování
+            • Spustit automatizaci – se zadaným Vstupem (prázdný = text tlačítka), funguje i po skončení běhu
+            • Jen zavřít kartu
+        """.trimIndent(),
+
+        "home_card_edit" to """
+            Změní jen to, co vyplníš – nadpis, text, ikonu nebo průběh. Prázdné pole nechá původní hodnotu. Odpočet, tlačítka a naplánovaná spuštění karty zůstanou.
+
+            • {zbyva} (anglicky {left}) v nadpisu nebo textu ukazuje zbývající čas odpočtu karty
+            • typické použití: automatizace spuštěná blokem Naplánovat spuštění dostane název karty jako Vstup a do pole Název karty dá proměnnou Vstup
+
+            Příklad: Text = Bacha, zbývá jen {zbyva}!, Ikona = warning
+        """.trimIndent(),
+
+        "schedule_run" to """
+            Spustí vybranou automatizaci později, i když je aplikace zavřená. Kdy:
+            • Za dobu – 90, 1:30 nebo 1:00:00 od teď
+            • V čase – 18:30 (dnes, nebo zítra, když už prošel)
+            • Když na kartě zbývá – 20:00 před koncem odpočtu karty
+            • Při průběhu odpočtu karty – 90 = když uběhne 90 % času
+
+            Vstup pro automatizaci dostane spuštěná automatizace jako proměnnou Vstup (třeba název karty nebo text oznámení). Typ spuštění je „Naplánované spuštění“.
+
+            Víc milníků = víc těchto bloků. Plán vázaný na kartu zmizí, když kartu zavřeš, odebereš nebo jí dáš jiný odpočet. Název plánu je nepovinný: plán se stejným názvem ten starý nahradí a blok Zrušit naplánované spuštění ho podle něj zruší. Výstupem je čas, kdy se automatizace spustí.
+        """.trimIndent(),
+
         "math" to """
             Jednoduchý zápis: dvě čísla a operace (+ − × ÷, zbytek po dělení).
 
@@ -368,6 +417,7 @@ object BlockHelp {
         • split(text, oddelovac), join(seznam, oddelovac)
         • substr(text, od, delka), find(text, co)
         • match(text, regex), matches(text, regex)
+        • newer_version("v2.10", "2.9") → true, version_compare(a, b) → -1 / 0 / 1
 
         Funkce – čísla
         • round(x, mist), floor(x), ceil(x), abs(x), sqrt(x)

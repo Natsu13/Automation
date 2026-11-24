@@ -33,6 +33,7 @@
     "len", "upper", "lower", "trim", "contains", "starts", "ends", "substr", "str", "num", "int",
     "round", "floor", "ceil", "abs", "sqrt", "min", "max", "sum", "avg", "calc", "range", "keys",
     "values", "push", "tojson", "iif", "now", "event", "secret", "block", "exact", "matches",
+    "newer_version", "version_compare",
   ]);
   const SHADOWED = new Set(["replace", "text", "random", "date", "split", "join", "find", "match", "type", "json"]);
   /** Blocks the language has no word for: written as a comment with their title. */
@@ -165,6 +166,7 @@
         case "starts": return `starts(${left}, ${right})`;
         case "ends": return `ends(${left}, ${right})`;
         case "matches": return `matches(${left}, ${right})`;
+        case "newer_version": return `newer_version(${left}, ${right})`;
         case "empty": return `${left} == ""`;
         case "not_empty": return `${left} != ""`;
         default: return `${left} ${CMP_TEXT[op] || "=="} ${right}`;
@@ -430,7 +432,7 @@
         if (tks[0]?.v === "not" && wrapped(tks.slice(1))) {
           const r = simple(tks.slice(2, -1)); return r && OPPOSITE[r.op] ? { ...r, op: OPPOSITE[r.op] } : null;
         }
-        if (tks[0]?.t === "id" && ["contains", "starts", "ends", "matches"].includes(tks[0].v) && wrapped(tks.slice(1))) {
+        if (tks[0]?.t === "id" && ["contains", "starts", "ends", "matches", "newer_version"].includes(tks[0].v) && wrapped(tks.slice(1))) {
           const args = splitTop(tks.slice(2, -1), (tk) => tk.v === ",");
           if (args.length !== 2) return null;
           const left = richOf(args[0]), right = richOf(args[1]);

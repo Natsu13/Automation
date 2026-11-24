@@ -25,6 +25,55 @@ internal object BlockHelpEn {
     """.trimIndent()
 
     val texts: Map<String, String> = mapOf(
+        "home_card" to """
+            A card on the app's home screen: title, text, icon, progress and up to two buttons. A card with the same name (id) is replaced.
+
+            The time left in the text
+            • {left} (or {zbyva}) in the title or text becomes the time left of the countdown: “1 h 5 min”, “20 min”, “45 s”
+            • example: Done in {left}
+
+            Countdown
+            • For a time: 90, 1:30 or 1:00:00
+            • Until a time: 18:30 (tomorrow when it has passed today)
+            • the card shows a bar and “19:59 left” and stays after the run ends – with a countdown even after the app is closed
+            • Remove the card when it ends – it goes by itself at the end
+
+            What happens during the countdown (Plan a run)
+            The card only counts down. Add actions with Plan a run blocks after this one – each block is one run, so you can have as many milestones as you like:
+            • When the card has left 20:00 → an automation with a warning
+            • At a progress of the card's countdown 90 → another one
+            • When the card has left 0 → what happens at the end
+
+            The automation that runs gets the Input you give the block – the card's name, say, so it can change the card with Edit card (“Hurry, only {left} left!”), or a text for a notification. The plans belong to the card: closing it, removing it or showing it with another countdown cancels them.
+
+            Buttons
+            • Answer – the block Wait for a card button returns its text
+            • Stop this run – Cancel of a download, say
+            • Run an automation – with the given Input (empty = the button's text); works also after the run ended
+            • Just close the card
+        """.trimIndent(),
+
+        "home_card_edit" to """
+            Changes only what you fill in – title, text, icon or progress. An empty field keeps the old value. The card's countdown, buttons and planned runs stay.
+
+            • {left} (or {zbyva}) in the title or text shows the time left of the card's countdown
+            • typical use: an automation started by Plan a run gets the card's name as Input and puts the Input variable into Card name
+
+            Example: Text = Hurry, only {left} left!, Icon = warning
+        """.trimIndent(),
+
+        "schedule_run" to """
+            Runs the chosen automation later, even while the app is closed. When:
+            • After a time – 90, 1:30 or 1:00:00 from now
+            • At a time – 18:30 (today, or tomorrow when it has passed)
+            • When the card has left – 20:00 before the card's countdown ends
+            • At a progress of the card's countdown – 90 = when 90 % of the time is gone
+
+            The Input for the automation becomes its Input variable (the card's name, say, or a text for a notification). The trigger type is “Planned run”.
+
+            More milestones = more of these blocks. A plan tied to a card goes when you close or remove the card or give it another countdown. The plan name is optional: a plan with the same name replaces the old one, and Cancel a planned run cancels it by it. The output is the time the automation will run.
+        """.trimIndent(),
+
         "math" to """
             Simple notation: two numbers and an operation (+ − × ÷, remainder).
 
@@ -373,6 +422,7 @@ internal object BlockHelpEn {
             • split(text, separator), join(list, separator)
             • substr(text, from, length), find(text, what)
             • match(text, regex), matches(text, regex)
+            • newer_version("v2.10", "2.9") → true, version_compare(a, b) → -1 / 0 / 1
 
             Functions – numbers
             • round(x, places), floor(x), ceil(x), abs(x), sqrt(x)

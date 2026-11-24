@@ -57,6 +57,7 @@ import androidx.compose.material.icons.rounded.Power
 import androidx.compose.material.icons.rounded.PowerOff
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RestartAlt
+import androidx.compose.material.icons.rounded.RocketLaunch
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material.icons.rounded.WarningAmber
@@ -139,6 +140,7 @@ fun eventIcon(type: EventType?): ImageVector = when (type) {
     EventType.Sunset -> Icons.Rounded.WbTwilight
     EventType.AppOpened -> Icons.Rounded.Apps
     EventType.Boot -> Icons.Rounded.RestartAlt
+    EventType.ThisAppOpened -> Icons.Rounded.RocketLaunch
     null -> Icons.Rounded.WarningAmber
 }
 

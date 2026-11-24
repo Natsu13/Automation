@@ -171,6 +171,9 @@ object IconCatalog {
 
     fun icon(key: String): ImageVector = byKey[key]?.icon ?: Icons.Rounded.Bolt
 
+    /** The icon with this key, or null when the catalogue has none. */
+    fun find(key: String): ImageVector? = byKey[key.trim()]?.icon
+
     /** Icons whose key or words contain [query]; diacritics and case do not matter. */
     fun search(query: String): List<IconEntry> {
         val wanted = fold(query.trim())
@@ -180,6 +183,61 @@ object IconCatalog {
 
     private fun fold(text: String) =
         Normalizer.normalize(text.lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
+}
+
+/**
+ * The button next to a text field that holds the key of an icon: shows that icon (a generic
+ * one while the text is not a known icon) and opens a search through all icons.
+ */
+@Composable
+fun IconFieldButton(key: String, onPick: (String) -> Unit) {
+    var picking by remember { mutableStateOf(false) }
+    val known = IconCatalog.find(key)
+    androidx.compose.material3.FilledTonalIconButton(onClick = { picking = true }) {
+        Icon(known ?: Icons.Rounded.Interests, tr("Vybrat ikonu"))
+    }
+    if (picking) IconSearchDialog(key.trim(), onDismiss = { picking = false }) {
+        picking = false
+        onPick(it)
+    }
+}
+
+@Composable
+private fun IconSearchDialog(selected: String, onDismiss: () -> Unit, onPick: (String) -> Unit) {
+    var query by remember { mutableStateOf("") }
+    val found = remember(query) { IconCatalog.search(query) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(tr("Ikona")) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    placeholder = { Text(tr("např. dům, hudba, wifi")) },
+                    leadingIcon = { Icon(Icons.Rounded.Search, null) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (found.isEmpty()) Text(tr("Nic nenalezeno."), Modifier.padding(top = 16.dp))
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(52.dp),
+                    modifier = Modifier.fillMaxWidth().height(320.dp).padding(top = 8.dp),
+                ) {
+                    items(found, key = { it.key }) { entry ->
+                        FilledIconToggleButton(
+                            checked = entry.key == selected,
+                            onCheckedChange = { onPick(entry.key) },
+                            shape = CircleShape,
+                            modifier = Modifier.padding(2.dp),
+                        ) { Icon(entry.icon, contentDescription = entry.key) }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(tr("Zavřít")) } },
+    )
 }
 
 /**

@@ -31,7 +31,7 @@ object NotificationBlock {
     const val TYPE = "notification"
     const val BUTTONS = 3
 
-    private const val CHANNEL_LOUD = "automation_notifications"
+    internal const val CHANNEL_LOUD = "automation_notifications"
     private const val CHANNEL_QUIET = "automation_notifications_quiet"
 
     enum class Action(val value: String, val label: String) {
@@ -334,7 +334,7 @@ object NotificationBlock {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-    private fun ensureChannels(context: Context) {
+    internal fun ensureChannels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         if (manager.getNotificationChannel(CHANNEL_LOUD) == null) {
             manager.createNotificationChannel(

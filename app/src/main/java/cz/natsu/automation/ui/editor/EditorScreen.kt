@@ -143,6 +143,7 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
         Requirement.LocalNetwork -> if (cz.natsu.automation.engine.LocalNetwork.granted(context)) null else requirement
         Requirement.WriteSettings -> if (Settings.System.canWrite(context)) null else requirement
         Requirement.Location -> if (cz.natsu.automation.engine.DeviceState.hasLocation(context)) null else requirement
+        Requirement.InstallPackages -> if (context.packageManager.canRequestPackageInstalls()) null else requirement
         null -> null
     }
     fun grant(requirement: Requirement) {
@@ -161,6 +162,9 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
             Requirement.Location -> localNetworkLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
             Requirement.Overlay -> context.startActivity(
                 Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:${context.packageName}"))
+            )
+            Requirement.InstallPackages -> context.startActivity(
+                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, android.net.Uri.parse("package:${context.packageName}"))
             )
         }
     }

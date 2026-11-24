@@ -200,6 +200,7 @@ class ScriptWriter(private val blocks: List<Block>) {
             "starts" -> "starts($left, $right)"
             "ends" -> "ends($left, $right)"
             "matches" -> "matches($left, $right)"
+            "newer_version" -> "newer_version($left, $right)"
             "empty" -> "$left == \"\""
             "not_empty" -> "$left != \"\""
             "greater" -> "$left > $right"

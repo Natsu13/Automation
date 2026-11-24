@@ -67,6 +67,10 @@ enum class Requirement(val title: String, val description: String) {
         "Přístup k poloze",
         "Bez něj nejde zjistit, kde telefon je."
     ),
+    InstallPackages(
+        "Instalace neznámých aplikací",
+        "Bez něj aplikace nesmí nabídnout instalaci APK (třeba své aktualizace)."
+    ),
 }
 
 /** [short] is used in the one-line summary of a collapsed block. */
@@ -109,6 +113,8 @@ sealed class ParamDef(val key: String, val label: String) {
         val imagePicker: Boolean = false,
         /** A colour: shows it next to the field when it can be worked out, with a picker. */
         val colorPicker: Boolean = false,
+        /** The key of an icon from the catalogue: shows the icon next to the field, with a picker. */
+        val iconPicker: Boolean = false,
     ) : ParamDef(key, label) {
         override fun defaultValue(): ParamValue =
             if (defaultRef != null) richVar(defaultRef) else richText(default)

@@ -401,7 +401,7 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         // Secrets are listed by the review dialog itself, each with whether it is stored (secretsUsed).
         if (VarRef.Clipboard in refs || blocks.any { it.type == "get_clipboard" }) add(tr("Čte schránku"))
 
-        val addresses = blocks.filter { it.type in setOf("http_request", "web", "open_url") }.map { block ->
+        val addresses = blocks.filter { it.type in setOf("http_request", "web", "open_url", "download_file") }.map { block ->
             (block.params["url"] as? ParamValue.Rich)?.segments.orEmpty().joinToString("") {
                 when (it) {
                     is Segment.Text -> it.text
@@ -414,6 +414,7 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         if (blocks.any { it.type in setOf("open_app", "send_intent") }) {
             add("Otevírá jiné aplikace nebo jim posílá příkazy (intent, spuštění služby)")
         }
+        if (blocks.any { it.type == "install_apk" }) add(tr("Nabízí instalaci aplikací ze souborů APK"))
         if (blocks.any { it.type == "run_automation" }) add(tr("Spouští jiné tvoje automatizace"))
         if (blocks.any { it.type == "script" }) add(tr("Obsahuje skript – přečti si ho"))
         // Only when there is nothing to say at all: the dialog lists the secrets itself, below these lines.

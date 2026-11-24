@@ -73,8 +73,13 @@ class AutomationRepository(
         onChanged()
     }
 
+    suspend fun setPinned(id: Long, pinned: Boolean) {
+        dao.setPinned(id, pinned)
+    }
+
     suspend fun delete(id: Long) {
         dao.delete(id)
+        LastRun.forget(context, id)
         ValueStore.removeAutomation(context, id)
         onChanged()
     }
@@ -83,7 +88,7 @@ class AutomationRepository(
         val original = dao.getById(id) ?: return null
         // A copy of an unreviewed import waits for review too (needsReview is copied).
         val copy = original.copy(
-            id = 0, name = original.name + " (kopie)", updatedAt = System.currentTimeMillis(), tileSlot = 0
+            id = 0, name = original.name + " (kopie)", updatedAt = System.currentTimeMillis(), tileSlot = 0, pinned = false
         )
         val newId = dao.insert(copy)
         onChanged()

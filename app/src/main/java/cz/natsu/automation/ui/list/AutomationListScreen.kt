@@ -78,6 +78,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import cz.natsu.automation.AutomationApplication
 import cz.natsu.automation.data.AutomationEntity
+import cz.natsu.automation.data.CardButton
+import cz.natsu.automation.data.HomeCard
+import cz.natsu.automation.data.HomeCards
+import androidx.compose.material.icons.rounded.PushPin
 import cz.natsu.automation.trigger.TriggerActivity
 import cz.natsu.automation.ui.editor.AutomationBadge
 import kotlinx.coroutines.flow.SharingStarted
@@ -105,6 +109,46 @@ class AutomationListViewModel(application: Application) : AndroidViewModel(appli
 
     fun delete(id: Long) {
         viewModelScope.launch { repository.delete(id) }
+    }
+
+    fun setPinned(id: Long, pinned: Boolean) {
+        viewModelScope.launch { repository.setPinned(id, pinned) }
+    }
+
+    /** Cards put on the home screen by running automations. */
+    val cards: StateFlow<List<HomeCard>> = HomeCards.cards
+
+    var news by mutableStateOf(News.visible(application))
+        private set
+
+    fun dismissNews(id: String) {
+        News.dismiss(getApplication(), id)
+        news = News.visible(getApplication())
+    }
+
+    /** The button of a news item: adds its example automation and closes the news. */
+    fun newsAction(item: News.Item, onDone: (String) -> Unit) {
+        val example = Examples.all.firstOrNull { it.name == item.example } ?: return
+        createExamples(listOf(example)) { onDone(tr("Přidáno: %s", tr(example.name))) }
+        dismissNews(item.id)
+    }
+
+    fun pressCard(card: HomeCard, button: CardButton) {
+        val app = getApplication<Application>()
+        HomeCards.press(app, card, button) { automationId, label ->
+            viewModelScope.launch {
+                val automation = repository.get(automationId)
+                if (automation == null || automation.needsReview) {
+                    android.widget.Toast.makeText(app, tr("Automatizace tlačítka není dostupná"), android.widget.Toast.LENGTH_SHORT).show()
+                } else {
+                    cz.natsu.automation.trigger.EventDispatcher.runNow(app, automation, label, "Tlačítko karty")
+                }
+            }
+        }
+    }
+
+    fun closeCard(card: HomeCard) {
+        HomeCards.remove(getApplication(), card.id)
     }
 
     /** Shares the given automations (all of them when [ids] is null) as an export file. */
@@ -152,6 +196,8 @@ class AutomationListViewModel(application: Application) : AndroidViewModel(appli
 fun AutomationListScreen(viewModel: AutomationListViewModel, onOpen: (Long) -> Unit, onOpenSettings: () -> Unit) {
     val context = LocalContext.current
     val automations by viewModel.automations.collectAsState()
+    val cards by viewModel.cards.collectAsState()
+    val news = viewModel.news
     var showExamples by remember { mutableStateOf(false) }
     if (showExamples) {
         ExamplesDialog(
@@ -257,9 +303,35 @@ fun AutomationListScreen(viewModel: AutomationListViewModel, onOpen: (Long) -> U
         }
     ) { padding ->
         val list = automations
+        val newsAndCards: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
+            items(news, key = { "news_" + it.id }) { item ->
+                NewsCard(
+                    item,
+                    onAction = {
+                        scrollToTop = true
+                        viewModel.newsAction(item) { message ->
+                            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    onDismiss = { viewModel.dismissNews(item.id) },
+                )
+            }
+            items(cards, key = { "card_" + it.id }) { card ->
+                HomeCardView(card, onButton = { viewModel.pressCard(card, it) }, onClose = { viewModel.closeCard(card) })
+            }
+        }
         when {
             list == null -> Unit
-            list.isEmpty() -> EmptyList(Modifier.padding(padding), onExamples = { showExamples = true })
+            list.isEmpty() && news.isEmpty() && cards.isEmpty() ->
+                EmptyList(Modifier.padding(padding), onExamples = { showExamples = true })
+            list.isEmpty() -> LazyColumn(
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding(), bottom = 96.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                newsAndCards()
+                item(key = "empty") { EmptyList(Modifier.heightIn(min = 360.dp), onExamples = { showExamples = true }) }
+            }
             else -> LazyColumn(
                 state = listState,
                 contentPadding = PaddingValues(
@@ -274,15 +346,27 @@ fun AutomationListScreen(viewModel: AutomationListViewModel, onOpen: (Long) -> U
                 usage?.takeIf { it.high }?.let { summary ->
                     item(key = "usage_warning") { UsageWarning(summary, onOpenSettings) }
                 }
-                items(list, key = { it.id }) { automation ->
-                    AutomationCard(
-                        automation = automation,
-                        onOpen = { onOpen(automation.id) },
-                        onRun = { context.startActivity(TriggerActivity.runIntent(context, automation.id)) },
-                        onDuplicate = { viewModel.duplicate(automation.id) },
-                        onShare = { viewModel.share(context, setOf(automation.id)) },
-                        onDelete = { toDelete = automation },
-                    )
+                newsAndCards()
+                val pinned = list.filter { it.pinned }
+                val others = list.filterNot { it.pinned }
+                if (pinned.isNotEmpty()) {
+                    item(key = "header_pinned") { SectionHeader(tr("Připnuté")) }
+                }
+                for ((index, part) in listOf(pinned, others).withIndex()) {
+                    if (index == 1 && pinned.isNotEmpty() && others.isNotEmpty()) {
+                        item(key = "header_others") { SectionHeader(tr("Ostatní")) }
+                    }
+                    items(part, key = { it.id }) { automation ->
+                        AutomationCard(
+                            automation = automation,
+                            onOpen = { onOpen(automation.id) },
+                            onRun = { context.startActivity(TriggerActivity.runIntent(context, automation.id)) },
+                            onDuplicate = { viewModel.duplicate(automation.id) },
+                            onShare = { viewModel.share(context, setOf(automation.id)) },
+                            onDelete = { toDelete = automation },
+                            onPin = { viewModel.setPinned(automation.id, !automation.pinned) },
+                        )
+                    }
                 }
             }
         }
@@ -311,6 +395,7 @@ private fun AutomationCard(
     onDuplicate: () -> Unit,
     onShare: () -> Unit,
     onDelete: () -> Unit,
+    onPin: () -> Unit,
 ) {
     val stepCount = remember(automation.blocksJson) { automation.blocks.size }
     Card(
@@ -355,6 +440,11 @@ private fun AutomationCard(
             Box {
                 IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, tr("Možnosti")) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(
+                        text = { Text(if (automation.pinned) tr("Odepnout") else tr("Připnout nahoru")) },
+                        leadingIcon = { Icon(Icons.Rounded.PushPin, null) },
+                        onClick = { menu = false; onPin() }
+                    )
                     DropdownMenuItem(
                         text = { Text(tr("Duplikovat")) },
                         leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) },

@@ -77,6 +77,28 @@ Projekt se otevře v Android Studiu, nebo z příkazové řádky:
 
 APK najdeš v `app/build/outputs/apk/debug/`. Klíč pro podepsání release verze není součástí repozitáře.
 
+## Vydání a aktualizace z GitHubu
+
+Tag `v*` (třeba `git tag v2.1 && git push origin v2.1`) spustí workflow `release.yml`: sestaví
+podepsané APK s verzí z tagu (`versionCode` se z ní dopočítá: 2.1 → 20100) a přiloží ho
+k vydání na GitHubu. Ukázková automatizace „Aktualizace z GitHubu“ ho pak v appce najde, stáhne
+a nabídne k instalaci.
+
+Android aktualizaci přes nainstalovanou aplikaci pustí jen se **stejným podpisovým klíčem**.
+Workflow potřebuje v *Settings → Secrets and variables → Actions* tyto secrets:
+
+| Secret | Hodnota |
+|---|---|
+| `SIGNING_KEYSTORE_BASE64` | keystore v base64 (`base64 -w0 klic.jks`) |
+| `SIGNING_STORE_PASSWORD` | heslo keystoru |
+| `SIGNING_KEY_ALIAS` | alias klíče |
+| `SIGNING_KEY_PASSWORD` | heslo klíče |
+
+Pokud máš v telefonu verzi z Android Studia, je podepsaná debug klíčem
+(`~/.android/debug.keystore`, alias `androiddebugkey`, hesla `android`). Buď ho dej do secrets
+(aktualizace pak půjdou bez přeinstalace), nebo si vytvoř vlastní klíč – pak je potřeba appku
+jednou odinstalovat (předtím exportuj automatizace).
+
 ## Instalace mimo Google Play
 
 **Play Protect může instalaci zablokovat** („Aplikace byla za účelem ochrany zařízení zablokována“).
