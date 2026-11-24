@@ -15,3 +15,6 @@
 local.properties
 /.idea/
 /app/release/
+# Signing keys never go to git (see README, Releases).
+*.jks
+*.keystore
