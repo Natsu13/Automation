@@ -3643,5 +3643,15 @@ object English {
             "optional; {left} = the time left of the countdown",
         "beze změny; {zbyva} = zbývající čas odpočtu" to
             "unchanged; {left} = the time left of the countdown",
+        "O aplikaci" to
+            "About the app",
+        "Verze %s" to
+            "Version %s",
+        "Sestavení %s" to
+            "Build %s",
+        " · vývojová verze z Android Studia" to
+            " · development build from Android Studio",
+        "Vydání na GitHubu" to
+            "Releases on GitHub",
     )
 }

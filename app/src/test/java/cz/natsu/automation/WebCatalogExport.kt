@@ -98,7 +98,8 @@ class WebCatalogExport {
             }
             // "a or b": from the defaults neither alone changes anything, so pairs are tried too.
             if (!grew && controllers.isEmpty()) {
-                val candidates = params.filter { it !is ParamDef.Text && it !is ParamDef.Automation }
+                // Texts count too: "no label or not this action" hides the extra fields of a button.
+                val candidates = params.filter { it !is ParamDef.Automation }
                 pairs@ for (p in candidates) for (q in candidates) {
                     if (p === q) continue
                     val seen = domain(p).flatMap { a -> domain(q).map { b -> hidden(defaults + (p.key to a) + (q.key to b)) } }

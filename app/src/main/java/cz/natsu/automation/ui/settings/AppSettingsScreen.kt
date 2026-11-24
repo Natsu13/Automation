@@ -279,6 +279,51 @@ fun AppSettingsScreen(onBack: () -> Unit) {
                     )
                 }
             }
+
+            AboutSection()
+        }
+    }
+}
+
+/** The version of the app and where its releases are. */
+@Composable
+private fun AboutSection() {
+    val context = LocalContext.current
+    val info = remember {
+        runCatching { context.packageManager.getPackageInfo(context.packageName, 0) }.getOrNull()
+    }
+    val name = info?.versionName ?: "?"
+    val code = info?.let { if (Build.VERSION.SDK_INT >= 28) it.longVersionCode else @Suppress("DEPRECATION") it.versionCode.toLong() }
+    Text(
+        tr("O aplikaci"),
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier.padding(top = 8.dp)
+    )
+    Card(
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(tr("Verze %s", name), style = MaterialTheme.typography.titleSmall)
+            Text(
+                tr("Sestavení %s", code ?: "?") + if (name.endsWith("-dev")) tr(" · vývojová verze z Android Studia") else "",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            androidx.compose.material3.TextButton(
+                onClick = {
+                    runCatching {
+                        context.startActivity(
+                            android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse("https://github.com/Natsu13/Automation/releases")
+                            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    }
+                },
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+            ) { Text(tr("Vydání na GitHubu")) }
         }
     }
 }

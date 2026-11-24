@@ -1075,12 +1075,12 @@ Shows a card with a text, progress and up to two buttons on the app's home scree
 | `icon` | text | `""` | Icon · e.g. the automation's icon |
 | `button1` | text | `""` | Button 1 · e.g. no button |
 | `action1` | choice | `"wait"` | What button 1 does · `"wait"` Answer (block Wait for a card button), `"stop"` Stop this run, `"run"` Run automation, `"close"` Just close the card · *only when `button1` is filled in* |
-| `automation1` | automation id | `""` | Automation for button 1 · the number of another automation on the phone, "" = none · *not shown (kept for older versions)* |
-| `input1` | text | `""` | Input for the automation (button 1) · e.g. the button's text · *not shown (kept for older versions)* |
+| `automation1` | automation id | `""` | Automation for button 1 · the number of another automation on the phone, "" = none · *depends on `button1`, `action1`* |
+| `input1` | text | `""` | Input for the automation (button 1) · e.g. the button's text · *depends on `button1`, `action1`* |
 | `button2` | text | `""` | Button 2 · e.g. no button |
 | `action2` | choice | `"wait"` | What button 2 does · `"wait"` Answer (block Wait for a card button), `"stop"` Stop this run, `"run"` Run automation, `"close"` Just close the card · *only when `button2` is filled in* |
-| `automation2` | automation id | `""` | Automation for button 2 · the number of another automation on the phone, "" = none · *not shown (kept for older versions)* |
-| `input2` | text | `""` | Input for the automation (button 2) · e.g. the button's text · *not shown (kept for older versions)* |
+| `automation2` | automation id | `""` | Automation for button 2 · the number of another automation on the phone, "" = none · *depends on `button2`, `action2`* |
+| `input2` | text | `""` | Input for the automation (button 2) · e.g. the button's text · *depends on `button2`, `action2`* |
 | `countdown` | choice | `"none"` | Countdown · `"none"` No countdown, `"in"` For a time (seconds, 1:30 or 1:00:00), `"at"` Until a time (18:30) |
 | `countdown_value` | text | `""` | How long / until when · e.g. 45:00 or 18:30 · *only when `countdown` is "in" / "at"* |
 | `end_remove` | true/false | `false` | Remove the card when it ends · *only when `countdown` is "in" / "at"* |
