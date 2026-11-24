@@ -99,6 +99,23 @@ Pokud máš v telefonu verzi z Android Studia, je podepsaná debug klíčem
 (aktualizace pak půjdou bez přeinstalace), nebo si vytvoř vlastní klíč – pak je potřeba appku
 jednou odinstalovat (předtím exportuj automatizace).
 
+### Stejný klíč i v Android Studiu
+
+Aby šlo sestavení z Android Studia nahrát přes appku z GitHubu (a naopak), přidej do
+`local.properties` (není v gitu) cestu ke klíči a hesla:
+
+```properties
+signing.storeFile=C:/Users/jmeno/keys/automation-release.jks
+signing.storePassword=…
+signing.keyAlias=automation
+signing.keyPassword=…
+```
+
+`signing.keyPassword` můžeš vynechat, když je stejné jako heslo keystoru. Bez těchto řádků se
+podepisuje běžným debug klíčem. Sestavení bez `-PappVersion` má verzi `<poslední tag>.99-dev`
+(po `v2.1` je to `2.1.99-dev`, versionCode 20199): nainstaluje se přes vydání 2.1 a další vydání
+2.2 zase přes něj.
+
 ## Instalace mimo Google Play
 
 **Play Protect může instalaci zablokovat** („Aplikace byla za účelem ochrany zařízení zablokována“).

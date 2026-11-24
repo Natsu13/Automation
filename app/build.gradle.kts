@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -17,12 +19,43 @@ kotlin {
 
 // The version comes from the release tag on CI (-PappVersion=2.1); the build number follows from it,
 // so a newer version always has a higher versionCode (2.1 -> 20100, 2.1.3 -> 20103).
-val appVersion: String = (findProperty("appVersion") as String?)?.removePrefix("v")?.takeIf { it.isNotBlank() } ?: "2.0"
+// A build without it (Android Studio) is "<last tag>.99-dev": it installs over that release,
+// and the next release installs over it (2.1.99-dev -> 20199, between 2.1 and 2.2).
+val lastTag: String? = try {
+    providers.exec {
+        commandLine("git", "describe", "--tags", "--abbrev=0", "--match", "v[0-9]*")
+        isIgnoreExitValue = true
+    }.standardOutput.asText.get().trim().removePrefix("v").takeIf { Regex("\\d+(\\.\\d+)*").matches(it) }
+} catch (e: Exception) {
+    null
+}
+val appVersion: String = (findProperty("appVersion") as String?)?.removePrefix("v")?.takeIf { it.isNotBlank() }
+    ?: lastTag?.let { tag -> tag.split('.').let { (it + listOf("0", "0")).take(2) }.joinToString(".") + ".99-dev" }
+    ?: "2.0"
 val appVersionCode: Int = appVersion.substringBefore('-').split('.').map { it.toIntOrNull() ?: 0 }
     .let { (it.getOrElse(0) { 0 } * 10_000) + (it.getOrElse(1) { 0 } * 100) + it.getOrElse(2) { 0 } }
 
-// Release signing from the environment (GitHub secrets); without it the release build is unsigned.
-val signingStore: String? = System.getenv("SIGNING_STORE_FILE")?.takeIf { it.isNotBlank() && file(it).exists() }
+// Signing with the release key: on CI from the environment (GitHub secrets), on a computer from
+// local.properties (not in git). With the same key, builds from Android Studio install over the
+// app from GitHub and the other way round. Without either, the usual debug key signs.
+val localProperties = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+
+class Signing(val store: String, val storePassword: String, val alias: String, val keyPassword: String)
+
+val signing: Signing? = run {
+    val env = System.getenv("SIGNING_STORE_FILE")?.takeIf { it.isNotBlank() }
+    val store = env ?: localProperties.getProperty("signing.storeFile")?.takeIf { it.isNotBlank() }
+    fun value(envKey: String, localKey: String) =
+        (if (env != null) System.getenv(envKey) else localProperties.getProperty(localKey))?.takeIf { it.isNotEmpty() }
+    val storePassword = value("SIGNING_STORE_PASSWORD", "signing.storePassword")
+    val alias = value("SIGNING_KEY_ALIAS", "signing.keyAlias")
+    val keyPassword = value("SIGNING_KEY_PASSWORD", "signing.keyPassword") ?: storePassword
+    if (store != null && file(store).exists() && storePassword != null && alias != null && keyPassword != null) {
+        Signing(store, storePassword, alias, keyPassword)
+    } else null
+}
 
 android {
     namespace = "cz.natsu.automation"
@@ -42,19 +75,22 @@ android {
     }
 
     signingConfigs {
-        if (signingStore != null) {
+        if (signing != null) {
             create("release") {
-                storeFile = file(signingStore)
-                storePassword = System.getenv("SIGNING_STORE_PASSWORD")
-                keyAlias = System.getenv("SIGNING_KEY_ALIAS")
-                keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+                storeFile = file(signing.store)
+                storePassword = signing.storePassword
+                keyAlias = signing.alias
+                keyPassword = signing.keyPassword
             }
         }
     }
 
     buildTypes {
+        debug {
+            if (signing != null) signingConfig = signingConfigs.getByName("release")
+        }
         release {
-            if (signingStore != null) signingConfig = signingConfigs.getByName("release")
+            if (signing != null) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
