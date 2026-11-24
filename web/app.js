@@ -777,14 +777,22 @@
       const body = h("div", { class: "b-body" });
       if (def.description) body.append(h("div", { class: "b-desc" }, tx(def.description)));
       const fields = h("div", { style: { display: "grid", gap: "14px" } });
+      // Every field is drawn and only shown or hidden: typing into a text that other fields
+      // depend on (a button's label → what it does) shows them at once without losing focus.
+      let drawn = [];
+      const showFields = () => {
+        for (const { p, el } of drawn) el.style.display = M.isParamHidden(def, p, block.params) ? "none" : "";
+      };
       const drawFields = () => {
         fields.textContent = "";
-        for (const p of def.params) {
-          if (M.isParamHidden(def, p, block.params)) continue;
-          fields.append(paramField(block, p, index, list, () => { fillSummary(); }, () => {
+        drawn = def.params.map((p) => ({
+          p,
+          el: paramField(block, p, index, list, () => { fillSummary(); showFields(); }, () => {
             commit(); drawFields(); fillSummary(); refreshCodeLabels();
-          }));
-        }
+          }),
+        }));
+        for (const { el } of drawn) fields.append(el);
+        showFields();
       };
       drawFields();
       body.append(fields);
