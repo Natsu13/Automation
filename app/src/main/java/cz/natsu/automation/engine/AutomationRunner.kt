@@ -126,6 +126,7 @@ class RunContext(
         it.loopRound.putAll(loopRound)
         it.loopOf = loopOf
         it.switchValues.putAll(switchValues)
+        it.htmlWindow = htmlWindow
     }
 
     /** Loops whose "end" just jumped back to them (next round, not a fresh start). */
@@ -159,6 +160,15 @@ class RunContext(
 
     /** Secret values used in this run; they are masked in the log. */
     private var secretValues: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    /** Hides [value] in the log from now on (a password typed in, a key made from it). */
+    fun markSecret(value: String) {
+        if (value.length >= 3) secretValues += value
+    }
+
+    /** The "Okno s HTML" the steps run inside of, if any ("Poslat do okna" talks to it). */
+    @Volatile
+    var htmlWindow: HtmlWindow? = null
 
     /** [text] with every secret value used so far replaced by dots. */
     fun mask(text: String?): String? {
@@ -251,6 +261,14 @@ class RunContext(
                     ?: if (explicit) throw BlockException(tr("blok \"%s\" neexistuje", type)) else return Script.MISSING
                 return callBlock(def, if (explicit) args.drop(1) else args, job)
             }
+
+            override fun htmlWindow(args: List<Any?>, handle: (request: String) -> Any?): Any? {
+                val block = blockFor(Blocks.get(HtmlBlocks.WINDOW)!!, args)
+                // Runs on the script's thread: the page's calls are handled here too, one after another.
+                return kotlinx.coroutines.runBlocking(job ?: kotlin.coroutines.EmptyCoroutineContext) {
+                    HtmlBlocks.open(this@RunContext, block) { request -> Script.text(handle(request)) }
+                }
+            }
         })
     }
 
@@ -262,6 +280,22 @@ class RunContext(
         if (def.kind != BlockKind.Normal || def.type in setOf("return", "loop_control", "loop_index", Blocks.LAUNCH_CONDITION)) {
             throw BlockException(tr("blok \"%s\" řídí běh kroků a ze skriptu volat nejde", def.title))
         }
+        val block = blockFor(def, args)
+        // The script runs on a background thread; the block may suspend (network, dialogs), so wait for it here.
+        val result = kotlinx.coroutines.runBlocking(job ?: kotlin.coroutines.EmptyCoroutineContext) {
+            def.execute(this@RunContext, block)
+        }
+        return when (result) {
+            BlockResult.None -> null
+            is BlockResult.Output -> result.value
+            is BlockResult.Condition -> result.passed
+            is BlockResult.Stop, is BlockResult.LoopJump ->
+                throw BlockException(tr("blok \"%s\" ze skriptu volat nejde", def.title))
+        }
+    }
+
+    /** A block of [def] with the values of a script call: by name in an object, or one after another. */
+    private fun blockFor(def: BlockDef, args: List<Any?>): Block {
         val named = args.singleOrNull() as? Map<*, *>
         val given: List<Pair<ParamDef, Any?>> = if (named != null) {
             named.map { (key, value) ->
@@ -294,18 +328,7 @@ class RunContext(
                 is ParamDef.Automation -> ParamValue.Choice(text)
             }
         }
-        val block = def.newBlock().let { it.copy(params = it.params + params) }
-        // The script runs on a background thread; the block may suspend (network, dialogs), so wait for it here.
-        val result = kotlinx.coroutines.runBlocking(job ?: kotlin.coroutines.EmptyCoroutineContext) {
-            def.execute(this@RunContext, block)
-        }
-        return when (result) {
-            BlockResult.None -> null
-            is BlockResult.Output -> result.value
-            is BlockResult.Condition -> result.passed
-            is BlockResult.Stop, is BlockResult.LoopJump ->
-                throw BlockException(tr("blok \"%s\" ze skriptu volat nejde", def.title))
-        }
+        return def.newBlock().let { it.copy(params = it.params + params) }
     }
 
     suspend fun resolve(ref: VarRef): String = when (ref) {
@@ -686,12 +709,35 @@ object AutomationRunner {
                     val inside = pc + 1
                     try {
                         record(LogEntry(block.id, def.title), ctx)
-                        when (val outcome = ControlBlocks.scoped(ctx, block, stepping = afterStep != null) { execute(inside, end, ctx) }) {
+                        val outcome = if (block.type == HtmlBlocks.WINDOW) {
+                            // The steps inside run once for every call of the page; their result is the answer.
+                            val closedWith = HtmlBlocks.open(ctx, block) { request ->
+                                ctx.outputs[block.id] = request
+                                ctx.lastOutput = null
+                                when (val step = execute(inside, end, ctx)) {
+                                    Outcome.Done -> ctx.lastOutput ?: ""
+                                    is Outcome.Stop -> step.output ?: ""
+                                    is Outcome.Failed -> throw BlockException(step.message)
+                                    Outcome.Cancelled -> throw RunCancelledException()
+                                    is Outcome.Jump -> throw BlockException(tr("opakování, které začalo mimo okno, z něj nejde ukončit"))
+                                }
+                            }
+                            ctx.outputs[block.id] = closedWith
+                            ctx.lastOutput = closedWith
+                            record(LogEntry(block.id, def.title, output = shown(tr("zavřeno: %s", closedWith))), ctx)
+                            Outcome.Done
+                        } else {
+                            ControlBlocks.scoped(ctx, block, stepping = afterStep != null) { execute(inside, end, ctx) }
+                        }
+                        when (outcome) {
                             Outcome.Done -> pc = end + 1
                             is Outcome.Stop, Outcome.Cancelled -> return outcome
                             is Outcome.Jump -> jumpTo(outcome.loop, outcome.exit)?.let { return it }
                             is Outcome.Failed -> failure = Triple(outcome.message, outcome.requirement, true)
                         }
+                    } catch (e: RunCancelledException) {
+                        log += LogEntry(block.id, def.title, output = tr("zrušeno"))
+                        return Outcome.Cancelled
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         throw e
                     } catch (e: Exception) {

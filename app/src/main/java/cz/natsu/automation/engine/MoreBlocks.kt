@@ -117,14 +117,20 @@ object MoreBlocks {
             params = listOf(
                 ParamDef.Text("title", "Otázka", default = "Zadej text"),
                 ParamDef.Text("initial", "Předvyplněno", placeholder = "nic"),
-                ParamDef.Toggle("multiline", "Víc řádků"),
+                ParamDef.Toggle("multiline", "Víc řádků").apply {
+                    hiddenWhen = { values -> (values["hidden"] as? ParamValue.Bool)?.value == true }
+                },
+                ParamDef.Toggle("hidden", "Skrýt zadávání (heslo)", summaryWhenOn = "(heslo)"),
             ),
             outputName = "Zadaný text",
         ) { block ->
             val initial = text(block, "initial")
+            val hidden = bool(block, "hidden")
             val ui = ui ?: return@BlockDef BlockResult.Output(initial)
-            val answer = ui.askText(text(block, "title"), initial, bool(block, "multiline"))
+            val answer = ui.askText(text(block, "title"), initial, bool(block, "multiline") && !hidden, hidden)
                 ?: throw RunCancelledException()
+            // A password stays out of the log.
+            if (hidden) markSecret(answer)
             BlockResult.Output(answer)
         },
 

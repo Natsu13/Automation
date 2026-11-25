@@ -215,6 +215,74 @@ internal object BlockHelpEn {
             save), put them into the One at a time block.
         """.trimIndent(),
 
+        "html_window" to """
+            Your own page in a window of the app – HTML, CSS and JavaScript
+            in the HTML field (or from a variable, e.g. from Read file).
+
+            Page → automation
+            • automation.call("action", data) returns a Promise of the answer
+            • the steps inside the block run for every call, one at a time
+            • the block's value is {"action": "action", "data": …} – take it
+              apart with Value from JSON (path action, data.id…)
+            • the answer is the result of the last step, or Return result
+              (inside the window it only answers the page, the run goes on)
+            • an error in the steps rejects the call: catch (e) → e.message
+            • an answer that is JSON comes to the page as an object
+
+            Automation → page
+            • the Send to window block → automation.on("event", data => …)
+
+            Closing
+            • automation.close(value) – the value is the block's output then
+            • the Close button or Back – the output is empty
+            • the bar with Close is there with a title, or always with the switch
+
+            Display
+            • Over the whole screen, or From the bottom, half way
+            • from the bottom: drag the handle at the top up for the whole
+              screen, down to close it; a tap switches the size
+
+            Safety
+            • the page cannot see the phone's files; internet only when allowed
+            • links open in the browser
+            • No screenshots – the window cannot be captured or recorded
+            • alert(), confirm() and prompt() work
+
+            Example: the Secure notebook example.
+        """.trimIndent(),
+
+        "derive_key" to """
+            A password is never used directly – a key is made from it (PBKDF2,
+            SHA-256). It is slow on purpose, so guessing passwords takes ages.
+
+            The salt is a random piece mixed into the password:
+            • empty – a new salt (the first encryption)
+            • an earlier encrypted text (enc1:…) – its salt is used, so the
+              same password makes the same key as then
+
+            Checking the password
+            1. the first time, encrypt "ok" and keep it (the check)
+            2. next time: Key from a password with the salt of the check
+            3. Try { Decrypt the check } – an error = a wrong password
+
+            The key (key1:…) is not shown in the run log. Do not store it
+            unlocked – to remember it, use Lock with fingerprint.
+        """.trimIndent(),
+
+        "bio_lock" to """
+            Locks a value with a key in the phone's secure chip. The phone
+            never gives the key out and uses it only after your finger.
+
+            Typically: after the password is typed, lock the Key from a
+            password and keep the result with Store value. Next time:
+            Try { Unlock with fingerprint } On failure { ask for the password }
+
+            • a locked value (bio1:…) cannot be unlocked on another phone
+            • after a new fingerprint is added in the phone's settings it stops
+              working (an Android rule) – lock it again then
+            • the lock name keeps keys of different automations apart
+        """.trimIndent(),
+
         "time_limit" to """
             The steps inside have to finish within the given time. When they do
             not, they are stopped and the block fails with "the steps did not
@@ -442,6 +510,9 @@ internal object BlockHelpEn {
             • error = try(attempts, pause, double) … catch … end
             • parallel … branch … end – in a script the branches run one by one
             • lock("name") … end, time_limit(10) … end
+            • call = html_window(html, title) … end – HTML window: the body
+              answers every call of the page (call.action, call.data), its
+              return goes to the page; after closing, call is the closing value
             Show as script writes the whole automation like that.
 
             Functions – images

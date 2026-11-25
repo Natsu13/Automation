@@ -3653,5 +3653,249 @@ object English {
             " · development build from Android Studio",
         "Vydání na GitHubu" to
             "Releases on GitHub",
+        "Zabezpečení" to
+            "Security",
+        "<button onclick=\"automation.call('ahoj')\">Ahoj</button>" to
+            "<button onclick=\"automation.call('hello')\">Hello</button>",
+        "Citlivé (heslo) – neukazovat náhled" to
+            "Sensitive (a password) – no preview",
+        "(citlivé)" to
+            "(sensitive)",
+        "Data" to
+            "Data",
+        "Dešifrovaný text" to
+            "Decrypted text",
+        "Dešifrovat" to
+            "Decrypt",
+        "Dešifrovat {text}" to
+            "Decrypt {text}",
+        "HTML stránky" to
+            "HTML of the page",
+        "Heslo" to
+            "Password",
+        "Klíč" to
+            "Key",
+        "Klíč nebo heslo" to
+            "Key or password",
+        "Klíč z hesla" to
+            "Key from a password",
+        "Klíč z hesla {password}" to
+            "Key from password {password}",
+        "Konec okna s HTML" to
+            "End of HTML window",
+        "Malá písmena" to
+            "Lowercase letters",
+        "Velká písmena" to
+            "Uppercase letters",
+        "Číslice" to
+            "Digits",
+        "Symboly" to
+            "Symbols",
+        "Náhodné heslo" to
+            "Random password",
+        "Náhodné heslo, {length} znaků" to
+            "Random password, {length} characters",
+        "znaků" to
+            "characters",
+        "Odemknout otiskem prstu" to
+            "Unlock with fingerprint",
+        "Odemknout otiskem {text}" to
+            "Unlock {text} with fingerprint",
+        "Odemčená hodnota" to
+            "Unlocked value",
+        "Okno s HTML" to
+            "HTML window",
+        "Okno s HTML {title}" to
+            "HTML window {title}",
+        "Ověřit otiskem prstu" to
+            "Verify with fingerprint",
+        "Po přiložení prstu vrátí hodnotu zamčenou blokem Zamknout otiskem prstu. Zrušení nebo změněné otisky v telefonu jsou chyba – blokem Zkusit kolem se pak můžeš zeptat na heslo." to
+            "After a finger on the sensor it returns the value locked by Lock with fingerprint. Cancelling or changed fingerprints on the phone are an error – with a Try block around it you can ask for the password instead.",
+        "Poslat do okna" to
+            "Send to window",
+        "Poslat do okna {event}" to
+            "Send {event} to window",
+        "Povolit i PIN / gesto telefonu" to
+            "Also allow the phone's PIN / pattern",
+        "nebo PIN" to
+            "or PIN",
+        "Povolit internet" to
+            "Allow the internet",
+        "s internetem" to
+            "with internet",
+        "(chráněné)" to
+            "(protected)",
+        "Počet kol (síla)" to
+            "Rounds (strength)",
+        "Pošle otevřenému oknu s HTML zprávu, aniž by se stránka ptala – stránka ji dostane v automation.on(\"událost\", data => …). Hodí se na průběh, upozornění nebo zamčení po nečinnosti." to
+            "Sends a message to the open HTML window without the page asking – the page gets it in automation.on(\"event\", data => …). Good for progress, alerts or locking after a while.",
+        "Skrýt zadávání (heslo)" to
+            "Hide what is typed (a password)",
+        "(heslo)" to
+            "(password)",
+        "Smazat ze schránky po (0 = nemazat)" to
+            "Clear from the clipboard after (0 = never)",
+        "Sůl nebo zašifrovaný text" to
+            "Salt or an encrypted text",
+        "prázdné = nová sůl" to
+            "empty = a new salt",
+        "Text v okně otisku" to
+            "Text of the fingerprint window",
+        "Udělá z hesla klíč pro Zašifrovat a Dešifrovat. Je to schválně pomalé (kvůli hádání hesel), takže klíč udělej jednou a šifruj s ním všechno. Sůl: prázdná = nová; nebo dej dříve zašifrovaný text a vznikne z hesla stejný klíč jako tehdy." to
+            "Makes a key for Encrypt and Decrypt from a password. It is slow on purpose (against guessing), so make the key once and encrypt everything with it. Salt: empty = a new one; or give an earlier encrypted text and the password makes the same key as then.",
+        "Ukáže tvou vlastní stránku (HTML, CSS, JavaScript). Stránka volá automation.call(\"akce\", data) a kroky uvnitř bloku na to odpoví: hodnota bloku je {action, data}, odpovědí je výsledek posledního kroku nebo Vrátit výsledek. Chyba v krocích stránce volání odmítne. automation.close(hodnota) okno zavře." to
+            "Shows your own page (HTML, CSS, JavaScript). The page calls automation.call(\"action\", data) and the steps inside the block answer it: the block's value is {action, data}, the answer is the result of the last step or Return result. An error in the steps rejects the call. automation.close(value) closes the window.",
+        "Volání stránky" to
+            "Page call",
+        "Vrátí původní text ze zašifrovaného (enc1:…). Se špatným heslem nebo klíčem skončí chybou – blokem Zkusit kolem tak zjistíš, jestli heslo sedí." to
+            "Returns the original text of an encrypted one (enc1:…). With a wrong password or key it ends with an error – a Try block around it tells whether the password is right.",
+        "Vymyslí silné náhodné heslo. Znaky, které se pletou (l, I, O, 0, 1), vynechá." to
+            "Makes up a strong random password. Characters that look alike (l, I, O, 0, 1) are left out.",
+        "Zakázat snímky obrazovky" to
+            "No screenshots",
+        "Zamkne hodnotu klíčem, který je jen v tomto telefonu a otevře ho jen tvůj otisk. Výsledek (bio1:…) si ulož blokem Uložit hodnotu – příště ho blok Odemknout otiskem prstu vrátí. Hodí se na klíč z hesla, ať heslo nemusíš psát pokaždé." to
+            "Locks a value with a key that exists only in this phone and only your fingerprint opens. Keep the result (bio1:…) with Store value – next time Unlock with fingerprint gives it back. Good for a key from a password, so you need not type the password every time.",
+        "Zamknout otiskem prstu" to
+            "Lock with fingerprint",
+        "Zamknout otiskem {text}" to
+            "Lock {text} with fingerprint",
+        "Zamčená hodnota" to
+            "Locked value",
+        "Zapíše text do schránky. Heslo označ jako citlivé (Android ho neukáže v náhledu) a nech ho za chvíli smazat." to
+            "Puts text on the clipboard. Mark a password as sensitive (Android shows no preview of it) and have it cleared after a while.",
+        "Zašifrovaný text" to
+            "Encrypted text",
+        "Zašifrovat" to
+            "Encrypt",
+        "Zašifrovat {text}" to
+            "Encrypt {text}",
+        "Zašifruje text klíčem z bloku Klíč z hesla (nebo rovnou heslem – to je pomalejší). Výstup je text enc1:…, který jde uložit do souboru nebo poslat dál." to
+            "Encrypts a text with a key from Key from a password (or straight with the password – slower). The result is an enc1:… text to save into a file or send on.",
+        "Zeptá se na otisk prstu (nebo obličej) a pokračuje, jen když sedí. Zrušení je chyba, kterou zachytí Zkusit. Třeba před tím, než automatizace otevře dveře nebo pošle peníze." to
+            "Asks for a fingerprint (or face) and goes on only when it matches. Cancelling is an error that Try catches. For example before an automation opens a door or sends money.",
+        "heslo je prázdné" to
+            "the password is empty",
+        "tohle není zašifrovaný text (má začínat enc1:)" to
+            "this is not an encrypted text (it starts with enc1:)",
+        "zašifrovaný text je poškozený" to
+            "the encrypted text is damaged",
+        "text je zašifrovaný jiným klíčem (jiná sůl) – udělej klíč z hesla s tímto textem jako solí" to
+            "the text is encrypted with another key (another salt) – make the key from the password with this text as the salt",
+        "špatné heslo nebo poškozená data" to
+            "wrong password or damaged data",
+        "vyber aspoň jeden druh znaků" to
+            "choose at least one kind of characters",
+        "heslo je moc krátké na všechny druhy znaků" to
+            "the password is too short for all kinds of characters",
+        "sůl ani zašifrovaný text to není" to
+            "this is neither a salt nor an encrypted text",
+        "chybí klíč nebo heslo" to
+            "the key or password is missing",
+        "název zámku smí mít jen písmena bez diakritiky, číslice, - a _" to
+            "the lock name may have only plain letters, digits, - and _",
+        "v telefonu není nastavený otisk prstu (nebo ho telefon nemá)" to
+            "no fingerprint is set up on the phone (or it has no sensor)",
+        "zámek \"%s\" v telefonu není (smazaná data aplikace?) – zamkni hodnotu znovu" to
+            "lock \"%s\" is not on the phone (app data cleared?) – lock the value again",
+        "otisky prstů v telefonu se změnily – zamčené hodnoty už nejdou odemknout, zamkni je znovu" to
+            "the phone's fingerprints have changed – locked values cannot be unlocked any more, lock them again",
+        "tohle není hodnota zamčená otiskem (má začínat bio1:)" to
+            "this is not a value locked with a fingerprint (it starts with bio1:)",
+        "zamčená hodnota je poškozená" to
+            "the locked value is damaged",
+        "ověření otiskem zrušeno" to
+            "fingerprint check cancelled",
+        "otisk prstu jde ověřit jen v okně" to
+            "a fingerprint can be checked only in a window",
+        "ověření jde jen v okně" to
+            "checking works only in a window",
+        "Ověření" to
+            "Verification",
+        "v telefonu není nastavený otisk prstu" to
+            "no fingerprint is set up on the phone",
+        "telefon nemá čtečku otisků (nebo není dostupná)" to
+            "the phone has no fingerprint sensor (or it is not available)",
+        "ověření se nepovedlo" to
+            "verification failed",
+        "okno s HTML jde ukázat jen v okně" to
+            "an HTML window can be shown only in a window",
+        "chybí HTML stránky" to
+            "the HTML of the page is missing",
+        "žádné okno s HTML není otevřené (blok patří dovnitř Okna s HTML)" to
+            "no HTML window is open (the block belongs inside an HTML window)",
+        "opakování, které začalo mimo okno, z něj nejde ukončit" to
+            "a loop that started outside the window cannot be ended from it",
+        "zavřeno: %s" to
+            "closed: %s",
+        "Zabezpečený zápisník" to
+            "Secure notebook",
+        "Okno s HTML + šifrování: hesla a poznámky v JSON souboru, název, kategorie i obsah zašifrované heslem. Poprvé se zeptá, kam soubor uložit, a nabídne odemykání otiskem prstu." to
+            "HTML window + encryption: passwords and notes in a JSON file, the title, category and content encrypted with a password. The first time it asks where to keep the file and offers unlocking with a fingerprint.",
+        "Soubor se zápisníkem: poprvé se zeptá, kam ho uložit" to
+            "The notebook file: the first time it asks where to keep it",
+        "Odemknout: otiskem prstu, jinak heslem" to
+            "Unlock: with a fingerprint, otherwise with the password",
+        "Odemknout zápisník" to
+            "Unlock the notebook",
+        "Heslo k zápisníku" to
+            "Notebook password",
+        "Špatné heslo" to
+            "Wrong password",
+        "Odemykat příště otiskem prstu?" to
+            "Unlock with a fingerprint next time?",
+        "Ano\nNe" to
+            "Yes\nNo",
+        "Ano" to
+            "Yes",
+        "Zapamatovat otiskem prstu" to
+            "Remember with fingerprint",
+        "Okno: stránka volá akce list, show, save, delete, password, copy, forget" to
+            "The window: the page calls the actions list, show, save, delete, password, copy, forget",
+        "Vše" to
+            "All",
+        "Zatím tu nic není – přidej první záznam." to
+            "Nothing here yet – add the first entry.",
+        "Kategorie" to
+            "Category",
+        "Obsah (heslo, poznámka…)" to
+            "Content (password, note…)",
+        "Ukázat" to
+            "Show",
+        "Skrýt" to
+            "Hide",
+        "Zkopírováno, za 30 s se smaže" to
+            "Copied, cleared in 30 s",
+        "Opravdu smazat tento záznam?" to
+            "Really delete this entry?",
+        "Vygenerovat heslo" to
+            "Generate password",
+        "Zamknout" to
+            "Lock",
+        "Zapomenout otisk" to
+            "Forget fingerprint",
+        "Příště se zeptá na heslo" to
+            "Next time it asks for the password",
+        "Změněno" to
+            "Changed",
+        "Vyplň název" to
+            "Fill in a title",
+        "Nový" to
+            "New",
+        "Zobrazení" to
+            "Display",
+        "Přes celou obrazovku" to
+            "Over the whole screen",
+        "celé" to
+            "whole",
+        "Zespodu do půlky (jde roztáhnout)" to
+            "From the bottom, half way (can be pulled up)",
+        "zespodu" to
+            "from the bottom",
+        "Vždy ukázat lištu se Zavřít (i bez nadpisu)" to
+            "Always show the bar with Close (also without a title)",
+        "okno s HTML tu ze skriptu otevřít nejde" to
+            "an HTML window cannot be opened from the script here",
+        "%s: chybí HTML stránky – html_window(\"<p>…</p>\")" to
+            "%s: the HTML of the page is missing – html_window(\"<p>…</p>\")",
     )
 }

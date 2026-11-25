@@ -38,6 +38,7 @@ enum class BlockCategory(val title: String) {
     Control("Podmínky a řízení"),
     Device("Zařízení"),
     Apps("Aplikace"),
+    Security("Zabezpečení"),
     Other("Ostatní"),
 }
 

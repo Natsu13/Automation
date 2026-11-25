@@ -357,6 +357,7 @@ class AiGuideExport {
             | `parallel` … `branch` … `end` | **${title(ControlBlocks.PARALLEL)}** / **${title(ControlBlocks.BRANCH)}** – branches run at the same time |
             | `lock` / `lock("name")` … `end` | **${title(ControlBlocks.LOCK)}** – one round at a time |
             | `time_limit(10)` … `end` | **${title(ControlBlocks.TIME_LIMIT)}** – must finish in 10 s |
+            | `call = html_window(html, title, internet, secure, display, bar)` … `end` | **${title(cz.natsu.automation.engine.HtmlBlocks.WINDOW)}** – the steps inside answer every `automation.call(action, data)` of the page; `call` is `{action, data}`, `return x` answers it |
             """.trimIndent()
         )
         appendLine()

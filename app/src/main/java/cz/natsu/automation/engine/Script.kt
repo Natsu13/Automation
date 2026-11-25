@@ -71,6 +71,14 @@ object Script {
          * its type, e.g. `http_request({url: "…"})`. Returns [MISSING] when there is none.
          */
         fun call(name: String, args: List<Any?>): Any? = MISSING
+
+        /**
+         * `x = html_window(html, …) … end`: shows the window (values as the block's parameters) and
+         * runs [handle] for every call of the page with its `{action, data}`; what [handle] returns
+         * answers the page. Returns the value the window was closed with.
+         */
+        fun htmlWindow(args: List<Any?>, handle: (request: String) -> Any?): Any? =
+            throw BlockException(tr("okno s HTML tu ze skriptu otevřít nejde"))
     }
 
     class Program internal constructor(internal val body: List<Stmt>)
@@ -349,6 +357,9 @@ object Script {
     /** `parallel … branch … end`: a script runs the branches one after another. */
     private class Parallel(line: Int, val branches: List<List<Stmt>>) : Stmt(line)
 
+    /** `x = html_window(html, …) … end`: the body answers every call of the page; `x` is the call, then the closing value. */
+    private class Window(line: Int, val target: Expr?, val args: List<Expr>, val body: List<Stmt>) : Stmt(line)
+
     /** `lock("název") … end` (one at a time) and `time_limit(s) … end`. */
     private class Scope(line: Int, val limit: Expr?, val body: List<Stmt>) : Stmt(line)
 
@@ -376,7 +387,8 @@ object Script {
     val BRANCH_WORDS = setOf("branch", "vetev")
     val LOCK_WORDS = setOf("lock", "postupne")
     val TIME_LIMIT_WORDS = setOf("time_limit", "limit")
-    private val GROUP_WORDS = SCRIPT_WORDS + TRY_WORDS + PARALLEL_WORDS + LOCK_WORDS + TIME_LIMIT_WORDS
+    val WINDOW_WORDS = setOf("html_window")
+    private val GROUP_WORDS = SCRIPT_WORDS + TRY_WORDS + PARALLEL_WORDS + LOCK_WORDS + TIME_LIMIT_WORDS + WINDOW_WORDS
 
     private class Parser(private val tokens: List<Token>) {
         private var pos = 0
@@ -501,13 +513,17 @@ object Script {
                     expectEnd(word)
                     Parallel(word.line, branches)
                 }
+                in WINDOW_WORDS -> {
+                    if (args.isEmpty()) error(word, tr("%s: chybí HTML stránky – html_window(\"<p>…</p>\")", word.text))
+                    Window(word.line, target, args, block()).also { expectEnd(word) }
+                }
                 in TIME_LIMIT_WORDS -> {
                     val limit = args.firstOrNull() ?: error(word, tr("%s: chybí počet sekund – time_limit(10)", word.text))
                     Scope(word.line, limit, block()).also { expectEnd(word) }
                 }
                 else -> Scope(word.line, null, block()).also { expectEnd(word) }
             }.also {
-                if (target != null && name !in SCRIPT_WORDS && name !in TRY_WORDS) {
+                if (target != null && name !in SCRIPT_WORDS && name !in TRY_WORDS && name !in WINDOW_WORDS) {
                     error(word, tr("„%s“ nemá výsledek, nejde ho přiřadit", word.text))
                 }
             }
@@ -897,6 +913,23 @@ object Script {
                     }
                 }
                 is Parallel -> for (branch in statement.branches) exec(branch)
+                is Window -> {
+                    val closed = host.htmlWindow(statement.args.map { eval(it) }) { request ->
+                        // The body runs like a Script step: its return answers the page.
+                        statement.target?.let { assign(it, request) }
+                        last = null
+                        try {
+                            exec(statement.body)
+                            last
+                        } catch (signal: ReturnSignal) {
+                            signal.value
+                        } catch (signal: JumpSignal) {
+                            fail(tr("ukonci / pokracuj jde použít jen uvnitř opakování"))
+                        }
+                    }
+                    statement.target?.let { assign(it, closed) }
+                    last = closed
+                }
                 is Scope -> {
                     val limit = statement.limit
                     if (limit == null) exec(statement.body) else {

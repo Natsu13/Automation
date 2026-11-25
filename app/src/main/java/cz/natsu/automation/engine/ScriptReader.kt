@@ -31,7 +31,7 @@ object ScriptWords {
         "break", "ukonci", "continue", "pokracuj", "and", "or", "not", "nebo", "zaroven", "true", "false",
         "null", "nic", "ano", "input", "vstup", "clipboard", "trigger", "text", "date", "count", "list", "type",
         "script", "skript", "try", "zkus", "catch", "kdyz_selze", "parallel", "soubezne", "branch", "vetev",
-        "lock", "postupne", "time_limit", "limit",
+        "lock", "postupne", "time_limit", "limit", "html_window",
     )
 
     /** Built-in functions a variable should not be named after. */
@@ -458,6 +458,7 @@ class ScriptReader private constructor(private val text: String) {
                 ControlBlocks.PARALLEL -> ControlBlocks.END_PARALLEL
                 ControlBlocks.LOCK -> ControlBlocks.END_LOCK
                 ControlBlocks.TIME_LIMIT -> ControlBlocks.END_TIME_LIMIT
+                HtmlBlocks.WINDOW -> HtmlBlocks.END_WINDOW
                 else -> return false
             }
             emit(end)
@@ -554,14 +555,16 @@ class ScriptReader private constructor(private val text: String) {
             in Script.BRANCH_WORDS -> ControlBlocks.BRANCH
             in Script.LOCK_WORDS -> ControlBlocks.LOCK
             in Script.TIME_LIMIT_WORDS -> ControlBlocks.TIME_LIMIT
+            HtmlBlocks.WINDOW -> HtmlBlocks.WINDOW
             else -> return null
         }
-        // Only a script and a try have a value to name.
-        if (target != null && type != ControlBlocks.SCRIPT && type != Blocks.TRY) return false
+        // Only a script, a try and a window have a value to name.
+        if (target != null && type != ControlBlocks.SCRIPT && type != Blocks.TRY && type != HtmlBlocks.WINDOW) return false
         val params = when (type) {
             ControlBlocks.SCRIPT, Blocks.CATCH, ControlBlocks.PARALLEL, ControlBlocks.BRANCH -> if (args.isEmpty()) emptyMap() else return false
             Blocks.TRY -> values(type, listOf("attempts", "delay", "backoff")) ?: return false
             ControlBlocks.LOCK -> values(type, listOf("name")) ?: return false
+            HtmlBlocks.WINDOW -> values(type, listOf("html", "title", "internet", "secure", "display", "bar"))?.takeIf { it.isNotEmpty() } ?: return false
             else -> values(type, listOf("seconds"))?.takeIf { it.isNotEmpty() } ?: return false
         }
         // A switched-off branch or "catch" cannot be written; the step stays code.
