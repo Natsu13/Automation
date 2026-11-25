@@ -3795,8 +3795,8 @@ object English {
             "the lock name may have only plain letters, digits, - and _",
         "v telefonu není nastavený otisk prstu (nebo ho telefon nemá)" to
             "no fingerprint is set up on the phone (or it has no sensor)",
-        "zámek \"%s\" v telefonu není (smazaná data aplikace?) – zamkni hodnotu znovu" to
-            "lock \"%s\" is not on the phone (app data cleared?) – lock the value again",
+        "zámek \"%s\" v telefonu není (smazaný, nebo s daty aplikace) – zamkni hodnotu znovu" to
+            "lock \"%s\" is not on the phone (deleted, or with the app data) – lock the value again",
         "otisky prstů v telefonu se změnily – zamčené hodnoty už nejdou odemknout, zamkni je znovu" to
             "the phone's fingerprints have changed – locked values cannot be unlocked any more, lock them again",
         "tohle není hodnota zamčená otiskem (má začínat bio1:)" to
@@ -3897,5 +3897,13 @@ object English {
             "an HTML window cannot be opened from the script here",
         "%s: chybí HTML stránky – html_window(\"<p>…</p>\")" to
             "%s: the HTML of the page is missing – html_window(\"<p>…</p>\")",
+        "Smazat zámek otisku" to
+            "Delete fingerprint lock",
+        "Smazat zámek otisku {name}" to
+            "Delete fingerprint lock {name}",
+        "Smaže z telefonu klíč zámku (podle názvu). Hodnoty jím zamčené už pak nepůjdou odemknout nikdy – smaž i jejich uložený text. Výstup je true, když zámek byl, jinak false." to
+            "Deletes the key of the lock (by its name) from the phone. Values locked by it can never be unlocked again – delete their stored text too. The output is true when the lock existed, otherwise false.",
+        "Zámek byl smazán" to
+            "Lock deleted",
     )
 }

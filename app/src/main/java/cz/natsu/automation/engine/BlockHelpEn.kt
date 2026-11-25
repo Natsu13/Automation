@@ -281,6 +281,7 @@ internal object BlockHelpEn {
             • after a new fingerprint is added in the phone's settings it stops
               working (an Android rule) – lock it again then
             • the lock name keeps keys of different automations apart
+            • the Delete fingerprint lock block removes the key from the phone (tidying up)
         """.trimIndent(),
 
         "time_limit" to """
