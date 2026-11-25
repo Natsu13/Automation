@@ -142,6 +142,7 @@ object NotepadExample {
                 return "ok"
             else if akce == "forget"
                 store_set("remove", "zapisnik_otisk")
+                bio_forget("zapisnik")
                 return "ok"
             end
         end

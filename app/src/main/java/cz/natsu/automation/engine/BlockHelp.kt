@@ -264,6 +264,7 @@ object BlockHelp {
             • po přidání nového otisku v nastavení telefonu přestane fungovat
               (pravidlo Androidu) – zamkni ji pak znovu
             • Název zámku odděluje klíče různých automatizací
+            • blok Smazat zámek otisku klíč z telefonu odstraní (úklid)
         """.trimIndent(),
 
         "time_limit" to """

@@ -2305,6 +2305,7 @@ Try { Unlock with fingerprint } On failure { ask for the password }
 • after a new fingerprint is added in the phone's settings it stops
   working (an Android rule) – lock it again then
 • the lock name keeps keys of different automations apart
+• the Delete fingerprint lock block removes the key from the phone (tidying up)
 ```
 
 </details>
@@ -2333,6 +2334,17 @@ Asks for a fingerprint (or face) and goes on only when it matches. Cancelling is
 |---|---|---|---|
 | `title` | text | `"Potvrď, že jsi to ty"` | Text of the fingerprint window |
 | `pin` | true/false | `false` | Also allow the phone's PIN / pattern |
+
+#### `bio_forget` – Delete fingerprint lock / Smazat zámek otisku
+
+Deletes the key of the lock (by its name) from the phone. Values locked by it can never be unlocked again – delete their stored text too. The output is true when the lock existed, otherwise false.
+
+- Signature: `bio_forget(name)`
+- Output: Lock deleted (e.g. `lock_deleted = …`)
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `name` | text (plain) | `"hlavni"` | Lock name |
 
 ### Other
 
@@ -2973,6 +2985,7 @@ page_call = html_window("<!doctype html>\n<html><head>\n<meta name=\"viewport\" 
         return "ok"
     else if value_from_json2 == "forget"
         store_set({mode: "remove", key: "zapisnik_otisk", scope: "own"})
+        bio_forget("zapisnik")
         return "ok"
     end
 end

@@ -6,6 +6,7 @@ import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Fingerprint
+import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.VerifiedUser
 import cz.natsu.automation.data.VarRef
@@ -60,12 +61,20 @@ object BiometricLock {
         }
     }
 
+    /** Deletes the key of lock [name]; returns whether there was one. Values locked by it can never be unlocked again. */
+    fun forget(name: String): Boolean {
+        val store = keyStore()
+        if (!store.containsAlias(alias(name))) return false
+        store.deleteEntry(alias(name))
+        return true
+    }
+
     /** A cipher for locking (iv = null) or unlocking; it works only after the finger. */
     fun cipher(name: String, iv: ByteArray?): Cipher {
         val store = keyStore()
         val key = store.getKey(alias(name), null) as? SecretKey
             ?: if (iv == null) create(name)
-            else throw BlockException(tr("zámek \"%s\" v telefonu není (smazaná data aplikace?) – zamkni hodnotu znovu", name))
+            else throw BlockException(tr("zámek \"%s\" v telefonu není (smazaný, nebo s daty aplikace) – zamkni hodnotu znovu", name))
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         try {
             if (iv == null) cipher.init(Cipher.ENCRYPT_MODE, key) else cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, iv))
@@ -106,6 +115,7 @@ object BiometricBlocks {
     const val LOCK = "bio_lock"
     const val UNLOCK = "bio_unlock"
     const val VERIFY = "bio_verify"
+    const val FORGET = "bio_forget"
 
     private fun titleParam(default: String) =
         ParamDef.Text("title", "Text v okně otisku", default = default).apply { hiddenInSummaryWhen = { true } }
@@ -182,6 +192,22 @@ object BiometricBlocks {
             val ui = ui ?: throw BlockException(tr("otisk prstu jde ověřit jen v okně"))
             BiometricLock.unlocked(ui.authenticate(text(block, "title"), "", null, bool(block, "pin")))
             BlockResult.None
+        },
+
+        BlockDef(
+            type = FORGET,
+            summary = "Smazat zámek otisku {name}",
+            title = "Smazat zámek otisku",
+            description = "Smaže z telefonu klíč zámku (podle názvu). Hodnoty jím zamčené už pak nepůjdou odemknout " +
+                    "nikdy – smaž i jejich uložený text. Výstup je true, když zámek byl, jinak false.",
+            category = BlockCategory.Security,
+            icon = Icons.Rounded.DeleteForever,
+            params = listOf(
+                ParamDef.Text("name", "Název zámku", default = "hlavni", plain = true),
+            ),
+            outputName = "Zámek byl smazán",
+        ) { block ->
+            BlockResult.Output(BiometricLock.forget(BiometricLock.checkName(text(block, "name"))).toString())
         },
     )
 }
