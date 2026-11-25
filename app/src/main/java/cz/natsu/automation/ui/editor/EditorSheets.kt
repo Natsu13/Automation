@@ -18,6 +18,8 @@ import kotlinx.coroutines.launch
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -101,7 +103,7 @@ import cz.natsu.automation.ui.common.hue
  * scroll instead of picking the item. The sheet can still be closed by
  * dragging its handle / header, tapping outside or pressing back.
  */
-private val KeepScrollInList = object : NestedScrollConnection {
+internal val KeepScrollInList = object : NestedScrollConnection {
     override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset = available
     override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity = available
 }
@@ -143,7 +145,7 @@ fun BlockLibrarySheet(onPick: (BlockDef) -> Unit, onDismiss: () -> Unit) {
                 items(visible, key = { it.type }) { def ->
                     ListItem(
                         headlineContent = { Text(tr(def.title)) },
-                        supportingContent = { Text(tr(def.description), maxLines = 2) },
+                        supportingContent = { Text(tr(def.description)) },
                         leadingContent = { IconBadge(def.icon, def.category.hue.accent()) },
                         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                         modifier = Modifier.clickable { onPick(def) }
@@ -211,7 +213,7 @@ fun VariablePickerSheet(
                 modifier = Modifier.height(56.dp),
             ) { Text(tr("Vložit")) }
         }
-        LazyColumn {
+        LazyColumn(Modifier.nestedScroll(KeepScrollInList)) {
             items(options) { option ->
                 val style = chipStyle(option.ref)
                 ListItem(
@@ -245,6 +247,7 @@ fun AutomationSettingsSheet(
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(
             Modifier
+                .nestedScroll(KeepScrollInList)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
                 .navigationBarsPadding()
@@ -487,12 +490,13 @@ fun RunSheet(
     val result = viewModel.lastResult
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(
-            Modifier
-                .padding(horizontal = 16.dp)
-                .navigationBarsPadding()
-                .padding(bottom = 16.dp)
+        // A list, so a long run log scrolls (it can have thousands of steps) instead of being cut off.
+        LazyColumn(
+            Modifier.nestedScroll(KeepScrollInList),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
         ) {
+          item(key = "top") {
+           Column {
             Text(tr("Vyzkoušet"), style = MaterialTheme.typography.titleLarge)
             if (needsInput) {
                 Spacer(Modifier.height(12.dp))
@@ -527,7 +531,6 @@ fun RunSheet(
             if (viewModel.running) {
                 LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp))
             }
-
             if (result != null) {
                 Spacer(Modifier.height(16.dp))
                 ResultCard(result, onGrantRequirement)
@@ -535,7 +538,12 @@ fun RunSheet(
                     Spacer(Modifier.height(12.dp))
                     Text(tr("Průběh"), style = MaterialTheme.typography.titleSmall)
                     Spacer(Modifier.height(4.dp))
-                    for ((index, entry) in result.log.withIndex()) {
+                }
+            }
+           }
+          }
+          if (result != null) {
+            itemsIndexed(result.log) { index, entry ->
                         Row(Modifier.padding(vertical = 3.dp)) {
                             Text(
                                 "${index + 1}.",
@@ -556,9 +564,9 @@ fun RunSheet(
                                 }
                             }
                         }
-                    }
-                }
             }
+          }
+          item(key = "bottom") { Spacer(Modifier.navigationBarsPadding()) }
         }
     }
 }

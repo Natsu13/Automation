@@ -1,5 +1,6 @@
 package cz.natsu.automation.ui.editor
 
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import cz.natsu.automation.i18n.tr
 
 import android.Manifest
@@ -517,7 +518,7 @@ private fun EventPickerSheet(onPick: (EventType) -> Unit, onDismiss: () -> Unit)
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
-        LazyColumn {
+        LazyColumn(Modifier.nestedScroll(KeepScrollInList)) {
             for (group in EventGroup.entries) {
                 val types = EventType.entries.filter { it.group == group }
                 item(key = group.name) {

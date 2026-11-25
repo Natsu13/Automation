@@ -1,5 +1,6 @@
 package cz.natsu.automation.ui.editor
 
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.compose.foundation.clickable
@@ -186,7 +187,7 @@ private fun ComponentPickerSheet(app: String, onPick: (String, String) -> Unit, 
             )
         } else {
             val shown = list.filter { query.isBlank() || it.className.contains(query, true) || it.label.contains(query, true) }
-            LazyColumn {
+            LazyColumn(Modifier.nestedScroll(KeepScrollInList)) {
                 for ((target, title) in listOf("activity" to tr("Obrazovky"), "service" to tr("Služby"), "broadcast" to tr("Přijímače zpráv"))) {
                     val group = shown.filter { it.target == target }
                     if (group.isEmpty()) continue
@@ -253,7 +254,7 @@ private fun AppPickerSheet(onPick: (label: String, packageName: String) -> Unit,
             val shown = list.filter {
                 query.isBlank() || it.label.contains(query, true) || it.packageName.contains(query, true)
             }
-            LazyColumn {
+            LazyColumn(Modifier.nestedScroll(KeepScrollInList)) {
                 items(shown, key = { it.packageName }) { app ->
                     ListItem(
                         headlineContent = { Text(app.label) },
