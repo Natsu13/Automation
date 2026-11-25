@@ -150,6 +150,7 @@ Like `if` … `end`, with the steps inside indented by 4 spaces. A Script block 
 | `parallel` … `branch` … `end` | **In parallel** / **Meanwhile** – branches run at the same time |
 | `lock` / `lock("name")` … `end` | **One at a time** – one round at a time |
 | `time_limit(10)` … `end` | **Time limit** – must finish in 10 s |
+| `call = html_window(html, title, internet, secure, display, bar)` … `end` | **HTML window** – the steps inside answer every `automation.call(action, data)` of the page; `call` is `{action, data}`, `return x` answers it |
 
 ```
 error = try(3, 2)
@@ -257,6 +258,9 @@ Groups of steps (like the Try, Parallel… blocks)
 • error = try(attempts, pause, double) … catch … end
 • parallel … branch … end – in a script the branches run one by one
 • lock("name") … end, time_limit(10) … end
+• call = html_window(html, title) … end – HTML window: the body
+  answers every call of the page (call.action, call.data), its
+  return goes to the page; after closing, call is the closing value
 Show as script writes the whole automation like that.
 
 Functions – images
@@ -558,13 +562,15 @@ Reads the current clipboard content.
 
 #### `set_clipboard` – Set clipboard / Nastavit schránku
 
-Writes a text to the clipboard.
+Puts text on the clipboard. Mark a password as sensitive (Android shows no preview of it) and have it cleared after a while.
 
-- Signature: `set_clipboard(text)`
+- Signature: `set_clipboard(text, sensitive, clear_after)`
 
 | Parameter | Kind | Default | Values / notes |
 |---|---|---|---|
 | `text` | text | `input` | Text |
+| `sensitive` | true/false | `false` | Sensitive (a password) – no preview |
+| `clear_after` | number | `0` | Clear from the clipboard after (0 = never) · 0–600 s |
 
 ### Sharing and web
 
@@ -983,7 +989,7 @@ block, send a product number to an API…
 
 Shows a dialog with a text field. Cancelling the dialog ends the action.
 
-- Signature: `ask_text(title, initial, multiline)`
+- Signature: `ask_text(title, initial, multiline, hidden)`
 - Output: Entered text (e.g. `entered_text = …`)
 - Shows something on screen
 
@@ -991,7 +997,8 @@ Shows a dialog with a text field. Cancelling the dialog ends the action.
 |---|---|---|---|
 | `title` | text | `"Zadej text"` | Question |
 | `initial` | text | `""` | Prefilled · e.g. nothing |
-| `multiline` | true/false | `false` | Multiple lines |
+| `multiline` | true/false | `false` | Multiple lines · *only when `hidden` is false* |
+| `hidden` | true/false | `false` | Hide what is typed (a password) |
 
 #### `choose` – Choose from a list / Vybrat z nabídky
 
@@ -1049,7 +1056,7 @@ Shows images from addresses (a JSON array or one per line), picked or downloaded
 
 Opens a web page in a window right in the app and waits until you close it. The output is the address you ended on – handy after a sign-in that redirects you. The script runs in every loaded page; when it calls done(value), the window closes and that value is the output.
 
-- Signature: `show_web(url, title, script)`
+- Signature: `show_web(url, title, script, display)`
 - Output: Result or address (e.g. `result_or_address = …`)
 - Shows something on screen
 
@@ -1058,6 +1065,7 @@ Opens a web page in a window right in the app and waits until you close it. The 
 | `url` | text | `input` | Page address · e.g. https://… |
 | `title` | text | `""` | Title · e.g. optional |
 | `script` | code | `""` | JavaScript after the page loads · e.g. if (location.pathname == '/hotovo') done(document.title) |
+| `display` | choice | `"full"` | Display · `"full"` Over the whole screen, `"sheet"` From the bottom, half way (can be pulled up) |
 
 #### `home_card` – Home screen card / Karta na úvodu
 
@@ -1192,6 +1200,75 @@ Opens speech recognition and returns what you said. Handy instead of typing: dic
 |---|---|---|---|
 | `prompt` | text | `""` | Prompt · e.g. what to say (optional) |
 | `language` | text (plain) | `""` | Language · e.g. the phone's (cs, en, de…) |
+
+#### `html_window` – HTML window / Okno s HTML
+
+Shows your own page (HTML, CSS, JavaScript). The page calls automation.call("action", data) and the steps inside the block answer it: the block's value is {action, data}, the answer is the result of the last step or Return result. An error in the steps rejects the call. automation.close(value) closes the window.
+
+- Signature: `html_window(html, title, internet, secure, display, bar)`
+- Output: Page call (e.g. `page_call = …`)
+- Group: see *Groups of steps*
+- Shows something on screen
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `html` | code | `""` | HTML of the page · e.g. <button onclick="automation.call('hello')">Hello</button> |
+| `title` | text | `""` | Title · e.g. optional |
+| `internet` | true/false | `false` | Allow the internet |
+| `secure` | true/false | `false` | No screenshots |
+| `display` | choice | `"full"` | Display · `"full"` Over the whole screen, `"sheet"` From the bottom, half way (can be pulled up) |
+| `bar` | true/false | `false` | Always show the bar with Close (also without a title) |
+
+<details><summary>Help</summary>
+
+```text
+Your own page in a window of the app – HTML, CSS and JavaScript
+in the HTML field (or from a variable, e.g. from Read file).
+
+Page → automation
+• automation.call("action", data) returns a Promise of the answer
+• the steps inside the block run for every call, one at a time
+• the block's value is {"action": "action", "data": …} – take it
+  apart with Value from JSON (path action, data.id…)
+• the answer is the result of the last step, or Return result
+  (inside the window it only answers the page, the run goes on)
+• an error in the steps rejects the call: catch (e) → e.message
+• an answer that is JSON comes to the page as an object
+
+Automation → page
+• the Send to window block → automation.on("event", data => …)
+
+Closing
+• automation.close(value) – the value is the block's output then
+• the Close button or Back – the output is empty
+• the bar with Close is there with a title, or always with the switch
+
+Display
+• Over the whole screen, or From the bottom, half way
+• from the bottom: drag the handle at the top up for the whole
+  screen, down to close it; a tap switches the size
+
+Safety
+• the page cannot see the phone's files; internet only when allowed
+• links open in the browser
+• No screenshots – the window cannot be captured or recorded
+• alert(), confirm() and prompt() work
+
+Example: the Secure notebook example.
+```
+
+</details>
+
+#### `html_send` – Send to window / Poslat do okna
+
+Sends a message to the open HTML window without the page asking – the page gets it in automation.on("event", data => …). Good for progress, alerts or locking after a while.
+
+- Signature: `html_send(event, data)`
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `event` | text (plain) | `"zprava"` | Event |
+| `data` | text | `input` | Data |
 
 ### Variables
 
@@ -1652,6 +1729,9 @@ Groups of steps (like the Try, Parallel… blocks)
 • error = try(attempts, pause, double) … catch … end
 • parallel … branch … end – in a script the branches run one by one
 • lock("name") … end, time_limit(10) … end
+• call = html_window(html, title) … end – HTML window: the body
+  answers every call of the page (call.action, call.data), its
+  return goes to the page; after closing, call is the closing value
 Show as script writes the whole automation like that.
 
 Functions – images
@@ -2120,6 +2200,139 @@ Examples
 ```
 
 </details>
+
+### Security
+
+#### `derive_key` – Key from a password / Klíč z hesla
+
+Makes a key for Encrypt and Decrypt from a password. It is slow on purpose (against guessing), so make the key once and encrypt everything with it. Salt: empty = a new one; or give an earlier encrypted text and the password makes the same key as then.
+
+- Signature: `derive_key(password, salt, rounds)`
+- Output: Key (e.g. `key = …`)
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `password` | text | `""` | Password |
+| `salt` | text | `""` | Salt or an encrypted text · e.g. empty = a new salt |
+| `rounds` | number | `200000` | Rounds (strength) · 10000–2000000 |
+
+<details><summary>Help</summary>
+
+```text
+A password is never used directly – a key is made from it (PBKDF2,
+SHA-256). It is slow on purpose, so guessing passwords takes ages.
+
+The salt is a random piece mixed into the password:
+• empty – a new salt (the first encryption)
+• an earlier encrypted text (enc1:…) – its salt is used, so the
+  same password makes the same key as then
+
+Checking the password
+1. the first time, encrypt "ok" and keep it (the check)
+2. next time: Key from a password with the salt of the check
+3. Try { Decrypt the check } – an error = a wrong password
+
+The key (key1:…) is not shown in the run log. Do not store it
+unlocked – to remember it, use Lock with fingerprint.
+```
+
+</details>
+
+#### `encrypt` – Encrypt / Zašifrovat
+
+Encrypts a text with a key from Key from a password (or straight with the password – slower). The result is an enc1:… text to save into a file or send on.
+
+- Signature: `encrypt(text, key)`
+- Output: Encrypted text (e.g. `encrypted_text = …`)
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `text` | text | `input` | Text |
+| `key` | text | `""` | Key or password |
+
+#### `decrypt` – Decrypt / Dešifrovat
+
+Returns the original text of an encrypted one (enc1:…). With a wrong password or key it ends with an error – a Try block around it tells whether the password is right.
+
+- Signature: `decrypt(text, key)`
+- Output: Decrypted text (e.g. `decrypted_text = …`)
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `text` | text | `input` | Encrypted text |
+| `key` | text | `""` | Key or password |
+
+#### `random_password` – Random password / Náhodné heslo
+
+Makes up a strong random password. Characters that look alike (l, I, O, 0, 1) are left out.
+
+- Signature: `random_password(length, lower, upper, digits, symbols)`
+- Output: Password (e.g. `password = …`)
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `length` | number | `20` | Length · 4–128 characters |
+| `lower` | true/false | `true` | Lowercase letters |
+| `upper` | true/false | `true` | Uppercase letters |
+| `digits` | true/false | `true` | Digits |
+| `symbols` | true/false | `true` | Symbols |
+
+#### `bio_lock` – Lock with fingerprint / Zamknout otiskem prstu
+
+Locks a value with a key that exists only in this phone and only your fingerprint opens. Keep the result (bio1:…) with Store value – next time Unlock with fingerprint gives it back. Good for a key from a password, so you need not type the password every time.
+
+- Signature: `bio_lock(text, name, title)`
+- Output: Locked value (e.g. `locked_value = …`)
+- Shows something on screen
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `text` | text | `input` | Value |
+| `name` | text (plain) | `"hlavni"` | Lock name |
+| `title` | text | `"Zamknout otiskem prstu"` | Text of the fingerprint window |
+
+<details><summary>Help</summary>
+
+```text
+Locks a value with a key in the phone's secure chip. The phone
+never gives the key out and uses it only after your finger.
+
+Typically: after the password is typed, lock the Key from a
+password and keep the result with Store value. Next time:
+Try { Unlock with fingerprint } On failure { ask for the password }
+
+• a locked value (bio1:…) cannot be unlocked on another phone
+• after a new fingerprint is added in the phone's settings it stops
+  working (an Android rule) – lock it again then
+• the lock name keeps keys of different automations apart
+```
+
+</details>
+
+#### `bio_unlock` – Unlock with fingerprint / Odemknout otiskem prstu
+
+After a finger on the sensor it returns the value locked by Lock with fingerprint. Cancelling or changed fingerprints on the phone are an error – with a Try block around it you can ask for the password instead.
+
+- Signature: `bio_unlock(text, title)`
+- Output: Unlocked value (e.g. `unlocked_value = …`)
+- Shows something on screen
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `text` | text | `input` | Locked value |
+| `title` | text | `"Odemknout otiskem prstu"` | Text of the fingerprint window |
+
+#### `bio_verify` – Verify with fingerprint / Ověřit otiskem prstu
+
+Asks for a fingerprint (or face) and goes on only when it matches. Cancelling is an error that Try catches. For example before an automation opens a door or sends money.
+
+- Signature: `bio_verify(title, pin)`
+- Shows something on screen
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `title` | text | `"Potvrď, že jsi to ty"` | Text of the fingerprint window |
+| `pin` | true/false | `false` | Also allow the phone's PIN / pattern |
 
 ### Other
 
@@ -2629,6 +2842,140 @@ script_result = script
 end
 show_images("Three ways to show progress", script_result)
 notification({title: "Free space", text: "Space left on the phone: " & storage_result & " %.", quiet: true, image: bar, small_icon: "app", name: "kresleni_obrazku", countdown: "", tap_action: "none", b1_action: "none"})
+```
+
+### Secure notebook
+
+HTML window + encryption: passwords and notes in a JSON file, the title, category and content encrypted with a password. The first time it asks where to keep the file and offers unlocking with a fingerprint.
+
+```
+# @name "Secure notebook"
+# @icon lock
+# The notebook file: the first time it asks where to keep it
+stored_value = store_get("zapisnik_soubor", "", "own")
+soubor = stored_value
+if soubor == ""
+    file_to_write_to = pick_save_file("json", "zapisnik")
+    soubor = file_to_write_to
+    store_set("set", "zapisnik_soubor", soubor, "own")
+end
+file_content = read_file(soubor, "text")
+db = file_content
+if file_content == ""
+    db = "{\"v\": 1, \"check\": \"\", \"items\": []}"
+end
+value_from_json = json_get(db, "check", "value")
+# Unlock: with a fingerprint, otherwise with the password
+klic = ""
+stored_value2 = store_get("zapisnik_otisk", "", "own")
+if stored_value2 != ""
+    try
+        unlocked_value = bio_unlock(stored_value2, "Unlock the notebook")
+        klic = unlocked_value
+    end
+end
+if klic == ""
+    entered_text = ask_text({title: "Notebook password", initial: "", hidden: true})
+    key = derive_key(entered_text, value_from_json)
+    if value_from_json == ""
+        encrypted_text = encrypt("ok", key)
+        edited_json = json_set(db, "set", "check", encrypted_text)
+        db = edited_json
+        write_file(soubor, db, "overwrite")
+    else
+        try
+            decrypt(value_from_json, key)
+        catch
+            fail("Wrong password")
+        end
+    end
+    klic = key
+    if stored_value2 == ""
+        chosen_item = choose("Unlock with a fingerprint next time?", "Yes\nNo")
+        if chosen_item == "Yes"
+            error3 = try
+                locked_value = bio_lock(klic, "zapisnik", "Remember with fingerprint")
+                store_set("set", "zapisnik_otisk", locked_value, "own")
+            catch
+                toast(error3)
+            end
+        end
+    end
+end
+# The window: the page calls the actions list, show, save, delete, password, copy, forget
+page_call = html_window("<!doctype html>\n<html><head>\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<style>\n:root { --bg:#fdfbff; --fg:#1b1b1f; --muted:#6b6b76; --card:#f1eff7; --accent:#5b4bd6; --on-accent:#fff; --danger:#c62828; --line:#e3e1ea; }\n@media (prefers-color-scheme: dark) {\n  :root { --bg:#1b1b1f; --fg:#ececf1; --muted:#a3a3ad; --card:#2a2a31; --accent:#b5a8ff; --on-accent:#1b1b1f; --danger:#ff8a80; --line:#3a3a42; }\n}\n* { box-sizing: border-box; }\nbody { margin: 0; font: 15px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--fg); }\nheader { position: sticky; top: 0; background: var(--bg); padding: 12px 14px 6px; border-bottom: 1px solid var(--line); z-index: 1; }\n.row { display: flex; gap: 8px; align-items: center; }\ninput, textarea, select { font: inherit; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; width: 100%; }\ntextarea { min-height: 140px; resize: vertical; font-family: ui-monospace, monospace; }\nbutton { font: inherit; border: 0; border-radius: 20px; padding: 9px 14px; background: var(--card); color: var(--fg); white-space: nowrap; }\nbutton.primary { background: var(--accent); color: var(--on-accent); }\nbutton.danger { color: var(--danger); }\n.chips { display: flex; gap: 6px; overflow-x: auto; padding: 8px 0 4px; }\n.chip { padding: 5px 12px; border-radius: 16px; border: 1px solid var(--line); background: none; font-size: 13px; }\n.chip.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }\nmain { padding: 8px 14px 40px; }\n.item { background: var(--card); border-radius: 16px; padding: 12px 14px; margin: 8px 0; }\n.item .name { font-weight: 600; }\n.meta { color: var(--muted); font-size: 12px; }\n.secret { margin: 10px 0; padding: 10px; border-radius: 10px; background: var(--bg); white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, monospace; }\n.actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }\n.empty { color: var(--muted); text-align: center; margin-top: 48px; }\nform { display: grid; gap: 10px; }\n#toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 16px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }\n#toast.on { opacity: .92; }\n.hidden { display: none !important; }\n</style>\n</head><body>\n<header>\n  <div class=\"row\">\n    <input id=\"q\" type=\"search\" autocomplete=\"off\">\n    <button id=\"add\" class=\"primary\"></button>\n    <button id=\"lock\" title=\"\">🔒</button>\n  </div>\n  <div id=\"cats\" class=\"chips\"></div>\n</header>\n<main id=\"list\"></main>\n<main id=\"editor\" class=\"hidden\">\n  <form id=\"form\">\n    <input id=\"f-title\" autocomplete=\"off\">\n    <input id=\"f-category\" list=\"cat-list\" autocomplete=\"off\">\n    <datalist id=\"cat-list\"></datalist>\n    <textarea id=\"f-body\" autocomplete=\"off\" spellcheck=\"false\"></textarea>\n    <div class=\"actions\">\n      <button type=\"button\" id=\"gen\"></button>\n      <span style=\"flex:1\"></span>\n      <button type=\"button\" id=\"back\"></button>\n      <button type=\"submit\" class=\"primary\" id=\"save\"></button>\n    </div>\n  </form>\n  <div class=\"actions\" style=\"margin-top:24px\"><button type=\"button\" id=\"forget\" class=\"danger\"></button></div>\n</main>\n<div id=\"toast\"></div>\n<script>\nconst T = {\"search\":\"Search\",\"new\":\"New\",\"all\":\"All\",\"empty\":\"Nothing here yet – add the first entry.\",\"title\":\"Name\",\"category\":\"Category\",\"body\":\"Content (password, note…)\",\"save\":\"Save\",\"cancel\":\"Cancel\",\"show\":\"Show\",\"hide\":\"Hide\",\"copy\":\"Copy\",\"copied\":\"Copied, cleared in 30 s\",\"edit\":\"Edit\",\"delete\":\"Delete\",\"confirmDelete\":\"Really delete this entry?\",\"generate\":\"Generate password\",\"lock\":\"Lock\",\"forget\":\"Forget fingerprint\",\"forgotten\":\"Next time it asks for the password\",\"noTitle\":\"Untitled\",\"changed\":\"Changed\",\"needTitle\":\"Fill in a title\"};\nconst $ = (id) => document.getElementById(id);\nlet items = [], category = '', editing = null;\n\nfunction toast(text) {\n  const t = $('toast');\n  t.textContent = text;\n  t.classList.add('on');\n  clearTimeout(toast.timer);\n  toast.timer = setTimeout(() => t.classList.remove('on'), 2200);\n}\nfunction fail(e) { toast(e && e.message ? e.message : String(e)); }\nfunction el(tag, props, ...kids) {\n  const node = Object.assign(document.createElement(tag), props || {});\n  kids.forEach((k) => node.append(k));\n  return node;\n}\n\nasync function load() {\n  items = await automation.call('list');\n  if (!Array.isArray(items)) items = [];\n  render();\n}\n\nfunction render() {\n  const cats = [...new Set(items.map((i) => i.category).filter(Boolean))].sort();\n  if (category && !cats.includes(category)) category = '';\n  $('cats').replaceChildren(...['', ...cats].map((c) =>\n    el('button', { className: 'chip' + (c === category ? ' on' : ''), textContent: c || T.all, onclick: () => { category = c; render(); } })));\n  $('cat-list').replaceChildren(...cats.map((c) => el('option', { value: c })));\n  const q = $('q').value.trim().toLowerCase();\n  const shown = items\n    .filter((i) => !category || i.category === category)\n    .filter((i) => !q || (i.title + ' ' + i.category).toLowerCase().includes(q))\n    .sort((a, b) => String(a.title).localeCompare(String(b.title)));\n  const list = $('list');\n  if (!shown.length) { list.replaceChildren(el('p', { className: 'empty', textContent: T.empty })); return; }\n  list.replaceChildren(...shown.map(card));\n}\n\nfunction card(item) {\n  const secret = el('div', { className: 'secret hidden' });\n  let text = null;\n  const show = el('button', { textContent: T.show });\n  show.onclick = async () => {\n    if (text === null) {\n      try { text = String(await automation.call('show', { id: item.id })); } catch (e) { return fail(e); }\n      secret.textContent = text;\n    }\n    const hidden = secret.classList.toggle('hidden');\n    show.textContent = hidden ? T.show : T.hide;\n  };\n  const copy = el('button', { textContent: T.copy, onclick: async () => {\n    try {\n      if (text === null) text = String(await automation.call('show', { id: item.id }));\n      await automation.call('copy', { text });\n      toast(T.copied);\n    } catch (e) { fail(e); }\n  } });\n  const edit = el('button', { textContent: T.edit, onclick: async () => {\n    try { openEditor(item, String(await automation.call('show', { id: item.id }))); } catch (e) { fail(e); }\n  } });\n  const del = el('button', { className: 'danger', textContent: T.delete, onclick: async () => {\n    if (!confirm(T.confirmDelete)) return;\n    try { await automation.call('delete', { id: item.id }); await load(); } catch (e) { fail(e); }\n  } });\n  return el('div', { className: 'item' },\n    el('div', { className: 'name', textContent: item.title || T.noTitle }),\n    el('div', { className: 'meta', textContent: [item.category, item.updated && (T.changed + ' ' + item.updated)].filter(Boolean).join(' · ') }),\n    secret,\n    el('div', { className: 'actions' }, show, copy, edit, del));\n}\n\nfunction openEditor(item, body) {\n  editing = item ? item.id : '';\n  $('f-title').value = item ? item.title : '';\n  $('f-category').value = item ? item.category : category;\n  $('f-body').value = body || '';\n  $('list').classList.add('hidden');\n  document.querySelector('header').classList.add('hidden');\n  $('editor').classList.remove('hidden');\n  $('f-title').focus();\n}\nfunction closeEditor() {\n  editing = null;\n  $('f-body').value = '';\n  $('editor').classList.add('hidden');\n  $('list').classList.remove('hidden');\n  document.querySelector('header').classList.remove('hidden');\n}\n\n$('q').placeholder = T.search;\n$('add').textContent = '+ ' + T.new;\n$('lock').title = T.lock;\n$('f-title').placeholder = T.title;\n$('f-category').placeholder = T.category;\n$('f-body').placeholder = T.body;\n$('gen').textContent = T.generate;\n$('back').textContent = T.cancel;\n$('save').textContent = T.save;\n$('forget').textContent = T.forget;\n\n$('q').oninput = render;\n$('add').onclick = () => openEditor(null, '');\n$('back').onclick = closeEditor;\n$('lock').onclick = () => automation.close('locked');\n$('gen').onclick = async () => {\n  try {\n    const password = String(await automation.call('password'));\n    const body = $('f-body');\n    body.value = body.value ? body.value.replace(/\\s*$/, '\\n') + password : password;\n  } catch (e) { fail(e); }\n};\n$('forget').onclick = async () => {\n  try { await automation.call('forget'); toast(T.forgotten); } catch (e) { fail(e); }\n};\n$('form').onsubmit = async (event) => {\n  event.preventDefault();\n  const title = $('f-title').value.trim();\n  if (!title) return toast(T.needTitle);\n  try {\n    await automation.call('save', { id: editing || '', title, category: $('f-category').value.trim(), body: $('f-body').value });\n    closeEditor();\n    await load();\n  } catch (e) { fail(e); }\n};\n\n// Locks itself after 5 minutes without a touch.\nlet idle;\nfunction awake() { clearTimeout(idle); idle = setTimeout(() => automation.close('locked'), 5 * 60 * 1000); }\n['pointerdown', 'keydown', 'input'].forEach((e) => document.addEventListener(e, awake, true));\nawake();\n\nload().catch(fail);\n</script>\n</body></html>", "", false, true, "full")
+    value_from_json2 = json_get(page_call, "action", "value")
+    if value_from_json2 == "list"
+        script_result = script
+            vypis = []
+            for zaznam in json(db).items
+                vypis = push(vypis, {id: zaznam.id, title: decrypt(zaznam.title, klic), category: decrypt(zaznam.category, klic), updated: zaznam.updated})
+            end
+            return vypis
+        end
+        return script_result
+    else if value_from_json2 == "show"
+        script_result2 = script
+            hledane = json(page_call).data.id
+            for zaznam in json(db).items
+                if zaznam.id == hledane
+                    return decrypt(zaznam.body, klic)
+                end
+            end
+            return ""
+        end
+        return script_result2
+    else if value_from_json2 == "save"
+        script_result3 = script
+            udaje = json(page_call).data
+            novy = {id: udaje.id, title: encrypt(udaje.title, klic), category: encrypt(udaje.category, klic), body: encrypt(udaje.body, klic), updated: date()}
+            vse = json(db)
+            if udaje.id == ""
+                novy.id = str(now())
+                vse.items = push(vse.items, novy)
+            else
+                upravene = []
+                for zaznam in vse.items
+                    if zaznam.id == udaje.id
+                        upravene = push(upravene, novy)
+                    else
+                        upravene = push(upravene, zaznam)
+                    end
+                end
+                vse.items = upravene
+            end
+            db = tojson(vse)
+            return novy.id
+        end
+        write_file(soubor, db, "overwrite")
+        return script_result3
+    else if value_from_json2 == "delete"
+        script
+            mazane = json(page_call).data.id
+            vse = json(db)
+            zbyle = []
+            for zaznam in vse.items
+                if zaznam.id != mazane
+                    zbyle = push(zbyle, zaznam)
+                end
+            end
+            vse.items = zbyle
+            db = tojson(vse)
+        end
+        write_file(soubor, db, "overwrite")
+        return "ok"
+    else if value_from_json2 == "password"
+        password = random_password()
+        return password
+    else if value_from_json2 == "copy"
+        value_from_json3 = json_get(page_call, "data.text", "value")
+        set_clipboard(value_from_json3, true, 30)
+        return "ok"
+    else if value_from_json2 == "forget"
+        store_set({mode: "remove", key: "zapisnik_otisk", scope: "own"})
+        return "ok"
+    end
+end
 ```
 
 ### Wait for Wi-Fi

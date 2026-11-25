@@ -18,12 +18,13 @@
     "break", "ukonci", "continue", "pokracuj", "and", "or", "not", "nebo", "zaroven", "true", "false",
     "null", "nic", "ano", "input", "vstup", "clipboard", "trigger", "text", "date", "count", "list", "type",
     "script", "skript", "try", "zkus", "catch", "kdyz_selze", "parallel", "soubezne", "branch", "vetev",
-    "lock", "postupne", "time_limit", "limit",
+    "lock", "postupne", "time_limit", "limit", "html_window",
   ]);
   // Words of the groups of steps, as Script.kt has them.
   const GROUP = {
     script: ["script", "skript"], try: ["try", "zkus"], catch: ["catch", "kdyz_selze"], parallel: ["parallel", "soubezne"],
     parallel_branch: ["branch", "vetev"], lock: ["lock", "postupne"], time_limit: ["time_limit", "limit"],
+    html_window: ["html_window"],
   };
   const OPPOSITE = {
     equals: "not_equals", not_equals: "equals", contains: "not_contains", not_contains: "contains",
@@ -225,7 +226,9 @@
         case "parallel_branch": return "branch";
         case "lock": { const n = (plain(block.params.name) ?? "").trim(); return n ? `lock(${quote(n)})` : "lock"; }
         case "time_limit": return `time_limit(${expr(block, def, "seconds")})`;
-        case "end_try": case "end_parallel": case "end_lock": case "end_time_limit": return "end";
+        // Positional: html, title, internet, secure (the switches only when on).
+        case "html_window": return assign(block, call(block, def));
+        case "end_try": case "end_parallel": case "end_lock": case "end_time_limit": case "end_html_window": return "end";
         case "text": return assign(block, expr(block, def, "text"));
         case "math": return assign(block, choice(block, def, "mode") === "expert"
           ? `calc(${expr(block, def, "expression")})`
@@ -554,7 +557,8 @@
       if (w === "end" && tokens.length === 1) {
         if (disabled || !top) return false;
         const endType = { if: "end_if", switch: "end_switch", while: "end_while", for_each: "end_while", repeat: "end_while",
-          try: "end_try", parallel: "end_parallel", lock: "end_lock", time_limit: "end_time_limit" }[top.type];
+          try: "end_try", parallel: "end_parallel", lock: "end_lock", time_limit: "end_time_limit",
+          html_window: "end_html_window" }[top.type];
         if (!endType) return false;
         emit(endType);
         return true;
@@ -714,7 +718,7 @@
         const inner = rest.slice(2, -1);
         args = inner.length ? splitTop(inner, (tk) => tk.v === ",") : [];
       }
-      if (target && type !== "script" && type !== "try") return false;
+      if (target && type !== "script" && type !== "try" && type !== "html_window") return false;
       const d = def(type);
       const values = (keys) => {
         if (args.length > keys.length) return null;
@@ -730,6 +734,7 @@
       if (["script", "catch", "parallel", "parallel_branch"].includes(type)) { if (args.length) return false; params = {}; }
       else if (type === "try") params = values(["attempts", "delay", "backoff"]);
       else if (type === "lock") params = values(["name"]);
+      else if (type === "html_window") { params = values(["html", "title", "internet", "secure", "display", "bar"]); if (params && !Object.keys(params).length) params = null; }
       else { params = values(["seconds"]); if (params && !Object.keys(params).length) params = null; }
       if (!params) return false;
       if (disabled && (type === "catch" || type === "parallel_branch")) return false;
@@ -871,7 +876,7 @@
   // ---------- highlighting ----------
   const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const KEYWORDS = new Set(["if", "else", "end", "while", "for", "in", "return", "break", "continue", "and", "or", "not",
-    "script", "try", "catch", "parallel", "branch", "lock", "time_limit"]);
+    "script", "try", "catch", "parallel", "branch", "lock", "time_limit", "html_window"]);
   function highlight(text) {
     let out = "";
     const re = /("(?:\\.|[^"\\\n])*"?|'(?:\\.|[^'\\\n])*'?|#[^\n]*|\b\d+(?:\.\d+)?\b|[\p{L}_][\p{L}\p{N}_]*|[^"'#\p{L}_\d]+|.)/gu;

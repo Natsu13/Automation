@@ -198,6 +198,74 @@ object BlockHelp {
             se, uložit), zavři je do bloku Jeden po druhém.
         """.trimIndent(),
 
+        "html_window" to """
+            Tvoje vlastní stránka v okně aplikace – HTML, CSS i JavaScript
+            v poli HTML stránky (nebo z proměnné, třeba z Přečíst soubor).
+
+            Stránka → automatizace
+            • automation.call("akce", data) vrátí Promise s odpovědí
+            • kroky uvnitř bloku se pustí pro každé volání, jedno po druhém
+            • hodnota bloku je {"action": "akce", "data": …} – vezmi ji
+              blokem Hodnota z JSON (cesta action, data.id…)
+            • odpovědí je výsledek posledního kroku, nebo Vrátit výsledek
+              (uvnitř okna jen odpoví stránce, automatizace běží dál)
+            • chyba v krocích volání odmítne: catch (e) → e.message
+            • odpověď, která je JSON, dostane stránka jako objekt
+
+            Automatizace → stránka
+            • blok Poslat do okna → automation.on("událost", data => …)
+
+            Zavření
+            • automation.close(hodnota) – hodnota je pak výstupem bloku
+            • tlačítko Zavřít nebo Zpět – výstup je prázdný
+            • lišta se Zavřít je tu s nadpisem, nebo vždy s přepínačem
+
+            Zobrazení
+            • Přes celou obrazovku, nebo Zespodu do půlky
+            • zespodu: tažením za úchyt nahoře okno roztáhneš na celou
+              obrazovku, stažením dolů ho zavřeš, klepnutím přepneš velikost
+
+            Bezpečnost
+            • stránka nevidí soubory telefonu; internet jen s přepínačem
+            • odkazy se otevřou v prohlížeči
+            • Zakázat snímky obrazovky – okno nejde vyfotit ani nahrát
+            • alert(), confirm() a prompt() fungují
+
+            Příklad: ukázka Zabezpečený zápisník.
+        """.trimIndent(),
+
+        "derive_key" to """
+            Heslo se nikdy nepoužívá přímo – udělá se z něj klíč (PBKDF2,
+            SHA-256). Je to schválně pomalé, aby hádání hesel trvalo věky.
+
+            Sůl je náhodný kousek, který se přimíchá k heslu:
+            • prázdná – nová sůl (první zašifrování)
+            • dříve zašifrovaný text (enc1:…) – vezme se sůl z něj, takže
+              stejné heslo dá stejný klíč jako tehdy
+
+            Ověření hesla
+            1. poprvé zašifruj „ok“ a ulož to (kontrola)
+            2. příště: Klíč z hesla se solí z kontroly
+            3. Zkusit { Dešifrovat kontrolu } – chyba = špatné heslo
+
+            Klíč (key1:…) se v záznamu běhu neukazuje. Neukládej ho
+            nezamčený – na zapamatování je Zamknout otiskem prstu.
+        """.trimIndent(),
+
+        "bio_lock" to """
+            Zamčení hodnoty klíčem v bezpečném čipu telefonu. Klíč
+            telefon nikdy nevydá a použije ho jen po přiložení prstu.
+
+            Typicky: po zadání hesla zamkni Klíč z hesla a výsledek ulož
+            blokem Uložit hodnotu. Příště:
+            Zkusit { Odemknout otiskem prstu } Když selže { zeptat se na heslo }
+
+            • zamčená hodnota (bio1:…) nejde odemknout v jiném telefonu
+            • po přidání nového otisku v nastavení telefonu přestane fungovat
+              (pravidlo Androidu) – zamkni ji pak znovu
+            • Název zámku odděluje klíče různých automatizací
+        """.trimIndent(),
+
         "time_limit" to """
             Kroky uvnitř musí doběhnout do zadané doby. Když to nestihnou,
             zastaví se a blok skončí chybou „kroky se nestihly“.
@@ -437,6 +505,9 @@ object BlockHelp {
         • chyba = try(pokusů, pauza, zdvojnásobit) … catch … konec
         • parallel … branch … konec – ve skriptu běží větve po sobě
         • lock("název") … konec, time_limit(10) … konec
+        • volani = html_window(html, nadpis) … konec – Okno s HTML: tělo
+          odpoví na každé volání stránky (volani.action, volani.data),
+          jeho vrat jde stránce; po zavření je volani hodnota zavření
         Tak zapíše celou automatizaci i Zobrazit jako skript.
 
         Funkce – obrázky

@@ -69,6 +69,8 @@ object Examples {
             "stáhne APK s průběhem na kartě na úvodu (tlačítko Zrušit) a pak nabídne Nainstalovat. Jiný repozitář nastavíš v prvním kroku; bez sítě nebo vydání tiše skončí.",
         "Ikona volného místa" to "Obrázek v automatizaci: ikonu disku obarví podle volného místa (zelená, oranžová, " +
             "červená), napíše pod ni procenta a ukáže ji v oznámení. Místo bloku Úložiště telefonu můžeš číst hodnotu z API.",
+        NotepadExample.NAME to "Okno s HTML + šifrování: hesla a poznámky v JSON souboru, název, kategorie i obsah " +
+            "zašifrované heslem. Poprvé se zeptá, kam soubor uložit, a nabídne odemykání otiskem prstu.",
     )
 
     private fun example(name: String, icon: String, build: () -> Built) =
@@ -883,6 +885,10 @@ object Examples {
                     ),
                 )
             )
+        },
+
+        example(NotepadExample.NAME, "lock") {
+            Built(cz.natsu.automation.engine.ScriptReader.read(NotepadExample.script()).blocks)
         },
 
         // Wait until + try: wait for Wi-Fi, give up with an error that is caught

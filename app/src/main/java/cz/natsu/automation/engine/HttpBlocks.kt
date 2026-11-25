@@ -198,6 +198,7 @@ object HttpBlocks {
                     "script", "JavaScript po načtení stránky", code = true,
                     placeholder = "if (location.pathname == '/hotovo') done(document.title)",
                 ).apply { hiddenInSummaryWhen = { true } },
+                HtmlBlocks.displayParam(),
             ),
             outputName = "Výsledek nebo adresa",
         ) { block ->
@@ -208,7 +209,10 @@ object HttpBlocks {
                 throw BlockException(tr("v okně jde otevřít jen adresa http:// nebo https://"))
             }
             val ui = ui ?: throw BlockException(tr("web jde ukázat jen v okně"))
-            BlockResult.Output(ui.showWeb(text(block, "title"), url, text(block, "script")) ?: throw RunCancelledException())
+            BlockResult.Output(
+                ui.showWeb(text(block, "title"), url, text(block, "script"), choice(block, "display") == HtmlBlocks.SHEET)
+                    ?: throw RunCancelledException()
+            )
         },
     )
 

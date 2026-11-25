@@ -62,7 +62,7 @@ class DialogRunUi : RunUi {
         val title: String
 
         data class Ask(override val title: String, val initial: String, val multiline: Boolean,
-                       val answer: CompletableDeferred<String?>) : Request
+                       val answer: CompletableDeferred<String?>, val hidden: Boolean = false) : Request
 
         data class Choose(override val title: String, val options: List<String>,
                           val answer: CompletableDeferred<String?>) : Request
@@ -89,11 +89,40 @@ class DialogRunUi : RunUi {
         }
 
         data class Web(override val title: String, val url: String, val script: String,
-                       val answer: CompletableDeferred<String?>) : Request
+                       val answer: CompletableDeferred<String?>, val sheet: Boolean = false) : Request
 
         data class Tag(val message: android.nfc.NdefMessage, val answer: CompletableDeferred<String?>) : Request {
             override val title: String get() = tr("Zápis na NFC štítek")
         }
+
+        data class Auth(
+            override val title: String, val subtitle: String, val cipher: javax.crypto.Cipher?,
+            val allowDeviceCredential: Boolean, val answer: CompletableDeferred<cz.natsu.automation.engine.AuthResult>,
+        ) : Request
+    }
+
+    /**
+     * The open "Okno s HTML". Kept apart from [request]: the steps the page calls may show
+     * their own dialogs on top of it, and the page must stay alive under them.
+     */
+    var html by mutableStateOf<cz.natsu.automation.engine.HtmlWindow?>(null)
+        private set
+
+    override suspend fun showHtml(window: cz.natsu.automation.engine.HtmlWindow): String? {
+        val outer = html
+        html = window
+        return try {
+            window.closed.await()
+        } finally {
+            html = outer
+        }
+    }
+
+    override suspend fun authenticate(
+        title: String, subtitle: String, cipher: javax.crypto.Cipher?, allowDeviceCredential: Boolean,
+    ): cz.natsu.automation.engine.AuthResult {
+        val answer = CompletableDeferred<cz.natsu.automation.engine.AuthResult>()
+        return show(Request.Auth(title, subtitle, cipher, allowDeviceCredential, answer), answer)
     }
 
     var request by mutableStateOf<Request?>(null)
@@ -108,9 +137,9 @@ class DialogRunUi : RunUi {
         }
     }
 
-    override suspend fun askText(title: String, initial: String, multiline: Boolean): String? {
+    override suspend fun askText(title: String, initial: String, multiline: Boolean, hidden: Boolean): String? {
         val answer = CompletableDeferred<String?>()
-        return show(Request.Ask(title, initial, multiline, answer), answer)
+        return show(Request.Ask(title, initial, multiline, answer, hidden), answer)
     }
 
     override suspend fun choose(title: String, options: List<String>): String? {
@@ -148,9 +177,9 @@ class DialogRunUi : RunUi {
         return show(Request.Photo(answer), answer)
     }
 
-    override suspend fun showWeb(title: String, url: String, script: String): String? {
+    override suspend fun showWeb(title: String, url: String, script: String, sheet: Boolean): String? {
         val answer = CompletableDeferred<String?>()
-        return show(Request.Web(title, url, script, answer), answer)
+        return show(Request.Web(title, url, script, answer, sheet), answer)
     }
 
     override suspend fun writeTag(message: android.nfc.NdefMessage): String? {
@@ -189,36 +218,18 @@ private fun WebDialog(request: DialogRunUi.Request.Web) {
     fun close() {
         request.answer.complete(address)
     }
-    androidx.compose.ui.window.Dialog(
-        onDismissRequest = { if (view?.canGoBack() == true) view?.goBack() else close() },
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false),
+    PageWindow(
+        sheet = request.sheet,
+        secure = false,
+        onClose = { if (view?.canGoBack() == true) view?.goBack() else close() },
+        header = {
+            PageBar(
+                request.title.ifBlank { pageTitle.ifBlank { tr("Web") } },
+                android.net.Uri.parse(address).host ?: address,
+                loading,
+            ) { close() }
+        },
     ) {
-        androidx.compose.material3.Surface(
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 32.dp),
-        ) {
-            Column {
-                androidx.compose.foundation.layout.Row(
-                    Modifier.padding(start = 20.dp, end = 8.dp, top = 8.dp, bottom = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            request.title.ifBlank { pageTitle.ifBlank { tr("Web") } },
-                            style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            android.net.Uri.parse(address).host ?: address,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    if (loading) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    TextButton(onClick = { close() }) { Text(tr("Zavřít")) }
-                }
                 androidx.compose.ui.viewinterop.AndroidView(
                     modifier = Modifier.fillMaxWidth().weight(1f),
                     factory = { context ->
@@ -272,8 +283,6 @@ private fun WebDialog(request: DialogRunUi.Request.Web) {
                     },
                     onRelease = { it.stopLoading(); it.destroy() },
                 )
-            }
-        }
     }
 }
 
@@ -346,6 +355,7 @@ private fun WriteTag(request: DialogRunUi.Request.Tag) {
 /** Renders the dialog the running automation is currently waiting for. */
 @Composable
 fun RunDialogs(ui: DialogRunUi) {
+    ui.html?.let { HtmlWindowDialog(it) }
     when (val request = ui.request) {
         null -> Unit
         is DialogRunUi.Request.Ask -> AskDialog(request)
@@ -358,6 +368,7 @@ fun RunDialogs(ui: DialogRunUi) {
         is DialogRunUi.Request.Photo -> TakePhoto(request)
         is DialogRunUi.Request.Tag -> WriteTag(request)
         is DialogRunUi.Request.Web -> WebDialog(request)
+        is DialogRunUi.Request.Auth -> Authenticate(request)
     }
 }
 
@@ -560,6 +571,12 @@ private fun AskDialog(request: DialogRunUi.Request.Ask) {
                 onValueChange = { value = it },
                 singleLine = !request.multiline,
                 minLines = if (request.multiline) 3 else 1,
+                visualTransformation = if (request.hidden) androidx.compose.ui.text.input.PasswordVisualTransformation()
+                else androidx.compose.ui.text.input.VisualTransformation.None,
+                keyboardOptions = if (request.hidden) androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Password,
+                    autoCorrectEnabled = false,
+                ) else androidx.compose.foundation.text.KeyboardOptions.Default,
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()

@@ -57,6 +57,30 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 /** Catalog of all block types. */
+/** Label of a clip marked sensitive: only such a clip is cleared later (not something copied since). */
+const val SENSITIVE_CLIP = "Automation (citlivé)"
+
+/** Clears a copied password after a while, unless something else has been copied in the meantime. */
+object ClipboardCleaner {
+    private val handler by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
+    private var pending: Runnable? = null
+
+    fun clearLater(clipboard: ClipboardManager, label: String, delayMs: Long) {
+        pending?.let(handler::removeCallbacks)
+        val task = Runnable {
+            pending = null
+            try {
+                // Without window focus the description may not be readable (null): then clear anyway.
+                val current = clipboard.primaryClipDescription
+                if (current == null || current.label?.toString() == label) clipboard.clearPrimaryClip()
+            } catch (_: Exception) {
+            }
+        }
+        pending = task
+        handler.postDelayed(task, delayMs)
+    }
+}
+
 object Blocks {
     private fun isExpert(values: Map<String, ParamValue>) = (values["mode"] as? ParamValue.Choice)?.value == "expert"
 
@@ -403,17 +427,32 @@ object Blocks {
             type = "set_clipboard",
             summary = "Zkopírovat {text} do schránky",
             title = "Nastavit schránku",
-            description = "Zapíše text do schránky.",
+            description = "Zapíše text do schránky. Heslo označ jako citlivé (Android ho neukáže v náhledu) " +
+                    "a nech ho za chvíli smazat.",
             category = BlockCategory.Clipboard,
             icon = Icons.Rounded.ContentPasteGo,
-            params = listOf(ParamDef.Text("text", "Text", defaultRef = VarRef.Input)),
+            params = listOf(
+                ParamDef.Text("text", "Text", defaultRef = VarRef.Input),
+                ParamDef.Toggle("sensitive", "Citlivé (heslo) – neukazovat náhled", summaryWhenOn = "(citlivé)"),
+                ParamDef.Number("clear_after", "Smazat ze schránky po (0 = nemazat)", 0f, 600f, 0f, unit = "s"),
+            ),
         ) { block ->
             val value = text(block, "text")
+            val sensitive = bool(block, "sensitive")
+            val clearAfter = (number(block, "clear_after") * 1000).toLong()
             withContext(Dispatchers.Main) {
                 val clipboard = context.getSystemService(ClipboardManager::class.java)
                     ?: throw BlockException(tr("schránka není dostupná"))
                 cz.natsu.automation.trigger.ClipboardMonitor.markOwnWrite(value)
-                clipboard.setPrimaryClip(ClipData.newPlainText("Automation", value))
+                val clip = ClipData.newPlainText(if (sensitive) SENSITIVE_CLIP else "Automation", value)
+                if (sensitive) {
+                    clip.description.extras = android.os.PersistableBundle().apply {
+                        // ClipDescription.EXTRA_IS_SENSITIVE (Android 13+); older systems ignore it.
+                        putBoolean("android.content.extra.IS_SENSITIVE", true)
+                    }
+                }
+                clipboard.setPrimaryClip(clip)
+                if (clearAfter > 0) ClipboardCleaner.clearLater(clipboard, clip.description.label.toString(), clearAfter)
             }
             BlockResult.None
         },
@@ -852,7 +891,7 @@ object Blocks {
             BlockResult.Output(value)
         },
     ) + MoreBlocks.all + DataBlocks.all + HttpBlocks.all + InstallBlocks.all + CardBlocks.all + ScheduleBlocks.all + ImageBlocks.all + ExtraBlocks.all + NotificationBlock.def + NotificationBlock.more + FileBlocks.all +
-            ControlBlocks.all + AppBlocks.all + DeviceBlocks.all
+            ControlBlocks.all + AppBlocks.all + DeviceBlocks.all + CryptoBlocks.all + BiometricBlocks.all + HtmlBlocks.all
 
     private val byType = all.associateBy { it.type }
 
