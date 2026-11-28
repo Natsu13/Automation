@@ -41,7 +41,7 @@ object ControlBlocks {
         LOCK -> END_LOCK
         TIME_LIMIT -> END_TIME_LIMIT
         HtmlBlocks.WINDOW -> HtmlBlocks.END_WINDOW
-        else -> Blocks.endTypeFor(def.kind)
+        else -> WidgetBuilder.endTypeFor(def.type) ?: Blocks.endTypeFor(def.kind)
     }
 
     /**

@@ -379,6 +379,11 @@ return "Total " & round(total, 2)
 - `call_number` – Call – number: The caller's number (needs access to the call log).
 - `app_package` – App – package: The package of the opened app, e.g. com.spotify.music.
 - `app_name` – App – name: The name of the opened app.
+- `widget_id` – Widget – id: Number of the home screen widget being drawn.
+- `widget_width` – Widget – width (dp): Width of the widget in dp (CSS px).
+- `widget_height` – Widget – height (dp): Height of the widget in dp (CSS px).
+- `widget_action` – Widget – tap action: Input of the button or part that was tapped; empty on a refresh.
+- `dark_mode` – Dark mode: true / false
 
 ### Launch conditions
 
@@ -1991,7 +1996,7 @@ What the event that started the automation brought: the name of the Bluetooth de
 
 | Parameter | Kind | Default | Values / notes |
 |---|---|---|---|
-| `value` | choice | `"wifi_name"` | Get · `"wifi_name"` Wi-Fi name, `"bt_device"` Bluetooth device, `"notif_app"` Notification – app, `"notif_title"` Notification – title, `"notif_text"` Notification – text, `"notif_package"` Notification – app package, `"dnd"` Do Not Disturb mode (on / off), `"sms_sender"` SMS – sender, `"sms_text"` SMS – text, `"call_number"` Call – number, `"nfc_id"` NFC tag – ID, `"nfc_text"` NFC tag – text, `"app_package"` App – package, `"app_name"` App – name |
+| `value` | choice | `"wifi_name"` | Get · `"wifi_name"` Wi-Fi name, `"bt_device"` Bluetooth device, `"notif_app"` Notification – app, `"notif_title"` Notification – title, `"notif_text"` Notification – text, `"notif_package"` Notification – app package, `"dnd"` Do Not Disturb mode (on / off), `"sms_sender"` SMS – sender, `"sms_text"` SMS – text, `"call_number"` Call – number, `"nfc_id"` NFC tag – ID, `"nfc_text"` NFC tag – text, `"app_package"` App – package, `"app_name"` App – name, `"widget_width"` Widget – width (dp), `"widget_height"` Widget – height (dp), `"widget_id"` Widget – id, `"dark_mode"` Dark mode (true / false) |
 
 #### `torch` – Flashlight / Svítilna
 
@@ -2443,6 +2448,146 @@ How many seconds are left of the countdown in the notification of that name (0 w
 | Parameter | Kind | Default | Values / notes |
 |---|---|---|---|
 | `name` | text | `""` | Notification name |
+
+#### `widget_set` – Set widget / Nastavit widget
+
+Sends the content of a home screen widget: the HTML is drawn into a picture of exactly the widget's size (1 CSS px = 1 dp; the Event data block gives the size). The page cannot scroll or be clicked; a tap on the widget refreshes it or runs an automation. Applies to the widget being drawn, otherwise to all widgets of this automation.
+
+- Signature: `widget_set(html, tap, tap_automation, internet)`
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `html` | code | `""` | Widget HTML · e.g. <div style="background:#223;color:#fff;height:100vh;border-radius:24px">Hello</div> |
+| `tap` | choice | `"refresh"` | On tap · `"refresh"` Refresh widget, `"run"` Run automation, `"none"` Nothing |
+| `tap_automation` | automation id | `""` | Automation on tap · the number of another automation on the phone, "" = none · *only when `tap` is "run"* |
+| `internet` | true/false | `false` | Allow internet (images, fonts) |
+
+#### `widget_refresh` – Refresh widget / Obnovit widget
+
+Redraws the home screen widgets that show the chosen automation (empty = this one): it runs as if the widget was being drawn. Useful after data changed, e.g. from another event.
+
+- Signature: `widget_refresh(automation)`
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `automation` | automation id | `""` | Automation with the widget · the number of another automation on the phone, "" = none |
+
+#### `widget_build` – Widget from blocks / Widget z bloků
+
+Builds a home screen widget from native parts: put the Widget: text, button, image, row / column, scrolling list… blocks inside. At the end of the group the widget is sent to the home screen (to the one being drawn, otherwise to all widgets of this automation). A tap on a button can redraw the widget with an input – the automation gets it as Input and can show something else.
+
+- Signature: `widget_build(background, rounded, padding, align)`
+- Output: Widget layout (e.g. `widget_layout = …`)
+- Group: see *Groups of steps*
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `background` | text | `""` | Background · e.g. automatic |
+| `rounded` | true/false | `true` | Rounded corners |
+| `padding` | number | `12` | Padding · 0–48 dp |
+| `align` | choice | `"start"` | Alignment · `"start"` Left / top, `"center"` Centre, `"end"` Right / bottom |
+
+#### `widget_box` – Widget: row / column / Widget: řádek / sloupec
+
+A group of widget parts side by side (row) or below each other (column), with its own background and padding. A tap on it can redraw the widget or run an automation.
+
+- Signature: `widget_box(direction, size, align, background, rounded, padding, tap, tap_input, tap_automation)`
+- Group: see *Groups of steps*
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `direction` | choice | `"row"` | Direction · `"row"` Row (side by side), `"column"` Column (below each other) |
+| `size` | choice | `"wrap"` | Width · `"wrap"` By content, `"match"` Full width, `"fill"` Fill the remaining space |
+| `align` | choice | `"start"` | Alignment · `"start"` Left / top, `"center"` Centre, `"end"` Right / bottom |
+| `background` | text | `""` | Background · e.g. automatic |
+| `rounded` | true/false | `true` | Rounded corners |
+| `padding` | number | `0` | Padding · 0–48 dp |
+| `tap` | choice | `"none"` | On tap · `"none"` Nothing, `"refresh"` Redraw the widget with an input, `"run"` Run an automation with an input |
+| `tap_input` | text | `""` | Input on tap · e.g. next, toggle, item id · *only when `tap` is "refresh" / "run"* |
+| `tap_automation` | automation id | `""` | Automation on tap · the number of another automation on the phone, "" = none · *only when `tap` is "run"* |
+
+#### `widget_list` – Widget: scrolling list / Widget: posouvací seznam
+
+A list that can be scrolled with a finger in the widget. Every block inside is one item – put more parts of one item into Widget: row / column. The Repeat or For each item block inside makes items from data. A widget can have up to 4 lists.
+
+- Signature: `widget_list(spacing)`
+- Group: see *Groups of steps*
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `spacing` | number | `6` | Space between items · 0–32 dp |
+
+#### `widget_text` – Widget: text / Widget: text
+
+Text in the widget: size, colour, bold, alignment and at most how many lines (the rest is cut to …).
+
+- Signature: `widget_text(text, text_size, color, bold, align, lines, size, tap, tap_input, tap_automation)`
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `text` | text | `input` | Text |
+| `text_size` | number | `14` | Font size · 8–64 sp |
+| `color` | text | `""` | Colour · e.g. automatic |
+| `bold` | true/false | `false` | Bold |
+| `align` | choice | `"start"` | Alignment · `"start"` Left / top, `"center"` Centre, `"end"` Right / bottom |
+| `lines` | number | `0` | At most lines (0 = no limit) · 0–20 |
+| `size` | choice | `"wrap"` | Width · `"wrap"` By content, `"match"` Full width, `"fill"` Fill the remaining space |
+| `tap` | choice | `"none"` | On tap · `"none"` Nothing, `"refresh"` Redraw the widget with an input, `"run"` Run an automation with an input |
+| `tap_input` | text | `""` | Input on tap · e.g. next, toggle, item id · *only when `tap` is "refresh" / "run"* |
+| `tap_automation` | automation id | `""` | Automation on tap · the number of another automation on the phone, "" = none · *only when `tap` is "run"* |
+
+#### `widget_button` – Widget: button / Widget: tlačítko
+
+A button in the widget. A tap redraws the widget with the given input (the widget's automation gets it as Input), or runs another automation.
+
+- Signature: `widget_button(text, tap, tap_input, tap_automation, background, color, size)`
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `text` | text | `"OK"` | Button text |
+| `tap` | choice | `"refresh"` | On tap · `"refresh"` Redraw the widget with an input, `"run"` Run an automation with an input |
+| `tap_input` | text | `""` | Input on tap · e.g. next, toggle, item id |
+| `tap_automation` | automation id | `""` | Automation on tap · the number of another automation on the phone, "" = none · *only when `tap` is "run"* |
+| `background` | text | `""` | Button colour · e.g. automatic |
+| `color` | text | `""` | Text colour · e.g. automatic |
+| `size` | choice | `"wrap"` | Width · `"wrap"` By content, `"match"` Full width, `"fill"` Fill the remaining space |
+
+#### `widget_image` – Widget: image / Widget: obrázek
+
+An image or icon in the widget at the given height (width by the aspect ratio). The source can be an embedded image, a file or an internet address.
+
+- Signature: `widget_image(image, height, tint, tap, tap_input, tap_automation)`
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `image` | text | `""` | Image |
+| `height` | number | `48` | Height · 8–400 dp |
+| `tint` | text | `""` | Recolour to · e.g. automatic |
+| `tap` | choice | `"none"` | On tap · `"none"` Nothing, `"refresh"` Redraw the widget with an input, `"run"` Run an automation with an input |
+| `tap_input` | text | `""` | Input on tap · e.g. next, toggle, item id · *only when `tap` is "refresh" / "run"* |
+| `tap_automation` | automation id | `""` | Automation on tap · the number of another automation on the phone, "" = none · *only when `tap` is "run"* |
+
+#### `widget_progress` – Widget: progress / Widget: průběh
+
+A horizontal progress bar across the whole width, e.g. battery or finished tasks.
+
+- Signature: `widget_progress(value, max)`
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `value` | text | `input` | Value |
+| `max` | text | `100` | Maximum |
+
+#### `widget_space` – Widget: space / Widget: mezera
+
+Free space between widget parts. Fill the rest = pushes the next parts to the end of the row or to the bottom.
+
+- Signature: `widget_space(space, fill)`
+
+| Parameter | Kind | Default | Values / notes |
+|---|---|---|---|
+| `space` | number | `8` | Size · 0–64 dp |
+| `fill` | true/false | `false` | Fill the remaining space |
 
 ## 6. Examples from the app
 
@@ -3004,5 +3149,43 @@ try
 catch
     toast("Wi-Fi did not connect within 30 s.")
 end
+```
+
+### Widget with a list
+
+A home screen widget from blocks: a heading with a button, a scrolling list from the Repeat block and the number of items in the block's settings. A tap on an item redraws the widget and shows what was chosen. Put it on the home screen: long press the home screen → Widgets → Automation.
+
+```
+# @name "Widget with a list"
+# @icon checklist
+# @triggers widget
+widget_build("", true, 12, "start")
+    widget_box("row", "match", "center", "", true, 0, "none")
+        widget_text("List", 18, "", true, "start", 0, "wrap", "none")
+        widget_space(0, true)
+        widget_button({text: "Refresh", tap: "refresh", tap_input: "", background: "", color: "", size: "wrap"})
+    end
+    widget_text("Chosen: " & input, 12, "", false, "start", 0, "wrap", "none")
+    widget_space(6)
+    widget_list()
+        for round_result in range(30)
+            widget_box("row", "match", "start", "#5C6BC0", true, 10, "refresh", "item " & round_result)
+                widget_text("Item " & round_result, 14, "white", false, "start", 0, "wrap", "none")
+            end
+        end
+    end
+end
+```
+
+### HTML widget: battery
+
+A home screen widget from HTML: the battery level as a big number with a bar and the time of the last drawing. The HTML is drawn into a picture of exactly the widget's size, a tap refreshes it. Put it on the home screen: long press the home screen → Widgets → Automation.
+
+```
+# @name "HTML widget: battery"
+# @icon battery
+# @triggers widget
+battery_result = battery("level")
+widget_set("<html><body style=\"margin:0;font-family:sans-serif\"><div style=\"box-sizing:border-box;height:100vh;padding:16px;border-radius:24px;background:linear-gradient(135deg,#3949ab,#8e24aa);color:#fff;display:flex;flex-direction:column;justify-content:space-between\"><div style=\"font-size:13px;opacity:.8\" id=\"time\"></div><div><div style=\"font-size:40px;font-weight:bold\">" & battery_result & " %</div><div style=\"font-size:13px;opacity:.8\">battery</div></div><div style=\"height:8px;border-radius:4px;background:rgba(255,255,255,.25)\"><div style=\"height:100%;border-radius:4px;background:#fff;width:" & battery_result & "%\"></div></div></div><script>document.getElementById(\"time\").textContent = new Date().toLocaleTimeString([], {hour: \"2-digit\", minute: \"2-digit\"})</script></body></html>", "refresh")
 ```
 

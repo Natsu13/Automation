@@ -227,7 +227,12 @@ enum class EventValue(val key: String, val label: String, val description: Strin
     SmsText("sms_text", "SMS – text", "Text zprávy."),
     CallNumber("call_number", "Hovor – číslo", "Číslo volajícího (potřebuje přístup k historii hovorů)."),
     AppPackage("app_package", "Aplikace – balíček", "Balíček otevřené aplikace, třeba com.spotify.music."),
-    AppName("app_name", "Aplikace – název", "Název otevřené aplikace.");
+    AppName("app_name", "Aplikace – název", "Název otevřené aplikace."),
+    WidgetId("widget_id", "Widget – id", "Číslo widgetu na ploše, který se překresluje."),
+    WidgetWidth("widget_width", "Widget – šířka (dp)", "Šířka widgetu v dp (jednotkách CSS px)."),
+    WidgetHeight("widget_height", "Widget – výška (dp)", "Výška widgetu v dp (jednotkách CSS px)."),
+    WidgetAction("widget_action", "Widget – akce klepnutí", "Vstup tlačítka nebo prvku, na který se klepnulo; prázdné při obnovení."),
+    DarkMode("dark_mode", "Tmavý režim", "true / false");
 
     companion object {
         private val byKey = entries.associateBy { it.key }

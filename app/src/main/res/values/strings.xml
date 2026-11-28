@@ -10,4 +10,9 @@
     <string name="import_label">Import automation</string>
     <string name="app_watch_label">Automation – opened apps</string>
     <string name="app_watch_description">Lets automations start when you open a chosen app. It only learns which app is on the screen – it does not read what the apps show or what you type.</string>
+    <string name="widget_label">Automation</string>
+    <string name="widget_description">Shows what an automation draws – in HTML or from blocks, with lists and buttons.</string>
+    <string name="widget_preview_text">Your widget in HTML or from blocks</string>
+    <string name="widget_preview_row1">Battery 82 %</string>
+    <string name="widget_preview_row2">3 tasks for today</string>
 </resources>

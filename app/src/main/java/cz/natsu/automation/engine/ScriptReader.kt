@@ -60,6 +60,7 @@ object ScriptWords {
     const val SHARE = "share"
     const val TILE = "tile"
     const val CLIPBOARD = "clipboard"
+    const val WIDGET = "widget"
 
     /** "Upravený text" -> "upraveny_text". */
     fun identifier(text: String): String =
@@ -459,7 +460,7 @@ class ScriptReader private constructor(private val text: String) {
                 ControlBlocks.LOCK -> ControlBlocks.END_LOCK
                 ControlBlocks.TIME_LIMIT -> ControlBlocks.END_TIME_LIMIT
                 HtmlBlocks.WINDOW -> HtmlBlocks.END_WINDOW
-                else -> return false
+                else -> WidgetBuilder.endTypeFor(top.draft.type) ?: return false
             }
             emit(end)
             return true
@@ -535,6 +536,13 @@ class ScriptReader private constructor(private val text: String) {
         var rest = tokens
         if (tokens.size >= 3 && tokens[0].t == T.Id && tokens[1].v == "=") { target = tokens[0].v; rest = tokens.drop(2) }
         val word = rest.firstOrNull()?.takeIf { it.t == T.Id }?.v?.lowercase() ?: return null
+        if (word in WidgetBuilder.GROUPS) {
+            // Parts of a widget: written like a block call, closed by "end"; only the whole widget has a value.
+            val (type, params) = callOf(rest) ?: return false
+            if (target != null && type != WidgetBuilder.BUILD) return false
+            emit(type, params, target, disabled, indent)
+            return true
+        }
         val args: List<List<Tok>> = when {
             rest.size == 1 -> emptyList()
             wrapped(rest.drop(1)) -> rest.subList(2, rest.size - 1).let { inner ->
@@ -728,6 +736,7 @@ class ScriptReader private constructor(private val text: String) {
             triggerShare = ScriptWords.SHARE in triggers,
             triggerTile = ScriptWords.TILE in triggers,
             triggerClipboard = ScriptWords.CLIPBOARD in triggers,
+            triggerWidget = ScriptWords.WIDGET in triggers,
             conditions = conditions.toList(),
             conditionsAny = conditionsAny,
             events = events.toList(),

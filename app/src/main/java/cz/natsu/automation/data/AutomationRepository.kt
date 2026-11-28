@@ -71,6 +71,8 @@ class AutomationRepository(
         }
         dao.update(entity.copy(updatedAt = System.currentTimeMillis()))
         onChanged()
+        // Widgets on the home screen show the changed automation right away.
+        cz.natsu.automation.trigger.HomeWidgets.refreshAutomation(context, entity.id)
     }
 
     suspend fun setPinned(id: Long, pinned: Boolean) {
@@ -82,6 +84,7 @@ class AutomationRepository(
         LastRun.forget(context, id)
         ValueStore.removeAutomation(context, id)
         onChanged()
+        cz.natsu.automation.trigger.HomeWidgets.refreshAutomation(context, id)
     }
 
     suspend fun duplicate(id: Long): Long? {
@@ -111,6 +114,8 @@ class AutomationRepository(
                     triggerShare = imported.triggerShare,
                     triggerTile = imported.triggerTile,
                     triggerClipboard = imported.triggerClipboard,
+                    triggerWidget = imported.triggerWidget,
+                    widgetDebug = imported.widgetDebug,
                     conditionsJson = BlockJson.encode(imported.conditions),
                     conditionsAny = imported.conditionsAny,
                     eventsJson = EventJson.encode(imported.events),

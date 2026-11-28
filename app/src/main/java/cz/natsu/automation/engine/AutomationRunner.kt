@@ -127,6 +127,8 @@ class RunContext(
         it.loopOf = loopOf
         it.switchValues.putAll(switchValues)
         it.htmlWindow = htmlWindow
+        it.widgetStack = widgetStack
+        it.widgetPreview = widgetPreview
     }
 
     /** Loops whose "end" just jumped back to them (next round, not a fresh start). */
@@ -169,6 +171,17 @@ class RunContext(
     /** The "Okno s HTML" the steps run inside of, if any ("Poslat do okna" talks to it). */
     @Volatile
     var htmlWindow: HtmlWindow? = null
+
+    /**
+     * Set for a preview in the editor: the widget blocks hand the finished widget (and its size in bytes)
+     * here instead of sending it to the home screen.
+     */
+    @Volatile
+    var widgetPreview: ((android.widget.RemoteViews, Int) -> Unit)? = null
+
+    /** Parts of a widget being built by "Widget z bloků"; the last one is open (see WidgetBuilder). */
+    @Volatile
+    var widgetStack: MutableList<WidgetBuilder.Node>? = null
 
     /** [text] with every secret value used so far replaced by dots. */
     fun mask(text: String?): String? {
@@ -402,8 +415,11 @@ object AutomationRunner {
         automationId: Long? = null,
         /** Nesting of "Spustit automatizaci" calls. */
         depth: Int = 0,
+        /** A preview of a widget in the editor (see [RunContext.widgetPreview]). */
+        widgetPreview: ((android.widget.RemoteViews, Int) -> Unit)? = null,
     ): RunResult = withContext(Dispatchers.Default) {
         val ctx = RunContext(context.applicationContext, input, ui, trigger, event, automationId, depth)
+        ctx.widgetPreview = widgetPreview
         val structure = Structure.analyze(blocks)
         if (!structure.valid) {
             return@withContext RunResult(
@@ -726,6 +742,14 @@ object AutomationRunner {
                             ctx.lastOutput = closedWith
                             record(LogEntry(block.id, def.title, output = shown(tr("zavřeno: %s", closedWith))), ctx)
                             Outcome.Done
+                        } else if (block.type in WidgetBuilder.GROUPS) {
+                            // Parts of a widget: the steps inside add to the part, "Widget z bloků" sends it at the end.
+                            var inner: Outcome = Outcome.Done
+                            WidgetBuilder.group(ctx, block) { inner = execute(inside, end, ctx); inner == Outcome.Done }?.let {
+                                ctx.outputs[block.id] = it
+                                ctx.lastOutput = it
+                            }
+                            inner
                         } else {
                             ControlBlocks.scoped(ctx, block, stepping = afterStep != null) { execute(inside, end, ctx) }
                         }

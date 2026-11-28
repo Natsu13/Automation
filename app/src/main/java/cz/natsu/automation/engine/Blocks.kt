@@ -891,7 +891,7 @@ object Blocks {
             BlockResult.Output(value)
         },
     ) + MoreBlocks.all + DataBlocks.all + HttpBlocks.all + InstallBlocks.all + CardBlocks.all + ScheduleBlocks.all + ImageBlocks.all + ExtraBlocks.all + NotificationBlock.def + NotificationBlock.more + FileBlocks.all +
-            ControlBlocks.all + AppBlocks.all + DeviceBlocks.all + CryptoBlocks.all + BiometricBlocks.all + HtmlBlocks.all
+            ControlBlocks.all + AppBlocks.all + DeviceBlocks.all + CryptoBlocks.all + BiometricBlocks.all + HtmlBlocks.all + WidgetBlocks.all + WidgetBuilder.all
 
     private val byType = all.associateBy { it.type }
 

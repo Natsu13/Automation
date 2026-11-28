@@ -3905,5 +3905,297 @@ object English {
             "Deletes the key of the lock (by its name) from the phone. Values locked by it can never be unlocked again – delete their stored text too. The output is true when the lock existed, otherwise false.",
         "Zámek byl smazán" to
             "Lock deleted",
+        "Vykreslení widgetu" to
+            "Widget drawing",
+        "Widget – id" to
+            "Widget – id",
+        "Číslo widgetu na ploše, který se překresluje." to
+            "Number of the home screen widget being drawn.",
+        "Widget – šířka (dp)" to
+            "Widget – width (dp)",
+        "Šířka widgetu v dp (jednotkách CSS px)." to
+            "Width of the widget in dp (CSS px).",
+        "Widget – výška (dp)" to
+            "Widget – height (dp)",
+        "Výška widgetu v dp (jednotkách CSS px)." to
+            "Height of the widget in dp (CSS px).",
+        "Tmavý režim" to
+            "Dark mode",
+        "šířku widgetu" to
+            "widget width",
+        "výšku widgetu" to
+            "widget height",
+        "Tmavý režim (true / false)" to
+            "Dark mode (true / false)",
+        "tmavý režim" to
+            "dark mode",
+        "Widget nemá automatizaci – odeber ho a přidej znovu" to
+            "The widget has no automation – remove it and add it again",
+        "\"%s\" čeká na kontrolu – otevři ji a povol" to
+            "\"%s\" waits for review – open it and allow it",
+        "\"%s\" nemá spouštěč Vykreslení widgetu" to
+            "\"%s\" has no Widget drawing trigger",
+        "\"%s\" nenastavila obsah – přidej blok Nastavit widget" to
+            "\"%s\" set no content – add the Set widget block",
+        "widget jde nastavit jen z uložené automatizace" to
+            "a widget can only be set from a saved automation",
+        "tahle automatizace nemá na ploše žádný widget" to
+            "this automation has no widget on the home screen",
+        "není vybraná automatizace pro klepnutí" to
+            "no automation is chosen for the tap",
+        "Nastavit widget na HTML" to
+            "Set widget to HTML",
+        "Nastavit widget" to
+            "Set widget",
+        "Pošle obsah widgetu na ploše: HTML se vykreslí do obrázku přesně ve velikosti widgetu (1 CSS px = 1 dp; velikost vrátí blok Údaje z události). Stránka se nedá posouvat ani klikat, klepnutí na widget ho obnoví nebo spustí automatizaci. Platí pro widget, který se právě kreslí, jinak pro všechny widgety této automatizace." to
+            "Sends the content of a home screen widget: the HTML is drawn into a picture of exactly the widget's size (1 CSS px = 1 dp; the Event data block gives the size). The page cannot scroll or be clicked; a tap on the widget refreshes it or runs an automation. Applies to the widget being drawn, otherwise to all widgets of this automation.",
+        "HTML widgetu" to
+            "Widget HTML",
+        "Po klepnutí" to
+            "On tap",
+        "Obnovit widget" to
+            "Refresh widget",
+        "obnovit" to
+            "refresh",
+        "spustit" to
+            "run",
+        "Nic" to
+            "Nothing",
+        "Automatizace po klepnutí" to
+            "Automation on tap",
+        "Povolit internet (obrázky, písma)" to
+            "Allow internet (images, fonts)",
+        "chybí HTML widgetu" to
+            "the widget HTML is missing",
+        "HTML widgetu se nenačetlo včas" to
+            "the widget HTML did not load in time",
+        "Obnovit widget {automation}" to
+            "Refresh widget {automation}",
+        "Překreslí widgety na ploše, které ukazují zvolenou automatizaci (prázdné = tuhle): ta se spustí s událostí Vykreslení widgetu. Hodí se po změně dat, třeba z jiné události." to
+            "Redraws the home screen widgets that show the chosen automation (empty = this one): it runs with the Widget drawing event. Useful after data changed, e.g. from another event.",
+        "Automatizace s widgetem" to
+            "Automation with the widget",
+        "widget se nemůže obnovit sám během svého vykreslení" to
+            "a widget cannot refresh itself while it is being drawn",
+        "Co má widget ukazovat?" to
+            "What should the widget show?",
+        "Žádná automatizace nemá spouštěč Vykreslení widgetu. Přidej ho v automatizaci (Události → Ostatní) a do kroků dej blok Nastavit widget." to
+            "No automation has the Widget drawing trigger. Add it in an automation (Events → Other) and put the Set widget block into its steps.",
+        "Načítání…" to
+            "Loading…",
+        "<div style=\"background:#223;color:#fff;height:100vh;border-radius:24px\">Ahoj</div>" to
+            "<div style=\"background:#223;color:#fff;height:100vh;border-radius:24px\">Hello</div>",
+        "Widget – akce klepnutí" to
+            "Widget – tap action",
+        "Vstup tlačítka nebo prvku, na který se klepnulo; prázdné při obnovení." to
+            "Input of the button or part that was tapped; empty on a refresh.",
+        "Widget" to
+            "Widget",
+        "blok patří dovnitř bloku Widget z bloků" to
+            "the block belongs inside the Widget from blocks block",
+        "seznam ve widgetu nemůže být v jiném seznamu" to
+            "a list in a widget cannot be inside another list",
+        "neznámá část widgetu: %s" to
+            "unknown widget part: %s",
+        "widget může mít jen jeden posouvací seznam" to
+            "a widget can have only one scrolling list",
+        "Šířka" to
+            "Width",
+        "Podle obsahu" to
+            "By content",
+        "podle obsahu" to
+            "by content",
+        "Celá šířka" to
+            "Full width",
+        "celá šířka" to
+            "full width",
+        "Vyplnit zbylé místo" to
+            "Fill the remaining space",
+        "vyplnit" to
+            "fill",
+        "Zarovnání" to
+            "Alignment",
+        "Vlevo / nahoru" to
+            "Left / top",
+        "vlevo" to
+            "left",
+        "Na střed" to
+            "Centre",
+        "na střed" to
+            "centre",
+        "Vpravo / dolů" to
+            "Right / bottom",
+        "vpravo" to
+            "right",
+        "Překreslit widget se vstupem" to
+            "Redraw the widget with an input",
+        "překreslit" to
+            "redraw",
+        "Spustit automatizaci se vstupem" to
+            "Run an automation with an input",
+        "Vstup po klepnutí" to
+            "Input on tap",
+        "třeba dalsi, prepnout, id položky" to
+            "e.g. next, toggle, item id",
+        "Widget z bloků" to
+            "Widget from blocks",
+        "Postaví widget na ploše z nativních částí: bloky Widget: text, tlačítko, obrázek, řádek / sloupec, posouvací seznam… dej dovnitř. Na konci skupiny se widget pošle na plochu (do toho, který se kreslí, jinak do všech widgetů této automatizace). Klepnutí na tlačítko může widget překreslit se vstupem – automatizace ho dostane jako Vstup a podle něj může ukázat něco jiného." to
+            "Builds a home screen widget from native parts: put the Widget: text, button, image, row / column, scrolling list… blocks inside. At the end of the group the widget is sent to the home screen (to the one being drawn, otherwise to all widgets of this automation). A tap on a button can redraw the widget with an input – the automation gets it as Input and can show something else.",
+        "Pozadí" to
+            "Background",
+        "Zaoblené rohy" to
+            "Rounded corners",
+        "Okraj" to
+            "Padding",
+        "Rozvržení widgetu" to
+            "Widget layout",
+        "Konec widgetu" to
+            "End of widget",
+        "Widget: {direction}" to
+            "Widget: {direction}",
+        "Widget: řádek / sloupec" to
+            "Widget: row / column",
+        "Skupina částí widgetu vedle sebe (řádek) nebo pod sebou (sloupec), s vlastním pozadím a okrajem. Klepnutí na ni může widget překreslit nebo spustit automatizaci." to
+            "A group of widget parts side by side (row) or below each other (column), with its own background and padding. A tap on it can redraw the widget or run an automation.",
+        "Řádek (vedle sebe)" to
+            "Row (side by side)",
+        "řádek" to
+            "row",
+        "Sloupec (pod sebou)" to
+            "Column (below each other)",
+        "sloupec" to
+            "column",
+        "Konec řádku / sloupce" to
+            "End of row / column",
+        "Widget: posouvací seznam" to
+            "Widget: scrolling list",
+                "Mezera mezi položkami" to
+            "Space between items",
+        "Konec seznamu" to
+            "End of list",
+        "Widget: text {text}" to
+            "Widget: text {text}",
+        "Widget: text" to
+            "Widget: text",
+        "Text ve widgetu: velikost, barva, tučně, zarovnání a nejvýš kolik řádků (zbytek se zkrátí na …)." to
+            "Text in the widget: size, colour, bold, alignment and at most how many lines (the rest is cut to …).",
+        "Velikost písma" to
+            "Font size",
+        "Tučně" to
+            "Bold",
+        "tučně" to
+            "bold",
+        "Nejvýš řádků (0 = bez omezení)" to
+            "At most lines (0 = no limit)",
+        "Widget: tlačítko {text}" to
+            "Widget: button {text}",
+        "Widget: tlačítko" to
+            "Widget: button",
+        "Tlačítko ve widgetu. Klepnutí překreslí widget se zadaným vstupem (automatizace widgetu ho dostane jako Vstup), nebo spustí jinou automatizaci." to
+            "A button in the widget. A tap redraws the widget with the given input (the widget's automation gets it as Input), or runs another automation.",
+        "Text tlačítka" to
+            "Button text",
+        "Barva tlačítka" to
+            "Button colour",
+        "Widget: obrázek {image}" to
+            "Widget: image {image}",
+        "Widget: obrázek" to
+            "Widget: image",
+        "Obrázek nebo ikona ve widgetu v zadané výšce (šířka podle poměru stran). Zdroj může být vložený obrázek, soubor nebo adresa na internetu." to
+            "An image or icon in the widget at the given height (width by the aspect ratio). The source can be an embedded image, a file or an internet address.",
+        "Výška" to
+            "Height",
+        "Přebarvit na" to
+            "Recolour to",
+        "Widget: průběh {value} z {max}" to
+            "Widget: progress {value} of {max}",
+        "Widget: průběh" to
+            "Widget: progress",
+        "Vodorovná lišta průběhu přes celou šířku, třeba baterie nebo splněné úkoly." to
+            "A horizontal progress bar across the whole width, e.g. battery or finished tasks.",
+        "Maximum" to
+            "Maximum",
+        "Widget: mezera {space}" to
+            "Widget: space {space}",
+        "Widget: mezera" to
+            "Widget: space",
+        "Volné místo mezi částmi widgetu. Vyplnit zbytek = odsune další části na konec řádku nebo dolů." to
+            "Free space between widget parts. Fill the rest = pushes the next parts to the end of the row or to the bottom.",
+        "a vyplnit zbytek" to
+            "and fill the rest",
+        "Text" to
+            "Text",
+        "Seznam, který jde ve widgetu posouvat prstem. Každý blok uvnitř je jedna položka – víc částí v jedné položce dej do Widget: řádek / sloupec. Položky z dat udělá blok Opakovat nebo Pro každou položku uvnitř. Widget může mít až 4 seznamy." to
+            "A list that can be scrolled with a finger in the widget. Every block inside is one item – put more parts of one item into Widget: row / column. The Repeat or For each item block inside makes items from data. A widget can have up to 4 lists.",
+        "widget může mít nejvýš %s posouvací seznamy" to
+            "a widget can have at most %s scrolling lists",
+        "widget je moc velký: %s kB, nejvýš jde %s kB – zmenši seznam nebo obrázky" to
+            "the widget is too big: %s kB, at most %s kB is possible – make the list or images smaller",
+        "Widget „%s“ je moc velký" to
+            "Widget “%s” is too big",
+        "Widget „%s“ je velký" to
+            "Widget “%s” is big",
+        "%s kB, nejvýš jde %s kB, takže se nový obsah nezobrazí. Zmenši seznam nebo obrázky." to
+            "%s kB, at most %s kB is possible, so the new content is not shown. Make the list or images smaller.",
+        "%s kB z nejvýš %s kB. Když ještě poroste, Android ho nemusí zvládnout ukázat – zmenši seznam nebo obrázky." to
+            "%s kB of at most %s kB. If it grows more, Android may not manage to show it – make the list or images smaller.",
+        "Widget se seznamem" to
+            "Widget with a list",
+        "Widget na ploše z bloků: nadpis s tlačítkem, posouvací seznam z bloku Opakovat a počet položek v nastavení bloku. Klepnutí na položku widget překreslí a ukáže, co bylo vybráno. Přidej ho na plochu: dlouhý stisk plochy → Widgety → Automation." to
+            "A home screen widget from blocks: a heading with a button, a scrolling list from the Repeat block and the number of items in the block's settings. A tap on an item redraws the widget and shows what was chosen. Put it on the home screen: long press the home screen → Widgets → Automation.",
+        "Vybráno: " to
+            "Chosen: ",
+        "položka " to
+            "item ",
+        "Položka " to
+            "Item ",
+        "Hlásit velikost widgetu (ladění)" to
+            "Report the widget size (debugging)",
+        "Oznámení, když widget naroste tak, že ho Android nemusí zvládnout ukázat." to
+            "A notification when the widget grows so big that Android may not manage to show it.",
+        "Náhled widgetu" to
+            "Widget preview",
+        "Vykreslit znovu" to
+            "Draw again",
+        "Automatizace nic nevykreslila – přidej blok Widget z bloků nebo Nastavit widget." to
+            "The automation drew nothing – add the Widget from blocks or Set widget block.",
+        "Náhled automatizaci opravdu spustí (i její další kroky). Klepání v náhledu nefunguje." to
+            "The preview really runs the automation (its other steps too). Taps do not work in the preview.",
+        "Nabídka widgetů teď ukazuje tenhle náhled" to
+            "The widget picker now shows this preview",
+        "Android teď náhled nepřijal (jde měnit jen párkrát za hodinu)" to
+            "Android did not accept the preview now (it can change only a few times an hour)",
+        "Použít v nabídce widgetů" to
+            "Use in the widget picker",
+        "Velikost: %s kB z nejvýš %s kB" to
+            "Size: %s kB of at most %s kB",
+        "Moc velký – na plochu se nepošle. Zmenši seznam nebo obrázky." to
+            "Too big – it will not be sent to the home screen. Make the list or images smaller.",
+        "Velký – Android ho nemusí zvládnout ukázat." to
+            "Big – Android may not manage to show it.",
+        "Widget se překreslí po přidání, změně velikosti, klepnutí a každých 30 minut." to
+            "The widget is drawn again when added, resized, tapped and every 30 minutes.",
+        "Widget z HTML" to
+            "Widget from HTML",
+        "Zatím bez obsahu widgetu" to
+            "No widget content yet",
+        "Widget na ploše" to
+            "Home screen widget",
+        "Automatizace jde dát na plochu jako widget (dlouhý stisk plochy → Widgety). Spustí se při každém překreslení a blokem Widget z bloků nebo Nastavit widget mu pošle obsah. Vstup = akce z klepnutí na widget." to
+            "The automation can be put on the home screen as a widget (long press the home screen → Widgets). It runs every time the widget is drawn and sends its content with the Widget from blocks or Set widget block. Input = the action of a tap on the widget.",
+        "\"%s\" nemá zapnutý spouštěč Widget na ploše" to
+            "\"%s\" does not have the Home screen widget trigger on",
+        "Překreslí widgety na ploše, které ukazují zvolenou automatizaci (prázdné = tuhle): ta se spustí, jako by se widget kreslil. Hodí se po změně dat, třeba z jiné události." to
+            "Redraws the home screen widgets that show the chosen automation (empty = this one): it runs as if the widget was being drawn. Useful after data changed, e.g. from another event.",
+        "Žádná automatizace nemá zapnutý spouštěč Widget na ploše. Zapni ho v automatizaci (Spouštěče) a do kroků dej blok Widget z bloků nebo Nastavit widget." to
+            "No automation has the Home screen widget trigger on. Switch it on in an automation (Triggers) and put the Widget from blocks or Set widget block into its steps.",
+        "id widgetu" to
+            "widget id",
+        "Widget z HTML: baterie" to
+            "HTML widget: battery",
+        "Widget na ploše z HTML: stav baterie velkým číslem s lištou a časem posledního překreslení. HTML se vykreslí do obrázku přesně ve velikosti widgetu, klepnutí ho obnoví. Přidej ho na plochu: dlouhý stisk plochy → Widgety → Automation." to
+            "A home screen widget from HTML: the battery level as a big number with a bar and the time of the last drawing. The HTML is drawn into a picture of exactly the widget's size, a tap refreshes it. Put it on the home screen: long press the home screen → Widgets → Automation.",
+        "baterie" to
+            "battery",
     )
 }

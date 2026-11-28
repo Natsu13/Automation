@@ -47,6 +47,7 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -330,6 +331,17 @@ fun AutomationSettingsSheet(
                     modifier = Modifier.padding(start = 52.dp, bottom = 4.dp)
                 )
             }
+
+            TriggerRow(
+                icon = Icons.Rounded.Widgets,
+                title = tr("Widget na ploše"),
+                description = tr("Automatizace jde dát na plochu jako widget (dlouhý stisk plochy → Widgety). Spustí se " +
+                        "při každém překreslení a blokem Widget z bloků nebo Nastavit widget mu pošle obsah. " +
+                        "Vstup = akce z klepnutí na widget."),
+                checked = viewModel.triggerWidget,
+                onChecked = { viewModel.setTriggers(widget = it) }
+            )
+            if (viewModel.triggerWidget) WidgetTriggerSettings(viewModel, Modifier.padding(start = 52.dp, bottom = 4.dp))
 
             EventsSection(viewModel)
 

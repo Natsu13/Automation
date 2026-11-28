@@ -142,6 +142,7 @@ class AiGuideExport {
         val triggers = listOfNotNull(
             "process_text".takeIf { entity.triggerProcessText }, "share".takeIf { entity.triggerShare },
             "tile".takeIf { entity.triggerTile }, "clipboard".takeIf { entity.triggerClipboard },
+            "widget".takeIf { entity.triggerWidget },
         )
         if (triggers.isNotEmpty()) appendLine("# @triggers " + triggers.joinToString(", "))
         for (e in entity.events) {
