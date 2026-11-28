@@ -81,6 +81,10 @@ class EditorViewModel(application: Application, private val automationId: Long) 
     }
     var triggerClipboard by mutableStateOf(false)
         private set
+    var triggerWidget by mutableStateOf(false)
+        private set
+    var widgetDebug by mutableStateOf(false)
+        private set
 
     val blocks = mutableStateListOf<Block>()
 
@@ -148,6 +152,8 @@ class EditorViewModel(application: Application, private val automationId: Long) 
                 triggerTile = stored.triggerTile
                 tileSlot = stored.tileSlot
                 triggerClipboard = stored.triggerClipboard
+                triggerWidget = stored.triggerWidget
+                widgetDebug = stored.widgetDebug
                 val storedBlocks = BlockJson.decodeChecked(stored.blocksJson)
                 val storedConditions = BlockJson.decodeChecked(stored.conditionsJson)
                 unreadable = storedBlocks.unreadable || storedConditions.unreadable
@@ -176,6 +182,8 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         triggerTile = triggerTile,
         tileSlot = tileSlot,
         triggerClipboard = triggerClipboard,
+        triggerWidget = triggerWidget,
+        widgetDebug = widgetDebug,
         conditionsJson = BlockJson.encode(conditions.toList()),
         conditionsAny = conditionsAny,
         eventsJson = cz.natsu.automation.data.EventJson.encode(events.toList()),
@@ -210,6 +218,8 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         val triggerShare: Boolean,
         val triggerTile: Boolean,
         val triggerClipboard: Boolean,
+        val triggerWidget: Boolean,
+        val widgetDebug: Boolean,
         val blocks: List<Block>,
         val conditions: List<Block>,
         val conditionsAny: Boolean,
@@ -229,7 +239,7 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         private set
 
     private fun capture() = Snapshot(
-        name, icon, triggerProcessText, triggerShare, triggerTile, triggerClipboard,
+        name, icon, triggerProcessText, triggerShare, triggerTile, triggerClipboard, triggerWidget, widgetDebug,
         foldedGroup?.before ?: blocks.toList(), conditions.toList(), conditionsAny, events.toList(),
     )
 
@@ -277,6 +287,8 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         triggerShare = snapshot.triggerShare
         triggerTile = snapshot.triggerTile
         triggerClipboard = snapshot.triggerClipboard
+        triggerWidget = snapshot.triggerWidget
+        widgetDebug = snapshot.widgetDebug
         blocks.clear()
         blocks.addAll(snapshot.blocks)
         conditions.clear()
@@ -452,11 +464,18 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         share: Boolean = triggerShare,
         tile: Boolean = triggerTile,
         clipboard: Boolean = triggerClipboard,
+        widget: Boolean = triggerWidget,
     ) {
         triggerProcessText = processText
         triggerShare = share
         triggerTile = tile
         triggerClipboard = clipboard
+        triggerWidget = widget
+        changed()
+    }
+
+    fun changeWidgetDebug(on: Boolean) {
+        widgetDebug = on
         changed()
     }
 

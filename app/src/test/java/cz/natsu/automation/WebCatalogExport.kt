@@ -271,6 +271,7 @@ class WebCatalogExport {
                     put("triggerShare", entity.triggerShare)
                     put("triggerTile", entity.triggerTile)
                     put("triggerClipboard", entity.triggerClipboard)
+                    put("triggerWidget", entity.triggerWidget)
                     put("conditionsAny", entity.conditionsAny)
                     put("conditions", BlockJson.json.parseToJsonElement(entity.conditionsJson))
                     put("events", BlockJson.json.parseToJsonElement(entity.eventsJson))

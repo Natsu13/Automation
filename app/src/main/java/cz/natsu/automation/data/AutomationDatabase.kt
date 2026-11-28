@@ -46,6 +46,10 @@ data class AutomationEntity(
     @ColumnInfo(name = "tile_slot", defaultValue = "0") val tileSlot: Int = 0,
     /** Shown at the top of the home screen. */
     @ColumnInfo(name = "pinned", defaultValue = "0") val pinned: Boolean = false,
+    /** Can be put on the home screen as a widget; runs whenever the widget is drawn (see HomeWidgets). */
+    @ColumnInfo(name = "trigger_widget", defaultValue = "0") val triggerWidget: Boolean = false,
+    /** Notifications about the size of the widget (for debugging a big widget). */
+    @ColumnInfo(name = "widget_debug", defaultValue = "0") val widgetDebug: Boolean = false,
 ) {
     val blocks: List<Block> get() = BlockJson.decode(blocksJson)
     val conditions: List<Block> get() = BlockJson.decode(conditionsJson)
@@ -80,11 +84,19 @@ interface AutomationDao {
     suspend fun setPinned(id: Long, pinned: Boolean)
 }
 
-@Database(entities = [AutomationEntity::class], version = 10, exportSchema = true)
+@Database(entities = [AutomationEntity::class], version = 11, exportSchema = true)
 abstract class AutomationDatabase : RoomDatabase() {
     abstract fun automationDao(): AutomationDao
 
     companion object {
+        /** 10 -> 11: widgets on the home screen. */
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE automations ADD COLUMN trigger_widget INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE automations ADD COLUMN widget_debug INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         /** 9 -> 10: pinned automations. */
         private val MIGRATION_9_10 = object : Migration(9, 10) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -130,7 +142,7 @@ abstract class AutomationDatabase : RoomDatabase() {
 
         fun build(context: Context): AutomationDatabase =
             Room.databaseBuilder(context, AutomationDatabase::class.java, "database")
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
                 // Versions 1-3 only contained the old "demo" prototype project.
                 .fallbackToDestructiveMigrationFrom(1, 2, 3)
                 .build()

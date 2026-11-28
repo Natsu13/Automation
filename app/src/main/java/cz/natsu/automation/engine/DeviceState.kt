@@ -28,8 +28,13 @@ object DeviceState {
         EventValue.Battery -> batteryLevel(context)?.toString() ?: ""
         EventValue.Charging -> charging(context).toString()
         EventValue.Dnd -> if (dndOn(context)) "zapnuto" else "vypnuto"
+        EventValue.DarkMode -> darkMode(context).toString()
         else -> ""
     }
+
+    fun darkMode(context: Context): Boolean =
+        (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
 
     fun networkType(context: Context): String {
         val connectivity = context.getSystemService(ConnectivityManager::class.java) ?: return "none"

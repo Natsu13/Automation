@@ -69,6 +69,12 @@ object Examples {
             "stáhne APK s průběhem na kartě na úvodu (tlačítko Zrušit) a pak nabídne Nainstalovat. Jiný repozitář nastavíš v prvním kroku; bez sítě nebo vydání tiše skončí.",
         "Ikona volného místa" to "Obrázek v automatizaci: ikonu disku obarví podle volného místa (zelená, oranžová, " +
             "červená), napíše pod ni procenta a ukáže ji v oznámení. Místo bloku Úložiště telefonu můžeš číst hodnotu z API.",
+        "Widget z HTML: baterie" to "Widget na ploše z HTML: stav baterie velkým číslem s lištou a časem posledního " +
+            "překreslení. HTML se vykreslí do obrázku přesně ve velikosti widgetu, klepnutí ho obnoví. " +
+            "Přidej ho na plochu: dlouhý stisk plochy → Widgety → Automation.",
+        "Widget se seznamem" to "Widget na ploše z bloků: nadpis s tlačítkem, posouvací seznam z bloku Opakovat a " +
+            "počet položek v nastavení bloku. Klepnutí na položku widget překreslí a ukáže, co bylo vybráno. " +
+            "Přidej ho na plochu: dlouhý stisk plochy → Widgety → Automation.",
         NotepadExample.NAME to "Okno s HTML + šifrování: hesla a poznámky v JSON souboru, název, kategorie i obsah " +
             "zašifrované heslem. Poprvé se zeptá, kam soubor uložit, a nabídne odemykání otiskem prstu.",
     )
@@ -913,5 +919,83 @@ object Examples {
                 )
             )
         },
+        // A home screen widget built from blocks; the list items come from a "Repeat" loop
+        example("Widget se seznamem", "checklist") {
+            val build = UUID.randomUUID().toString()
+            val header = UUID.randomUUID().toString()
+            val list = UUID.randomUUID().toString()
+            val loop = UUID.randomUUID().toString()
+            val item = UUID.randomUUID().toString()
+            val repeat = block("repeat", loop, "count" to richText("30"))
+            val round = Segment.Var(VarRef.BlockOutput(repeat.id))
+            Built(
+                listOf(
+                    block("widget_build", build),
+                    block(
+                        "widget_box", header,
+                        "direction" to ParamValue.Choice("row"), "size" to ParamValue.Choice("match"),
+                        "align" to ParamValue.Choice("center"),
+                    ),
+                    block(
+                        "widget_text", null,
+                        "text" to richText(tr("Seznam")), "bold" to ParamValue.Bool(true), "text_size" to ParamValue.Number(18f),
+                    ),
+                    block("widget_space", null, "space" to ParamValue.Number(0f), "fill" to ParamValue.Bool(true)),
+                    block(
+                        "widget_button", null,
+                        "text" to richText(tr("Obnovit")), "tap" to ParamValue.Choice("refresh"), "tap_input" to richText(""),
+                    ),
+                    block("end_widget_box", header),
+                    block(
+                        "widget_text", null,
+                        "text" to ParamValue.Rich(listOf(Segment.Text(tr("Vybráno: ")), Segment.Var(VarRef.Input))),
+                        "text_size" to ParamValue.Number(12f),
+                    ),
+                    block("widget_space", null, "space" to ParamValue.Number(6f)),
+                    block("widget_list", list, "spacing" to ParamValue.Number(6f)),
+                    repeat,
+                    block(
+                        "widget_box", item,
+                        "direction" to ParamValue.Choice("row"), "size" to ParamValue.Choice("match"),
+                        "background" to richText("#5C6BC0"), "padding" to ParamValue.Number(10f),
+                        "tap" to ParamValue.Choice("refresh"),
+                        "tap_input" to ParamValue.Rich(listOf(Segment.Text(tr("položka ")), round)),
+                    ),
+                    block(
+                        "widget_text", null,
+                        "text" to ParamValue.Rich(listOf(Segment.Text(tr("Položka ")), round)), "color" to richText("white"),
+                    ),
+                    block("end_widget_box", item),
+                    block("end_while", loop),
+                    block("end_widget_list", list),
+                    block("end_widget_build", build),
+                )
+            ) { it.copy(triggerWidget = true) }
+        },
+        // A home screen widget drawn from HTML: the battery level, refreshed on a tap
+        example("Widget z HTML: baterie", "battery") {
+            val level = block("battery", null, "info" to ParamValue.Choice("level"))
+            val battery = Segment.Var(VarRef.BlockOutput(level.id))
+            Built(
+                listOf(
+                    level,
+                    block(
+                        "widget_set", null,
+                        "html" to ParamValue.Rich(
+                            listOf(
+                                Segment.Text("<html><body style=\"margin:0;font-family:sans-serif\"><div style=\"box-sizing:border-box;height:100vh;padding:16px;border-radius:24px;background:linear-gradient(135deg,#3949ab,#8e24aa);color:#fff;display:flex;flex-direction:column;justify-content:space-between\"><div style=\"font-size:13px;opacity:.8\" id=\"time\"></div><div><div style=\"font-size:40px;font-weight:bold\">"),
+                                battery,
+                                Segment.Text(" %</div><div style=\"font-size:13px;opacity:.8\">BATTERY_WORD</div></div><div style=\"height:8px;border-radius:4px;background:rgba(255,255,255,.25)\"><div style=\"height:100%;border-radius:4px;background:#fff;width:".replace("BATTERY_WORD", tr("baterie"))),
+                                battery,
+                                Segment.Text("%\"></div></div></div><script>document.getElementById(\"time\").textContent = new Date().toLocaleTimeString([], {hour: \"2-digit\", minute: \"2-digit\"})</script></body></html>"),
+                            )
+                        ),
+                        "tap" to ParamValue.Choice("refresh"),
+                    ),
+                )
+            ) { it.copy(triggerWidget = true) }
+        },
     )
+
+
 }

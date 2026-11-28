@@ -149,9 +149,11 @@ class ScriptWriter(private val blocks: List<Block>) {
         ControlBlocks.LOCK -> plain(block.params["name"]).orEmpty().trim().let { if (it.isEmpty()) "lock" else "lock(${quote(it)})" }
         ControlBlocks.TIME_LIMIT -> "time_limit(${expr(block, def, "seconds")})"
         // Positional: html, title, internet, secure (the switches only when on).
-        cz.natsu.automation.engine.HtmlBlocks.WINDOW -> assign(block, call(block, def))
+        cz.natsu.automation.engine.HtmlBlocks.WINDOW, cz.natsu.automation.engine.WidgetBuilder.BUILD -> assign(block, call(block, def))
+        cz.natsu.automation.engine.WidgetBuilder.BOX, cz.natsu.automation.engine.WidgetBuilder.LIST -> call(block, def)
         Blocks.END_TRY, ControlBlocks.END_PARALLEL, ControlBlocks.END_LOCK, ControlBlocks.END_TIME_LIMIT,
-        cz.natsu.automation.engine.HtmlBlocks.END_WINDOW -> "end"
+        cz.natsu.automation.engine.HtmlBlocks.END_WINDOW, cz.natsu.automation.engine.WidgetBuilder.END_BUILD,
+        cz.natsu.automation.engine.WidgetBuilder.END_BOX, cz.natsu.automation.engine.WidgetBuilder.END_LIST -> "end"
         else -> if (def.kind == BlockKind.Normal) assign(block, call(block, def)) else "# " + tr(def.title)
     }
 

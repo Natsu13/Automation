@@ -328,6 +328,10 @@ object MoreBlocks {
                         ChoiceOption("nfc_text", "NFC štítek – text", "text štítku"),
                         ChoiceOption("app_package", "Aplikace – balíček", "balíček aplikace"),
                         ChoiceOption("app_name", "Aplikace – název", "název aplikace"),
+                        ChoiceOption("widget_width", "Widget – šířka (dp)", "šířku widgetu"),
+                        ChoiceOption("widget_height", "Widget – výška (dp)", "výšku widgetu"),
+                        ChoiceOption("widget_id", "Widget – id", "id widgetu"),
+                        ChoiceOption("dark_mode", "Tmavý režim (true / false)", "tmavý režim"),
                     )
                 ),
             ),

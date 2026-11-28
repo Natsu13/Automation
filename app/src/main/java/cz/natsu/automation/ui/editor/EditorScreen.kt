@@ -42,6 +42,7 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -640,6 +641,7 @@ private fun TriggerSummary(viewModel: EditorViewModel, onClick: () -> Unit) {
         if (viewModel.triggerShare) add(Icons.Rounded.Share to tr("Sdílet"))
         if (viewModel.triggerTile) add(Icons.Rounded.Tune to tr("Dlaždice"))
         if (viewModel.triggerClipboard) add(Icons.Rounded.ContentPaste to tr("Změna schránky"))
+        if (viewModel.triggerWidget) add(Icons.Rounded.Widgets to tr("Widget"))
         for (event in viewModel.events) add(eventIcon(cz.natsu.automation.data.EventType.of(event.type)) to eventLabel(event))
     }
     Surface(
