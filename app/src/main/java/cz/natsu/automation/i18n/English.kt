@@ -4199,5 +4199,35 @@ object English {
             "Sends the content of a home screen widget: the HTML is drawn into a picture of exactly the widget's size (1 CSS px = 1 dp; the Event data block gives the size). The page cannot scroll. An element with data-tap=\"value\" can be tapped on the home screen: the widget is redrawn and the automation gets the value as Input; data-run=\"Automation name\" (with data-input) runs another automation. Elsewhere On tap applies. Applies to the widget being drawn, otherwise to all widgets of this automation.",
         "data-run: automatizace \"%s\" neexistuje" to
             "data-run: automation \"%s\" does not exist",
+        "Klepni a napiš kód" to
+            "Tap and write the code",
+        "Prázdné" to
+            "Empty",
+        "%s ř. · %s znaků" to
+            "%s lines · %s characters",
+        "Naformátováno" to
+            "Formatted",
+        "Formátovat" to
+            "Format",
+        "Skript je v pořádku" to
+            "The script is fine",
+        "Zkontrolovat" to
+            "Check",
+        "Zalamovat řádky" to
+            "Wrap lines",
+        "Menší písmo" to
+            "Smaller text",
+        "Větší písmo" to
+            "Larger text",
+        "„%s“ je pozastavená" to
+            "“%s” is paused",
+        "pozastaveno" to
+            "paused",
+        "Pozastaveno – události, dlaždice, widgety ani plány ji nespustí. Ručně spustit jde." to
+            "Paused – events, tiles, widgets and plans will not start it. Running it by hand works.",
+        "Automatizace zůstane, ale nic ji nespustí samo – ani spouštěče níže, události, widget nebo plány. Ručně v aplikaci spustit jde." to
+            "The automation stays, but nothing starts it by itself – not the triggers below, events, the widget or plans. Running it by hand in the app works.",
+        "Znovu zapnout" to
+            "Resume",
     )
 }

@@ -63,7 +63,7 @@ private const val CHIP_PADDING = " "
  * stand for them inside the edited string. Every chip gets its own character, so
  * deleting one chip never shifts the meaning of the others.
  */
-private class ChipCodec {
+internal class ChipCodec {
     val refs = mutableMapOf<Char, VarRef>()
     private var next = FIRST_CHIP_CHAR
 
@@ -111,10 +111,14 @@ private class ChipCodec {
 }
 
 /** Replaces each chip character with its label and remembers where the chips are. */
-private class ChipTransformation(
+internal class ChipTransformation(
     private val codec: ChipCodec,
     private val styleOf: (VarRef) -> ChipStyle,
     private val onChips: (List<Pair<TextRange, ChipStyle>>) -> Unit,
+    /** Colours of code (ranges of the edited text); null = plain text. */
+    private val highlight: ((String) -> List<Pair<IntRange, SpanStyle>>)? = null,
+    /** Receives the mapping, so line numbers can find where each line is drawn. */
+    private val onMapping: ((OffsetMapping) -> Unit)? = null,
 ) : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
         val source = text.text
@@ -148,6 +152,12 @@ private class ChipTransformation(
         originalToTransformed[source.length] = builder.length
         transformedToOriginal += source.length
 
+        highlight?.invoke(source)?.forEach { (range, style) ->
+            val start = originalToTransformed[range.first.coerceIn(0, source.length)]
+            val end = originalToTransformed[(range.last + 1).coerceIn(0, source.length)]
+            if (end > start) builder.addStyle(style, start, end)
+        }
+
         onChips(chips)
 
         val mapping = object : OffsetMapping {
@@ -157,6 +167,7 @@ private class ChipTransformation(
             override fun transformedToOriginal(offset: Int): Int =
                 transformedToOriginal[offset.coerceIn(0, transformedToOriginal.size - 1)]
         }
+        onMapping?.invoke(mapping)
         return TransformedText(builder.toAnnotatedString(), mapping)
     }
 
@@ -192,7 +203,7 @@ fun RichTextField(
     var value by remember { mutableStateOf(TextFieldValue(codec.encode(segments))) }
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     var chips by remember { mutableStateOf<List<Pair<TextRange, ChipStyle>>>(emptyList()) }
-    val transformation = remember(styleOf) { ChipTransformation(codec, styleOf) { chips = it } }
+    val transformation = remember(styleOf) { ChipTransformation(codec, styleOf, onChips = { chips = it }) }
 
     // Take over a value changed from outside (undo / redo).
     LaunchedEffect(segments) {

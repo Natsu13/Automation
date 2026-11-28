@@ -422,7 +422,18 @@ private fun ParamEditor(
         is ParamDef.Text -> Column {
             ParamLabel(tr(param.label))
             val segments = (value as? ParamValue.Rich)?.segments ?: emptyList()
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            if (param.code) {
+                CodeField(
+                    segments = segments,
+                    onChange = { onChange(ParamValue.Rich(it)) },
+                    styleOf = chipStyle,
+                    title = tr(param.label),
+                    placeholder = tr(param.placeholder),
+                    language = CodeLanguage.forParam(param.key),
+                    allowVariables = !param.plain,
+                    onRequestVariable = onRequestVariable,
+                )
+            } else Row(verticalAlignment = Alignment.CenterVertically) {
                 RichTextField(
                     segments = segments,
                     onChange = { onChange(ParamValue.Rich(it)) },
