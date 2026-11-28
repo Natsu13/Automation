@@ -115,7 +115,7 @@ object WidgetBuilder {
     private fun countLists(node: Node): Int = (if (node.type == LIST) 1 else 0) + node.children.sumOf { countLists(it) }
 
     /** Size of [views] as it travels to the launcher, in bytes (with pictures and list items). */
-    private fun sizeOf(views: RemoteViews): Int {
+    fun sizeOf(views: RemoteViews): Int {
         val parcel = android.os.Parcel.obtain()
         return try {
             views.writeToParcel(parcel, 0)

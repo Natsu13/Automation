@@ -215,6 +215,54 @@ internal object BlockHelpEn {
             save), put them into the One at a time block.
         """.trimIndent(),
 
+        "widget_set" to """
+            A home screen widget from HTML. The automation needs Home screen widget switched on in Triggers; add the widget by a long press on the home screen → Widgets → Automation and choose the automation.
+
+            How it is drawn
+            • the HTML is drawn into a picture of exactly the widget's size: 1 CSS px = 1 dp
+            • the Event data block gives the size (Widget – width / height) and the dark mode
+            • JavaScript runs only while drawing – the page cannot be scrolled or typed into
+            • give the background height:100vh and border-radius, the corners outside stay transparent
+            • images and fonts from the internet only with Allow internet on
+
+            When it is drawn again
+            • when added, resized, tapped, after saving the automation and every 30 minutes
+            • with the Refresh widget block from another automation (e.g. after an event)
+
+            Tapping parts of the page
+            • an element with data-tap="value" can be tapped on the home screen: the widget is redrawn and the automation gets the value as Input (empty Input = a plain refresh)
+            • data-run="Automation name" runs another automation (its number works too), data-input="…" gives it the Input
+            • at most 24 such elements; elsewhere On tap applies
+            • Android 12 and newer hit the element exactly; Android 9–11 split the widget into a grid of 8 × 8 cells, so small elements right next to each other may be mixed up
+
+            Example: tabs
+            <div data-tap="battery">Battery</div> <div data-tap="time">Time</div> and in the script of the page: var mode = "{Input}" || "battery" – show one part or the other by it (the HTML widget: battery example).
+
+            Size
+            The widget travels to the launcher as one message; above 500 kB it is not sent. The Widget preview in Triggers shows how much it takes.
+        """.trimIndent(),
+
+        "widget_build" to """
+            A home screen widget from real Android parts – faster than HTML, with buttons and a list that can be scrolled. The automation needs Home screen widget switched on in Triggers.
+
+            Parts (put them inside this block)
+            • Widget: row / column – parts side by side or below each other, with background and padding
+            • Widget: text, button, image, progress, space
+            • Widget: scrolling list – every block inside is one item; the Repeat or For each item block inside the list makes items from data; at most 4 lists
+
+            Width of a part
+            • By content, Full width, or Fill the remaining space (pushes the next parts to the edge)
+
+            Tap
+            • Redraw the widget with an input – the widget's automation gets it as Input and can show something else by it (tabs, next page, chosen item)
+            • Run an automation with an input – runs another automation in the background
+
+            On Android 12+ a list keeps where it was scrolled to after a redraw; older Android scrolls it to the item that was tapped.
+
+            Size
+            The widget travels to the launcher as one message; above 500 kB it is not sent (the error is in the run history). The Widget preview in Triggers shows how much it takes; with Report the widget size on, a notification comes already from 250 kB.
+        """.trimIndent(),
+
         "html_window" to """
             Your own page in a window of the app – HTML, CSS and JavaScript
             in the HTML field (or from a variable, e.g. from Read file).

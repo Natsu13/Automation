@@ -198,6 +198,54 @@ object BlockHelp {
             se, uložit), zavři je do bloku Jeden po druhém.
         """.trimIndent(),
 
+        "widget_set" to """
+            Widget na ploše z HTML. Automatizace musí mít ve Spouštěčích zapnutý Widget na ploše; widget přidáš dlouhým stiskem plochy → Widgety → Automation a vybereš automatizaci.
+
+            Jak se kreslí
+            • HTML se vykreslí do obrázku přesně ve velikosti widgetu: 1 CSS px = 1 dp
+            • velikost vrátí blok Údaje z události (Widget – šířka / výška), tmavý režim taky
+            • JavaScript běží jen při vykreslení – stránka se pak nedá posouvat ani psát do ní
+            • na pozadí dej height:100vh a border-radius, rohy mimo něj zůstanou průhledné
+            • obrázky a písma z internetu jen se zapnutým Povolit internet
+
+            Kdy se kreslí znovu
+            • po přidání, změně velikosti, klepnutí, uložení automatizace a každých 30 minut
+            • blokem Obnovit widget z jiné automatizace (třeba po události)
+
+            Klepání na části stránky
+            • prvek s data-tap="hodnota" jde na ploše klepnout: widget se překreslí a automatizace dostane hodnotu jako Vstup (prázdný Vstup = obyčejné obnovení)
+            • data-run="Název automatizace" spustí jinou automatizaci (jde i její číslo), data-input="…" jí předá Vstup
+            • nejvýš 24 takových prvků; jinde platí Po klepnutí
+            • Android 12 a novější trefí prvek přesně; Android 9–11 dělí widget na mřížku 8 × 8 políček, takže malé prvky těsně vedle sebe se můžou splést
+
+            Příklad: záložky
+            <div data-tap="baterie">Baterie</div> <div data-tap="cas">Čas</div> a ve skriptu stránky: var mode = "{Vstup}" || "baterie" – podle něj ukaž jednu nebo druhou část (ukázka Widget z HTML: baterie).
+
+            Velikost
+            Widget jde do launcheru jako jedna zpráva; nad 500 kB se nepošle. Kolik zabírá, ukáže Náhled widgetu ve Spouštěčích.
+        """.trimIndent(),
+
+        "widget_build" to """
+            Widget na ploše z opravdových částí Androidu – rychlejší než HTML, s tlačítky a seznamem, který jde posouvat. Automatizace musí mít ve Spouštěčích zapnutý Widget na ploše.
+
+            Části (dej je dovnitř tohohle bloku)
+            • Widget: řádek / sloupec – části vedle sebe nebo pod sebou, s pozadím a okrajem
+            • Widget: text, tlačítko, obrázek, průběh, mezera
+            • Widget: posouvací seznam – každý blok uvnitř je jedna položka; položky z dat udělá blok Opakovat nebo Pro každou položku uvnitř seznamu; nejvýš 4 seznamy
+
+            Šířka části
+            • Podle obsahu, Celá šířka, nebo Vyplnit zbylé místo (odsune další části na kraj)
+
+            Klepnutí
+            • Překreslit widget se vstupem – automatizace widgetu dostane vstup jako Vstup a podle něj může ukázat něco jiného (záložky, další stránka, vybraná položka)
+            • Spustit automatizaci se vstupem – spustí jinou automatizaci na pozadí
+
+            Seznam si na Androidu 12+ po překreslení drží, kam byl posunutý; starší Android ho posune na položku, na kterou se klepnulo.
+
+            Velikost
+            Widget jde do launcheru jako jedna zpráva; nad 500 kB se nepošle (chyba je v historii běhů). Kolik zabírá, ukáže Náhled widgetu ve Spouštěčích; zapnuté Hlásit velikost pošle oznámení už od 250 kB.
+        """.trimIndent(),
+
         "html_window" to """
             Tvoje vlastní stránka v okně aplikace – HTML, CSS i JavaScript
             v poli HTML stránky (nebo z proměnné, třeba z Přečíst soubor).

@@ -3947,8 +3947,6 @@ object English {
             "Set widget to HTML",
         "Nastavit widget" to
             "Set widget",
-        "Pošle obsah widgetu na ploše: HTML se vykreslí do obrázku přesně ve velikosti widgetu (1 CSS px = 1 dp; velikost vrátí blok Údaje z události). Stránka se nedá posouvat ani klikat, klepnutí na widget ho obnoví nebo spustí automatizaci. Platí pro widget, který se právě kreslí, jinak pro všechny widgety této automatizace." to
-            "Sends the content of a home screen widget: the HTML is drawn into a picture of exactly the widget's size (1 CSS px = 1 dp; the Event data block gives the size). The page cannot scroll or be clicked; a tap on the widget refreshes it or runs an automation. Applies to the widget being drawn, otherwise to all widgets of this automation.",
         "HTML widgetu" to
             "Widget HTML",
         "Po klepnutí" to
@@ -4193,9 +4191,13 @@ object English {
             "widget id",
         "Widget z HTML: baterie" to
             "HTML widget: battery",
-        "Widget na ploše z HTML: stav baterie velkým číslem s lištou a časem posledního překreslení. HTML se vykreslí do obrázku přesně ve velikosti widgetu, klepnutí ho obnoví. Přidej ho na plochu: dlouhý stisk plochy → Widgety → Automation." to
-            "A home screen widget from HTML: the battery level as a big number with a bar and the time of the last drawing. The HTML is drawn into a picture of exactly the widget's size, a tap refreshes it. Put it on the home screen: long press the home screen → Widgets → Automation.",
         "baterie" to
             "battery",
+        "Widget na ploše z HTML se dvěma záložkami: Baterie (velké číslo s lištou) a Čas. Záložky mají data-tap, takže na ploše jdou klepnout – widget se překreslí a automatizace dostane název záložky jako Vstup. Přidej ho na plochu: dlouhý stisk plochy → Widgety → Automation." to
+            "A home screen widget from HTML with two tabs: Battery (a big number with a bar) and Time. The tabs have data-tap, so they can be tapped on the home screen – the widget is redrawn and the automation gets the name of the tab as Input. Put it on the home screen: long press the home screen → Widgets → Automation.",
+        "Pošle obsah widgetu na ploše: HTML se vykreslí do obrázku přesně ve velikosti widgetu (1 CSS px = 1 dp; velikost vrátí blok Údaje z události). Stránka se nedá posouvat. Prvek s data-tap=\"hodnota\" jde na ploše klepnout: widget se překreslí a automatizace dostane hodnotu jako Vstup; data-run=\"Název automatizace\" (s data-input) spustí jinou automatizaci. Jinde platí Po klepnutí. Platí pro widget, který se právě kreslí, jinak pro všechny widgety této automatizace." to
+            "Sends the content of a home screen widget: the HTML is drawn into a picture of exactly the widget's size (1 CSS px = 1 dp; the Event data block gives the size). The page cannot scroll. An element with data-tap=\"value\" can be tapped on the home screen: the widget is redrawn and the automation gets the value as Input; data-run=\"Automation name\" (with data-input) runs another automation. Elsewhere On tap applies. Applies to the widget being drawn, otherwise to all widgets of this automation.",
+        "data-run: automatizace \"%s\" neexistuje" to
+            "data-run: automation \"%s\" does not exist",
     )
 }
