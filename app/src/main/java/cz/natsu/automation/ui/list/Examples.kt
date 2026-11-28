@@ -69,9 +69,9 @@ object Examples {
             "stáhne APK s průběhem na kartě na úvodu (tlačítko Zrušit) a pak nabídne Nainstalovat. Jiný repozitář nastavíš v prvním kroku; bez sítě nebo vydání tiše skončí.",
         "Ikona volného místa" to "Obrázek v automatizaci: ikonu disku obarví podle volného místa (zelená, oranžová, " +
             "červená), napíše pod ni procenta a ukáže ji v oznámení. Místo bloku Úložiště telefonu můžeš číst hodnotu z API.",
-        "Widget z HTML: baterie" to "Widget na ploše z HTML: stav baterie velkým číslem s lištou a časem posledního " +
-            "překreslení. HTML se vykreslí do obrázku přesně ve velikosti widgetu, klepnutí ho obnoví. " +
-            "Přidej ho na plochu: dlouhý stisk plochy → Widgety → Automation.",
+        "Widget z HTML: baterie" to "Widget na ploše z HTML se dvěma záložkami: Baterie (velké číslo s lištou) a Čas. " +
+            "Záložky mají data-tap, takže na ploše jdou klepnout – widget se překreslí a automatizace dostane název " +
+            "záložky jako Vstup. Přidej ho na plochu: dlouhý stisk plochy → Widgety → Automation.",
         "Widget se seznamem" to "Widget na ploše z bloků: nadpis s tlačítkem, posouvací seznam z bloku Opakovat a " +
             "počet položek v nastavení bloku. Klepnutí na položku widget překreslí a ukáže, co bylo vybráno. " +
             "Přidej ho na plochu: dlouhý stisk plochy → Widgety → Automation.",
@@ -972,7 +972,7 @@ object Examples {
                 )
             ) { it.copy(triggerWidget = true) }
         },
-        // A home screen widget drawn from HTML: the battery level, refreshed on a tap
+        // A home screen widget drawn from HTML; the tabs are tappable (data-tap) and come back as Input
         example("Widget z HTML: baterie", "battery") {
             val level = block("battery", null, "info" to ParamValue.Choice("level"))
             val battery = Segment.Var(VarRef.BlockOutput(level.id))
@@ -983,11 +983,13 @@ object Examples {
                         "widget_set", null,
                         "html" to ParamValue.Rich(
                             listOf(
-                                Segment.Text("<html><body style=\"margin:0;font-family:sans-serif\"><div style=\"box-sizing:border-box;height:100vh;padding:16px;border-radius:24px;background:linear-gradient(135deg,#3949ab,#8e24aa);color:#fff;display:flex;flex-direction:column;justify-content:space-between\"><div style=\"font-size:13px;opacity:.8\" id=\"time\"></div><div><div style=\"font-size:40px;font-weight:bold\">"),
+                                Segment.Text("<html><head><style>body{margin:0;font-family:sans-serif}.card{box-sizing:border-box;height:100vh;padding:14px;border-radius:24px;background:linear-gradient(135deg,#3949ab,#8e24aa);color:#fff;display:flex;flex-direction:column;gap:10px}.tabs{display:flex;gap:6px}.tab{padding:5px 12px;border-radius:14px;font-size:13px;background:rgba(255,255,255,.18)}.tab.on{background:#fff;color:#4a2a9a;font-weight:bold}.big{font-size:40px;font-weight:bold}.small{font-size:13px;opacity:.8}.bar{height:8px;border-radius:4px;background:rgba(255,255,255,.25)}.fill{height:100%;border-radius:4px;background:#fff}</style></head><body><div class=\"card\"><div class=\"tabs\"><div class=\"tab\" id=\"t-baterie\" data-tap=\"baterie\">BATTERY_TAB</div><div class=\"tab\" id=\"t-cas\" data-tap=\"cas\">TIME_TAB</div></div><div id=\"baterie\" style=\"flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:6px\"><div class=\"big\">".replace("BATTERY_TAB", tr("Baterie")).replace("TIME_TAB", tr("Čas"))),
                                 battery,
-                                Segment.Text(" %</div><div style=\"font-size:13px;opacity:.8\">BATTERY_WORD</div></div><div style=\"height:8px;border-radius:4px;background:rgba(255,255,255,.25)\"><div style=\"height:100%;border-radius:4px;background:#fff;width:".replace("BATTERY_WORD", tr("baterie"))),
+                                Segment.Text(" %</div><div class=\"bar\"><div class=\"fill\" style=\"width:"),
                                 battery,
-                                Segment.Text("%\"></div></div></div><script>document.getElementById(\"time\").textContent = new Date().toLocaleTimeString([], {hour: \"2-digit\", minute: \"2-digit\"})</script></body></html>"),
+                                Segment.Text("%\"></div></div></div><div id=\"cas\" style=\"flex:1;display:none;flex-direction:column;justify-content:flex-end\"><div class=\"big\" id=\"clock\"></div><div class=\"small\" id=\"date\"></div></div></div><script>var mode = \""),
+                                Segment.Var(VarRef.Input),
+                                Segment.Text("\" || \"baterie\";document.getElementById(mode).style.display = \"flex\";if (mode != \"baterie\") document.getElementById(\"baterie\").style.display = \"none\";document.getElementById(\"t-\" + mode).className = \"tab on\";var now = new Date();document.getElementById(\"clock\").textContent = now.toLocaleTimeString([], {hour: \"2-digit\", minute: \"2-digit\"});document.getElementById(\"date\").textContent = now.toLocaleDateString([], {weekday: \"long\", day: \"numeric\", month: \"long\"});</script></body></html>"),
                             )
                         ),
                         "tap" to ParamValue.Choice("refresh"),

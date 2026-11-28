@@ -2451,7 +2451,7 @@ How many seconds are left of the countdown in the notification of that name (0 w
 
 #### `widget_set` – Set widget / Nastavit widget
 
-Sends the content of a home screen widget: the HTML is drawn into a picture of exactly the widget's size (1 CSS px = 1 dp; the Event data block gives the size). The page cannot scroll or be clicked; a tap on the widget refreshes it or runs an automation. Applies to the widget being drawn, otherwise to all widgets of this automation.
+Sends the content of a home screen widget: the HTML is drawn into a picture of exactly the widget's size (1 CSS px = 1 dp; the Event data block gives the size). The page cannot scroll. An element with data-tap="value" can be tapped on the home screen: the widget is redrawn and the automation gets the value as Input; data-run="Automation name" (with data-input) runs another automation. Elsewhere On tap applies. Applies to the widget being drawn, otherwise to all widgets of this automation.
 
 - Signature: `widget_set(html, tap, tap_automation, internet)`
 
@@ -2461,6 +2461,37 @@ Sends the content of a home screen widget: the HTML is drawn into a picture of e
 | `tap` | choice | `"refresh"` | On tap · `"refresh"` Refresh widget, `"run"` Run automation, `"none"` Nothing |
 | `tap_automation` | automation id | `""` | Automation on tap · the number of another automation on the phone, "" = none · *only when `tap` is "run"* |
 | `internet` | true/false | `false` | Allow internet (images, fonts) |
+
+<details><summary>Help</summary>
+
+```text
+A home screen widget from HTML. The automation needs Home screen widget switched on in Triggers; add the widget by a long press on the home screen → Widgets → Automation and choose the automation.
+
+How it is drawn
+• the HTML is drawn into a picture of exactly the widget's size: 1 CSS px = 1 dp
+• the Event data block gives the size (Widget – width / height) and the dark mode
+• JavaScript runs only while drawing – the page cannot be scrolled or typed into
+• give the background height:100vh and border-radius, the corners outside stay transparent
+• images and fonts from the internet only with Allow internet on
+
+When it is drawn again
+• when added, resized, tapped, after saving the automation and every 30 minutes
+• with the Refresh widget block from another automation (e.g. after an event)
+
+Tapping parts of the page
+• an element with data-tap="value" can be tapped on the home screen: the widget is redrawn and the automation gets the value as Input (empty Input = a plain refresh)
+• data-run="Automation name" runs another automation (its number works too), data-input="…" gives it the Input
+• at most 24 such elements; elsewhere On tap applies
+• Android 12 and newer hit the element exactly; Android 9–11 split the widget into a grid of 8 × 8 cells, so small elements right next to each other may be mixed up
+
+Example: tabs
+<div data-tap="battery">Battery</div> <div data-tap="time">Time</div> and in the script of the page: var mode = "{Input}" || "battery" – show one part or the other by it (the HTML widget: battery example).
+
+Size
+The widget travels to the launcher as one message; above 500 kB it is not sent. The Widget preview in Triggers shows how much it takes.
+```
+
+</details>
 
 #### `widget_refresh` – Refresh widget / Obnovit widget
 
@@ -2486,6 +2517,31 @@ Builds a home screen widget from native parts: put the Widget: text, button, ima
 | `rounded` | true/false | `true` | Rounded corners |
 | `padding` | number | `12` | Padding · 0–48 dp |
 | `align` | choice | `"start"` | Alignment · `"start"` Left / top, `"center"` Centre, `"end"` Right / bottom |
+
+<details><summary>Help</summary>
+
+```text
+A home screen widget from real Android parts – faster than HTML, with buttons and a list that can be scrolled. The automation needs Home screen widget switched on in Triggers.
+
+Parts (put them inside this block)
+• Widget: row / column – parts side by side or below each other, with background and padding
+• Widget: text, button, image, progress, space
+• Widget: scrolling list – every block inside is one item; the Repeat or For each item block inside the list makes items from data; at most 4 lists
+
+Width of a part
+• By content, Full width, or Fill the remaining space (pushes the next parts to the edge)
+
+Tap
+• Redraw the widget with an input – the widget's automation gets it as Input and can show something else by it (tabs, next page, chosen item)
+• Run an automation with an input – runs another automation in the background
+
+On Android 12+ a list keeps where it was scrolled to after a redraw; older Android scrolls it to the item that was tapped.
+
+Size
+The widget travels to the launcher as one message; above 500 kB it is not sent (the error is in the run history). The Widget preview in Triggers shows how much it takes; with Report the widget size on, a notification comes already from 250 kB.
+```
+
+</details>
 
 #### `widget_box` – Widget: row / column / Widget: řádek / sloupec
 
@@ -3179,13 +3235,13 @@ end
 
 ### HTML widget: battery
 
-A home screen widget from HTML: the battery level as a big number with a bar and the time of the last drawing. The HTML is drawn into a picture of exactly the widget's size, a tap refreshes it. Put it on the home screen: long press the home screen → Widgets → Automation.
+A home screen widget from HTML with two tabs: Battery (a big number with a bar) and Time. The tabs have data-tap, so they can be tapped on the home screen – the widget is redrawn and the automation gets the name of the tab as Input. Put it on the home screen: long press the home screen → Widgets → Automation.
 
 ```
 # @name "HTML widget: battery"
 # @icon battery
 # @triggers widget
 battery_result = battery("level")
-widget_set("<html><body style=\"margin:0;font-family:sans-serif\"><div style=\"box-sizing:border-box;height:100vh;padding:16px;border-radius:24px;background:linear-gradient(135deg,#3949ab,#8e24aa);color:#fff;display:flex;flex-direction:column;justify-content:space-between\"><div style=\"font-size:13px;opacity:.8\" id=\"time\"></div><div><div style=\"font-size:40px;font-weight:bold\">" & battery_result & " %</div><div style=\"font-size:13px;opacity:.8\">battery</div></div><div style=\"height:8px;border-radius:4px;background:rgba(255,255,255,.25)\"><div style=\"height:100%;border-radius:4px;background:#fff;width:" & battery_result & "%\"></div></div></div><script>document.getElementById(\"time\").textContent = new Date().toLocaleTimeString([], {hour: \"2-digit\", minute: \"2-digit\"})</script></body></html>", "refresh")
+widget_set("<html><head><style>body{margin:0;font-family:sans-serif}.card{box-sizing:border-box;height:100vh;padding:14px;border-radius:24px;background:linear-gradient(135deg,#3949ab,#8e24aa);color:#fff;display:flex;flex-direction:column;gap:10px}.tabs{display:flex;gap:6px}.tab{padding:5px 12px;border-radius:14px;font-size:13px;background:rgba(255,255,255,.18)}.tab.on{background:#fff;color:#4a2a9a;font-weight:bold}.big{font-size:40px;font-weight:bold}.small{font-size:13px;opacity:.8}.bar{height:8px;border-radius:4px;background:rgba(255,255,255,.25)}.fill{height:100%;border-radius:4px;background:#fff}</style></head><body><div class=\"card\"><div class=\"tabs\"><div class=\"tab\" id=\"t-baterie\" data-tap=\"baterie\">Battery</div><div class=\"tab\" id=\"t-cas\" data-tap=\"cas\">Time</div></div><div id=\"baterie\" style=\"flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:6px\"><div class=\"big\">" & battery_result & " %</div><div class=\"bar\"><div class=\"fill\" style=\"width:" & battery_result & "%\"></div></div></div><div id=\"cas\" style=\"flex:1;display:none;flex-direction:column;justify-content:flex-end\"><div class=\"big\" id=\"clock\"></div><div class=\"small\" id=\"date\"></div></div></div><script>var mode = \"" & input & "\" || \"baterie\";document.getElementById(mode).style.display = \"flex\";if (mode != \"baterie\") document.getElementById(\"baterie\").style.display = \"none\";document.getElementById(\"t-\" + mode).className = \"tab on\";var now = new Date();document.getElementById(\"clock\").textContent = now.toLocaleTimeString([], {hour: \"2-digit\", minute: \"2-digit\"});document.getElementById(\"date\").textContent = now.toLocaleDateString([], {weekday: \"long\", day: \"numeric\", month: \"long\"});</script></body></html>", "refresh")
 ```
 
