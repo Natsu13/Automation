@@ -106,7 +106,7 @@ class NotificationTimerReceiver : BroadcastReceiver() {
         val pending = goAsync()
         repository.appScope.launch {
             try {
-                val automation = repository.get(automationId)?.takeIf { !it.needsReview } ?: return@launch
+                val automation = repository.get(automationId)?.takeIf { it.startsByItself } ?: return@launch
                 // The run goes on in the app scope; the receiver just stops waiting.
                 withTimeoutOrNull(9_000) { EventDispatcher.runNow(app, automation, input, NotificationTimers.LABEL).join() }
             } finally {

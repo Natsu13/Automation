@@ -124,7 +124,7 @@ object ScheduledRuns {
         }
         val repository = (app as AutomationApplication).repository
         return repository.appScope.launch {
-            val automation = repository.get(run.automationId)?.takeIf { !it.needsReview } ?: return@launch
+            val automation = repository.get(run.automationId)?.takeIf { it.startsByItself } ?: return@launch
             cz.natsu.automation.trigger.EventDispatcher.runNow(app, automation, run.input, LABEL).join()
         }
     }

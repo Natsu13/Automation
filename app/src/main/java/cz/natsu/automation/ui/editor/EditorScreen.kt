@@ -42,6 +42,7 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.PauseCircle
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.CircularProgressIndicator
@@ -299,6 +300,21 @@ fun EditorScreen(viewModel: EditorViewModel, onBack: () -> Unit) {
                                 tr("Importovaná automatizace – zatím se nespouští. Projdi si kroky a klepnutím sem ji povol."),
                                 Modifier.weight(1f)
                             )
+                        }
+                    }
+                }
+            }
+            if (viewModel.paused) {
+                item(key = "paused") {
+                    Surface(color = MaterialTheme.colorScheme.tertiaryContainer, shape = MaterialTheme.shapes.large) {
+                        Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.PauseCircle, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                tr("Pozastaveno – události, dlaždice, widgety ani plány ji nespustí. Ručně spustit jde."),
+                                Modifier.weight(1f).padding(vertical = 8.dp),
+                            )
+                            androidx.compose.material3.TextButton(onClick = { viewModel.changePaused(false) }) { Text(tr("Znovu zapnout")) }
                         }
                     }
                 }

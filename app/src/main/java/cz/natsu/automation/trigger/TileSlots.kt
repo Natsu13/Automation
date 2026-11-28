@@ -36,7 +36,7 @@ object TileSlots {
 
     /** Switches every slot on or off to match [all] automations and refreshes the tiles. */
     fun sync(context: Context, all: List<AutomationEntity>) {
-        val used = all.filter { it.triggerTile && !it.needsReview }.map { it.tileSlot }.toSet()
+        val used = all.filter { it.triggerTile && it.startsByItself }.map { it.tileSlot }.toSet()
         for (slot in 1..count) {
             val component = component(context, slot)
             try {

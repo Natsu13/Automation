@@ -32,7 +32,7 @@ class AutomationRepository(
     suspend fun get(id: Long): AutomationEntity? = dao.getById(id)
 
     suspend fun withTrigger(type: TriggerType): List<AutomationEntity> = dao.getAll().filter {
-        !it.needsReview && when (type) {
+        it.startsByItself && when (type) {
             TriggerType.ProcessText -> it.triggerProcessText
             TriggerType.Share -> it.triggerShare
             // The general tile offers only those without a tile of their own.
@@ -43,7 +43,7 @@ class AutomationRepository(
 
     /** The automation that took the numbered tile [slot], if any. */
     suspend fun forTileSlot(slot: Int): AutomationEntity? =
-        dao.getAll().firstOrNull { it.triggerTile && it.tileSlot == slot && !it.needsReview }
+        dao.getAll().firstOrNull { it.triggerTile && it.tileSlot == slot && it.startsByItself }
 
     /** Automations that react to [type], each with its matching event settings. */
     suspend fun withEvent(type: EventType): List<Pair<AutomationEntity, List<EventTrigger>>> =
@@ -77,6 +77,13 @@ class AutomationRepository(
 
     suspend fun setPinned(id: Long, pinned: Boolean) {
         dao.setPinned(id, pinned)
+    }
+
+    /** Pauses or resumes; events, tiles, shortcuts and widgets follow right away. */
+    suspend fun setPaused(id: Long, paused: Boolean) {
+        dao.setPaused(id, paused)
+        onChanged()
+        cz.natsu.automation.trigger.HomeWidgets.refreshAutomation(context, id)
     }
 
     suspend fun delete(id: Long) {

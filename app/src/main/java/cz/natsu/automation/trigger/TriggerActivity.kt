@@ -432,7 +432,7 @@ private fun TriggerContent(
                         cz.natsu.automation.data.HomeCards.press(context, card, button) { id, label ->
                             val app = context.applicationContext as cz.natsu.automation.AutomationApplication
                             app.repository.appScope.launch {
-                                app.repository.get(id)?.takeIf { !it.needsReview }?.let {
+                                app.repository.get(id)?.takeIf { it.startsByItself }?.let {
                                     EventDispatcher.runNow(app, it, label, "Tlačítko karty")
                                 }
                             }

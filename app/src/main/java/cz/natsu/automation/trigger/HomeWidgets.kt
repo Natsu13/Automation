@@ -177,7 +177,7 @@ object HomeWidgets {
                 val app = context.applicationContext as AutomationApplication
                 app.repository.appScope.launch {
                     val automation = app.repository.get(id) ?: return@launch
-                    if (automation.needsReview) return@launch
+                    if (!automation.startsByItself) return@launch
                     EventDispatcher.runNow(app, automation, input, tr("Widget")).join()
                 }
             }
@@ -238,6 +238,7 @@ object HomeWidgets {
             automationId == null -> tr("Widget nemá automatizaci – odeber ho a přidej znovu")
             automation == null -> tr("Automatizace už neexistuje")
             automation.needsReview -> tr("\"%s\" čeká na kontrolu – otevři ji a povol", automation.name)
+            automation.paused -> tr("„%s“ je pozastavená", automation.name)
             !rendersWidget(automation) -> tr("\"%s\" nemá zapnutý spouštěč Widget na ploše", automation.name)
             else -> null
         }
@@ -269,7 +270,7 @@ object HomeWidgets {
         }
     }
 
-    fun rendersWidget(automation: AutomationEntity): Boolean = automation.triggerWidget && !automation.needsReview
+    fun rendersWidget(automation: AutomationEntity): Boolean = automation.triggerWidget && automation.startsByItself
 }
 
 /** The widget the user puts on the home screen; which automation it shows is chosen in [WidgetConfigActivity]. */

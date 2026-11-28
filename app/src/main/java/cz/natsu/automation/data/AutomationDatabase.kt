@@ -50,13 +50,21 @@ data class AutomationEntity(
     @ColumnInfo(name = "trigger_widget", defaultValue = "0") val triggerWidget: Boolean = false,
     /** Notifications about the size of the widget (for debugging a big widget). */
     @ColumnInfo(name = "widget_debug", defaultValue = "0") val widgetDebug: Boolean = false,
+    /**
+     * Paused by the user: kept, but nothing starts it by itself (events, triggers, tiles, widgets,
+     * plans). Running it by hand in the app, or from another automation, still works.
+     */
+    @ColumnInfo(name = "paused", defaultValue = "0") val paused: Boolean = false,
 ) {
     val blocks: List<Block> get() = BlockJson.decode(blocksJson)
     val conditions: List<Block> get() = BlockJson.decode(conditionsJson)
     val events: List<EventTrigger> get() = EventJson.decode(eventsJson)
 
-    /** Events that may start the automation right now (none while it waits for review). */
-    val activeEvents: List<EventTrigger> get() = if (needsReview) emptyList() else events
+    /** May start by itself: not waiting for review and not paused. */
+    val startsByItself: Boolean get() = !needsReview && !paused
+
+    /** Events that may start the automation right now (none while it waits for review or is paused). */
+    val activeEvents: List<EventTrigger> get() = if (startsByItself) events else emptyList()
 }
 
 @Dao
@@ -82,13 +90,24 @@ interface AutomationDao {
     /** Pinning does not count as a change (the order by last change stays). */
     @Query("UPDATE automations SET pinned = :pinned WHERE id = :id")
     suspend fun setPinned(id: Long, pinned: Boolean)
+
+    /** Pausing does not count as a change either. */
+    @Query("UPDATE automations SET paused = :paused WHERE id = :id")
+    suspend fun setPaused(id: Long, paused: Boolean)
 }
 
-@Database(entities = [AutomationEntity::class], version = 11, exportSchema = true)
+@Database(entities = [AutomationEntity::class], version = 12, exportSchema = true)
 abstract class AutomationDatabase : RoomDatabase() {
     abstract fun automationDao(): AutomationDao
 
     companion object {
+        /** 11 -> 12: paused automations. */
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE automations ADD COLUMN paused INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         /** 10 -> 11: widgets on the home screen. */
         private val MIGRATION_10_11 = object : Migration(10, 11) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -142,7 +161,7 @@ abstract class AutomationDatabase : RoomDatabase() {
 
         fun build(context: Context): AutomationDatabase =
             Room.databaseBuilder(context, AutomationDatabase::class.java, "database")
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
                 // Versions 1-3 only contained the old "demo" prototype project.
                 .fallbackToDestructiveMigrationFrom(1, 2, 3)
                 .build()

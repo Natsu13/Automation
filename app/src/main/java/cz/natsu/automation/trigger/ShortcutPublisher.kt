@@ -26,7 +26,7 @@ object ShortcutPublisher {
         try {
             val max = ShortcutManagerCompat.getMaxShortcutCountPerActivity(context).coerceAtLeast(1)
             val shortcuts = automations
-                .filter { it.triggerShare }
+                .filter { it.triggerShare && it.startsByItself }
                 .take(max)
                 .mapIndexed { rank, automation ->
                     ShortcutInfoCompat.Builder(context, PREFIX + automation.id)

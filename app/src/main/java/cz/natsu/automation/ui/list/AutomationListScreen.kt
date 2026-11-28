@@ -82,6 +82,9 @@ import cz.natsu.automation.data.CardButton
 import cz.natsu.automation.data.HomeCard
 import cz.natsu.automation.data.HomeCards
 import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material.icons.rounded.PauseCircle
+import androidx.compose.material.icons.rounded.PlayCircle
+import androidx.compose.ui.draw.alpha
 import cz.natsu.automation.trigger.TriggerActivity
 import cz.natsu.automation.ui.editor.AutomationBadge
 import kotlinx.coroutines.flow.SharingStarted
@@ -109,6 +112,10 @@ class AutomationListViewModel(application: Application) : AndroidViewModel(appli
 
     fun delete(id: Long) {
         viewModelScope.launch { repository.delete(id) }
+    }
+
+    fun setPaused(id: Long, paused: Boolean) {
+        viewModelScope.launch { repository.setPaused(id, paused) }
     }
 
     fun setPinned(id: Long, pinned: Boolean) {
@@ -365,6 +372,7 @@ fun AutomationListScreen(viewModel: AutomationListViewModel, onOpen: (Long) -> U
                             onShare = { viewModel.share(context, setOf(automation.id)) },
                             onDelete = { toDelete = automation },
                             onPin = { viewModel.setPinned(automation.id, !automation.pinned) },
+                            onPause = { viewModel.setPaused(automation.id, !automation.paused) },
                         )
                     }
                 }
@@ -396,6 +404,7 @@ private fun AutomationCard(
     onShare: () -> Unit,
     onDelete: () -> Unit,
     onPin: () -> Unit,
+    onPause: () -> Unit,
 ) {
     val stepCount = remember(automation.blocksJson) { automation.blocks.size }
     Card(
@@ -405,9 +414,12 @@ private fun AutomationCard(
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            AutomationBadge(automation.icon, size = 48.dp)
+            // A paused automation is shown faded, with a pause mark over its icon.
+            Box(Modifier.alpha(if (automation.paused) 0.45f else 1f)) {
+                AutomationBadge(automation.icon, size = 48.dp)
+            }
             Spacer(Modifier.width(16.dp))
-            Column(Modifier.weight(1f)) {
+            Column(Modifier.weight(1f).alpha(if (automation.paused) 0.6f else 1f)) {
                 Text(
                     automation.name,
                     style = MaterialTheme.typography.titleMedium,
@@ -416,11 +428,21 @@ private fun AutomationCard(
                 )
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (automation.paused) {
+                        Icon(Icons.Rounded.PauseCircle, null, Modifier.padding(end = 4.dp).size(16.dp), MaterialTheme.colorScheme.tertiary)
+                    }
                     Text(
-                        if (automation.needsReview) tr("čeká na kontrolu") else stepsLabel(stepCount),
+                        when {
+                            automation.needsReview -> tr("čeká na kontrolu")
+                            automation.paused -> tr("pozastaveno")
+                            else -> stepsLabel(stepCount)
+                        },
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (automation.needsReview) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.onSurfaceVariant
+                        color = when {
+                            automation.needsReview -> MaterialTheme.colorScheme.error
+                            automation.paused -> MaterialTheme.colorScheme.tertiary
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
                     )
                     val iconMod = Modifier.padding(start = 8.dp).size(16.dp)
                     val tint = MaterialTheme.colorScheme.primary
@@ -444,6 +466,11 @@ private fun AutomationCard(
                         text = { Text(if (automation.pinned) tr("Odepnout") else tr("Připnout nahoru")) },
                         leadingIcon = { Icon(Icons.Rounded.PushPin, null) },
                         onClick = { menu = false; onPin() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(if (automation.paused) tr("Znovu zapnout") else tr("Pozastavit")) },
+                        leadingIcon = { Icon(if (automation.paused) Icons.Rounded.PlayCircle else Icons.Rounded.PauseCircle, null) },
+                        onClick = { menu = false; onPause() }
                     )
                     DropdownMenuItem(
                         text = { Text(tr("Duplikovat")) },

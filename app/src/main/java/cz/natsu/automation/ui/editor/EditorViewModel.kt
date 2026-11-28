@@ -86,6 +86,10 @@ class EditorViewModel(application: Application, private val automationId: Long) 
     var widgetDebug by mutableStateOf(false)
         private set
 
+    /** Paused: nothing starts it by itself. Not an edit of the automation (no undo step). */
+    var paused by mutableStateOf(false)
+        private set
+
     val blocks = mutableStateListOf<Block>()
 
     /** System events that start the automation. */
@@ -154,6 +158,7 @@ class EditorViewModel(application: Application, private val automationId: Long) 
                 triggerClipboard = stored.triggerClipboard
                 triggerWidget = stored.triggerWidget
                 widgetDebug = stored.widgetDebug
+                paused = stored.paused
                 val storedBlocks = BlockJson.decodeChecked(stored.blocksJson)
                 val storedConditions = BlockJson.decodeChecked(stored.conditionsJson)
                 unreadable = storedBlocks.unreadable || storedConditions.unreadable
@@ -472,6 +477,13 @@ class EditorViewModel(application: Application, private val automationId: Long) 
         triggerClipboard = clipboard
         triggerWidget = widget
         changed()
+    }
+
+    fun changePaused(on: Boolean) {
+        paused = on
+        // Later saves of the automation keep it.
+        entity = entity?.copy(paused = on)
+        viewModelScope.launch { repository.setPaused(automationId, on) }
     }
 
     fun changeWidgetDebug(on: Boolean) {

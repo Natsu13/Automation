@@ -47,6 +47,7 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.PauseCircle
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -260,6 +261,14 @@ fun AutomationSettingsSheet(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+            )
+            TriggerRow(
+                icon = Icons.Rounded.PauseCircle,
+                title = tr("Pozastavit"),
+                description = tr("Automatizace zůstane, ale nic ji nespustí samo – ani spouštěče níže, události, " +
+                        "widget nebo plány. Ručně v aplikaci spustit jde."),
+                checked = viewModel.paused,
+                onChecked = { viewModel.changePaused(it) }
             )
             TriggerRow(
                 icon = Icons.Rounded.TextFields,
